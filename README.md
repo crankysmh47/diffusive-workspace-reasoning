@@ -71,7 +71,7 @@ Keep dataset splits and decoder access matched. Check exchangeable updates for p
 
 Every experiment must capture source/configuration/model/data identities, environment, RNG streams, per-example outcomes, parameter counts and full costs. Confirmatory effects require a preregistered comparison, at least three training seeds, suitable uncertainty analysis and a fixed test-access policy. Preserve failed and negative runs. See the protocol for exact requirements.
 
-**Next action:** design a versioned development-only resolution for the measured source-sensitivity and common-support blockers, while preserving final target definitions and all current outcomes. Do not retry the corpus under altered rules. Workspace/model work remains conditional on a passing G2 audit; training is not ready to launch.
+**Next action:** define a versioned development-only plan for the observed source-sensitivity result and prospective support feasibility, preserving final target definitions and current outcomes. The source-only prefix cannot establish target mismatch or yield. Do not retry the corpus under altered rules. Workspace/model work remains conditional on a passing G2 audit; training is not ready to launch.
 
 ## Licensing
 
