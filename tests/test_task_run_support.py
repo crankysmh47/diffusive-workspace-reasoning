@@ -148,21 +148,53 @@ class RunSupportTests(unittest.TestCase):
         gc.collect()
 
         def relevant_pointer_cache():
+            structure_names = {'PROCESS_MEMORY_COUNTERS', '_WINDOWS_PROCESS_MEMORY_COUNTERS'}
+
+            def is_structure_key(key):
+                if isinstance(key, type):
+                    return key.__name__ in structure_names
+                return (isinstance(key, tuple) and
+                        any(isinstance(part, type) and part.__name__ in structure_names
+                            for part in key))
+
             return {key: value for key, value in ctypes._pointer_type_cache.items()
-                    if isinstance(key, tuple) and key and
-                    getattr(key[0], '__name__', None) == 'PROCESS_MEMORY_COUNTERS'}
+                    if is_structure_key(key)}
+
+        def assert_stable(reader):
+            snapshot = relevant_pointer_cache()
+            for index in range(252):
+                reader()
+                if index == 125:
+                    gc.collect()
+            self.assertEqual(relevant_pointer_cache(), snapshot)
+            return snapshot
 
         before = relevant_pointer_cache()
         before_type = support._WINDOWS_PROCESS_MEMORY_COUNTERS
         before_pointer = support._WINDOWS_PROCESS_MEMORY_COUNTERS_POINTER
-        for index in range(252):
-            support.resident_bytes_windows()
-            if index == 125:
-                gc.collect()
+        self.assertTrue(any(
+            value is before_pointer and
+            (key is before_type or (isinstance(key, tuple) and before_type in key))
+            for key, value in before.items()),
+            'warmed ctypes pointer cache must contain the cached structure and pointer type')
+        before = assert_stable(support.resident_bytes_windows)
         after = relevant_pointer_cache()
         self.assertIs(support._WINDOWS_PROCESS_MEMORY_COUNTERS, before_type)
         self.assertIs(support._WINDOWS_PROCESS_MEMORY_COUNTERS_POINTER, before_pointer)
         self.assertEqual(after, before)
+
+        real_reader = support.resident_bytes_windows
+
+        def old_style_reader():
+            class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+                _fields_ = support._WINDOWS_PROCESS_MEMORY_COUNTERS._fields_
+
+            ctypes.POINTER(PROCESS_MEMORY_COUNTERS)
+            return real_reader()
+
+        with patch.object(support, 'resident_bytes_windows', old_style_reader):
+            with self.assertRaises(AssertionError):
+                assert_stable(support.resident_bytes_windows)
 
     def test_duplicate_and_unknown_config_keys_fail(self):
         with self.assertRaises(ConfigError):
