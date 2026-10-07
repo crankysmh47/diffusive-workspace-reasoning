@@ -52,7 +52,8 @@
       "min_validation_groups_per_profile": 20,
       "min_diagnostic_test_groups_per_profile": 5
     },
-    "development_target_use": ["development_validation", "development_diagnostic_test"],
+    "development_target_use": ["development_validation"],
+    "development_diagnostic_test_use": "report-only-no-choice-input",
     "final_target_use": ["structural-audit", "untouched-test"],
     "lineage_and_content_group_split_closure": true,
     "source_id_hash_domain": "dwr-id-split-v1",
@@ -83,6 +84,17 @@
     },
     "target_accepted_per_development_profile": 600,
     "target_accepted_per_final_profile": 600,
+    "development_profile_quota_behavior": {
+      "full_status": "profile_quota_full",
+      "check_order": "after-n-and-profile-sampling-before-constraint-witness-or-given-work",
+      "consume_candidate_index": true,
+      "additional_rng_calls_after_profile_sample": 0,
+      "increment_accepted_count": false,
+      "continue_at_next_candidate_index": true,
+      "maximum_development_accepted_total": 1800
+    },
+    "source_stop_accepted_total": 1000,
+    "final_stop_accepted_total": 600,
     "max_accepted_per_partition": {
       "source": 1000,
       "development": 1800,
@@ -96,6 +108,11 @@
     "first_solution_pass": "depth-first-stop-at-first-or-exhaustion",
     "uniqueness_pass": "restart-depth-first-stop-at-second-or-exhaustion",
     "uniqueness_solution_count_cap": 2,
+    "partial_consistency": "reject-only-if-all-operands-assigned-and-formula-false",
+    "domain_propagation_or_lookahead": false,
+    "check_fully_grounded_given_constraints_before_dfs": true,
+    "contradictory_given_constraints_node_counts": 0,
+    "root_counted_once_per_pass_if_consistent": true,
     "node_count": "consistent-partial-assignment-dfs-invocation-including-root-and-leaf"
   },
   "oracle": {
@@ -148,7 +165,11 @@
     "first_solution_node_bins": [[1, 1], [2, 3], [4, 7], [8, 15], [16, 31], [32, 63], [64, "infinity"]],
     "common_support": {
       "cell_dimensions": ["n", "given_count", "constraint_count", "prompt_byte_bin", "first_solution_node_bin"],
-      "cohorts": ["source_id_test", "development_validation_eq_neq", "development_validation_eq_add_mod", "development_validation_neq_add_mod", "final_test_eq_neq_add_mod"],
+      "cohorts": ["source_id_test_all_groups", "development_validation_eq_neq_primary_eligible", "development_validation_eq_add_mod_primary_eligible", "development_validation_neq_add_mod_primary_eligible", "final_test_eq_neq_add_mod_primary_eligible"],
+      "development_diagnostic_test_included": false,
+      "ineligible_mixed_target_groups_count_toward_support": false,
+      "target_denominator": "primary-eligible-unique-content-groups-only",
+      "source_id_test_denominator": "all-source-id-test-content-groups",
       "min_groups_per_cell_per_cohort": 10,
       "min_group_fraction_per_cohort_in_common_cells": 0.8,
       "failure_blocks_model_comparison": true
