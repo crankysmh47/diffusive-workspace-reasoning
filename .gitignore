@@ -1,0 +1,37 @@
+# Python and local environments
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Secrets and machine settings
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Generated research artifacts (small manifests belong in configs/)
+/data/
+/runs/
+/outputs/
+/checkpoints/
+/models/
+wandb/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.gguf
+*.onnx

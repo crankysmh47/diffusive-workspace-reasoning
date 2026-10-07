@@ -1,0 +1,52 @@
+{
+  "status": "draft_specification_not_yet_consumed_by_code",
+  "plan_revision": "2026-10-04-v2",
+  "backbone": {
+    "checkpoint": null,
+    "revision": null,
+    "target_parameters": "1.5B-2B",
+    "pretrained_weights_frozen": true,
+    "prompt_state_layer": null,
+    "dtype": null
+  },
+  "workspace": {
+    "num_slots": 64,
+    "latent_dim": 768,
+    "initialization": "iid_standard_gaussian",
+    "update": "Z_next = Z + F(LN(Z), X)",
+    "shared_update_parameters": true,
+    "slot_identity": "exchangeable"
+  },
+  "interface": {
+    "type": "trainable_set_cross_attention",
+    "adapter_layers": null,
+    "matched_across_core_methods": true
+  },
+  "task": {
+    "family": "mini_sudoku",
+    "size": 4,
+    "subgrid_shape": [2, 2],
+    "unique_solution": true,
+    "difficulty": "reference_solver_statistics",
+    "split_manifest": null
+  },
+  "training": {
+    "objective": "final_answer_cross_entropy",
+    "fixed_k_runs": [1, 2, 4, 8],
+    "variable_k_support": [1, 2, 4, 8],
+    "batch_size": null,
+    "optimizer": null,
+    "learning_rate": null,
+    "seeds": [0, 1, 2]
+  },
+  "evaluation": {
+    "seen_k": [1, 2, 4, 8],
+    "unseen_k": [12, 16],
+    "primary_metric": "valid_solution_rate",
+    "exact_solution_match_when_unique": true,
+    "report_difficulty_buckets": true,
+    "report_latency": true,
+    "report_flops": true,
+    "report_peak_memory": true
+  }
+}
