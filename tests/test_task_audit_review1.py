@@ -158,6 +158,46 @@ class AuditReviewRegressionTests(unittest.TestCase):
                     _verify_manifest(data, config, expected_limits(limits))
             atomic_json(data / "manifest.json", original)
 
+    def test_partial_manifest_profile_counts_must_match_accepted_records(self):
+        with tempfile.TemporaryDirectory() as directory:
+            data = Path(directory) / "data"
+            _, limits, _ = make_partial_dataset(data)
+            manifest_path = data / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["partitions"]["source"]["profile_accepted"] = {
+                "eq": 0, "neq": 1, "add_mod": 0}
+            atomic_json(manifest_path, manifest)
+            with patch("dwr.tasks.audit.generate_candidate",
+                       side_effect=lambda *args, **kwargs: triangle_outcome()):
+                status = run_audit(Path("configs/tasks/constraint_v1.json"), data,
+                    ["mutated partial profile counts"], expected_limits=expected_limits(limits))
+            self.assertEqual(status, 1)
+            report = json.loads((data / "audit_report.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["status"], "audit_error")
+            self.assertIn("profile counts disagree", report["error"]["message"])
+            self.assertEqual(report["progress"]["record_integrity_assessed"], 0)
+
+    def test_unavailable_terminal_cpu_sample_is_null_and_keeps_audit_outcome(self):
+        with tempfile.TemporaryDirectory() as directory:
+            data = Path(directory) / "data"
+            _, limits, _ = make_partial_dataset(data)
+            with patch("dwr.tasks.audit.time.process_time",
+                       side_effect=[0.0, RuntimeError("CPU clock unavailable"),
+                                    RuntimeError("CPU clock unavailable")]), \
+                 patch("dwr.tasks.audit.generate_candidate",
+                       side_effect=lambda *args, **kwargs: triangle_outcome()):
+                status = run_audit(Path("configs/tasks/constraint_v1.json"), data,
+                    ["CPU clock unavailable"], expected_limits=expected_limits(limits))
+            self.assertEqual(status, 1)
+            report = json.loads((data / "audit_report.json").read_text(encoding="utf-8"))
+            manifest = json.loads((data / "audit_manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["status"], "incomplete_generation")
+            self.assertIsNone(report["resources"]["audit_cpu_seconds"])
+            self.assertEqual(report["resources"]["audit_cpu_measurement_error"], "CPU clock unavailable")
+            self.assertIsNone(manifest["audit_cpu_seconds"])
+            self.assertEqual(manifest["audit_cpu_measurement_error"], "CPU clock unavailable")
+            self.assertEqual(manifest["status"], report["status"])
+
 
 if __name__ == "__main__":
     unittest.main()

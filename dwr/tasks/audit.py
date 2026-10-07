@@ -674,10 +674,25 @@ def validate_complete_generation(manifest: dict, outcomes: list[dict], records: 
     expected_profiles = {tuple(p): config["generation"]["target_accepted_per_development_profile"] for p in PROFILES["development"]}
     if dev_counts != expected_profiles:
         raise ValueError("development profile quotas disagree with accepted records")
+    validate_profile_count_closure(manifest, records)
+
+
+def validate_profile_count_closure(manifest: dict, records: list[dict]) -> None:
+    """Reconcile any persisted producer profile counts with accepted records."""
     for part in PARTITIONS:
-        expected_profile_counts = Counter(tuple(row["profile"]) for row in records if row["partition"] == part)
-        persisted = manifest["partitions"][part].get("profile_accepted")
-        normalized = {"/".join(profile): expected_profile_counts[profile] for profile in PROFILES[part]}
+        state = manifest["partitions"][part]
+        persisted = state.get("profile_accepted")
+        accepted_records = [row for row in records if row["partition"] == part]
+        if state["status"] == "not_attempted" and accepted_records:
+            raise ValueError(f"not-attempted partition {part} has accepted records")
+        if persisted is None:
+            # An attempted run may be stopped before the first candidate, before
+            # the producer has initialized its all-zero profile counter.
+            if accepted_records:
+                raise ValueError(f"partition {part} accepted records lack profile counts")
+            continue
+        actual = Counter(tuple(row["profile"]) for row in accepted_records)
+        normalized = {"/".join(profile): actual[profile] for profile in PROFILES[part]}
         if persisted != normalized:
             raise ValueError(f"partition {part} profile counts disagree with records")
 
@@ -802,6 +817,8 @@ def run_audit(config_path: Path, data_dir: Path, argv: list[str], *, guard: Reso
                     raise ValueError(f"partial outcomes disagree with {part} manifest attempts")
                 if record_counts_by_partition[part] != state["accepted"]:
                     raise ValueError(f"partial records disagree with {part} manifest accepted count")
+            if not generation_complete:
+                validate_profile_count_closure(manifest, records)
             record_by_key = {(row["partition"], row["candidate_index"]): row for row in records}
             if len(record_by_key) != len(records): raise ValueError("duplicate accepted record key")
             phase = "record_integrity_and_interactions"
@@ -892,20 +909,23 @@ def run_audit(config_path: Path, data_dir: Path, argv: list[str], *, guard: Reso
             report["g2"] = {"status": "not_assessed", "pass": False,
                             "floor_failures": ["audit_finalization_cap"], "claim": "not assessed"}
     report["finalization_errors"] = finalization_errors
+    cpu_measurement_error = None
     try:
         cpu_elapsed = None if cpu_started is None else max(0.0, time.process_time() - cpu_started)
     except Exception as exc:
         cpu_elapsed = None
-        audit_manifest["cpu_measurement_error"] = str(exc)
+        cpu_measurement_error = str(exc)
     audit_manifest.update({"status": report["status"], "audit_elapsed_seconds": round(guard.elapsed, 6),
         "combined_generation_and_audit_elapsed_seconds": round(float(generation_manifest.get("generation_elapsed_seconds", 0.0)) + guard.elapsed, 6),
-        "audit_cpu_seconds": cpu_elapsed, "peak_resident_bytes": guard.peak_bytes,
+        "audit_cpu_seconds": cpu_elapsed, "audit_cpu_measurement_error": cpu_measurement_error,
+        "peak_resident_bytes": guard.peak_bytes,
         "accounting_end_boundary": "post_first_terminal_report_resource_check",
         "accounting_note": "Final bounded report and manifest flush tails are excluded.",
         "progress": progress, "error": primary_error, "finalization_errors": finalization_errors})
     report["resources"] = {"audit_elapsed_seconds": round(guard.elapsed, 6),
         "combined_generation_and_audit_elapsed_seconds": round(float(generation_manifest.get("generation_elapsed_seconds", 0.0)) + guard.elapsed, 6),
-        "audit_cpu_seconds": cpu_elapsed, "peak_resident_bytes": guard.peak_bytes,
+        "audit_cpu_seconds": cpu_elapsed, "audit_cpu_measurement_error": cpu_measurement_error,
+        "peak_resident_bytes": guard.peak_bytes,
         "accounting_note": audit_manifest["accounting_note"]}
     atomic_json(report_path, report)
     try:
@@ -923,7 +943,7 @@ def run_audit(config_path: Path, data_dir: Path, argv: list[str], *, guard: Reso
     report["finalization_errors"] = finalization_errors
     audit_manifest.update({"status": report["status"], "audit_elapsed_seconds": round(guard.elapsed, 6),
         "combined_generation_and_audit_elapsed_seconds": round(float(generation_manifest.get("generation_elapsed_seconds", 0.0)) + guard.elapsed, 6),
-        "audit_cpu_seconds": None if cpu_started is None else max(0.0, time.process_time() - cpu_started),
+        "audit_cpu_seconds": cpu_elapsed, "audit_cpu_measurement_error": cpu_measurement_error,
         "peak_resident_bytes": guard.peak_bytes, "progress": progress,
         "error": primary_error, "finalization_errors": finalization_errors,
         "exit_code": 0 if report["status"] == "complete" else 1})
