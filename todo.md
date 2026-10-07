@@ -7,7 +7,7 @@ Source: [research plan v2](docs/diffusive_workspace_reasoning_project_plan_v2.md
 - [x] Preserve the complete v2 plan in `docs/`.
 - [x] Add README, checklist, contribution instructions, and draft prototype specification.
 - [x] Add a minimal installable Python package and ignore generated artifacts/secrets.
-- [ ] Create the private GitHub repository and push the initial commit.
+- [x] Create the private GitHub repository and push the initial commit.
 
 ## 1. Verified task and immutable splits — next milestone
 
