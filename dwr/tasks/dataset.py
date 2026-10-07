@@ -170,7 +170,7 @@ def run_dataset(config: LoadedConfig, outdir: Path, argv: list[str], *,
         manifest["exit_code"] = 0
     manifest["generation_work_elapsed_seconds"] = round(max(0.0, guard.clock() - start), 6)
     manifest["generation_cpu_seconds"] = round(time.process_time() - cpu_start, 6)
-    finalization_start = time.monotonic()
+    finalization_start = guard.clock()
     manifest["finalization_started_utc"] = datetime.now(timezone.utc).isoformat()
     manifest["finished_utc"] = datetime.now(timezone.utc).isoformat()
     manifest["terminal_status_utc"] = manifest["finished_utc"]
@@ -191,11 +191,6 @@ def run_dataset(config: LoadedConfig, outdir: Path, argv: list[str], *,
             raise TimeoutError("active command wall-time cap reached during finalization")
     except (MemoryError, RuntimeError, TimeoutError) as exc:
         record_finalization_error(exc)
-    manifest["generation_elapsed_seconds"] = round(guard.elapsed, 6)
-    manifest["finalization_elapsed_seconds"] = round(max(0.0, guard.clock() - finalization_start), 6)
-    manifest["peak_resident_bytes"] = guard.peak_bytes
-    manifest["finished_utc"] = datetime.now(timezone.utc).isoformat()
-    manifest["terminal_status_utc"] = manifest["finished_utc"]
     atomic_json(manifest_path, manifest)
     try:
         guard.check()
@@ -203,10 +198,18 @@ def run_dataset(config: LoadedConfig, outdir: Path, argv: list[str], *,
             raise TimeoutError("active command wall-time cap reached while writing terminal manifest")
     except (MemoryError, RuntimeError, TimeoutError) as exc:
         record_finalization_error(exc)
-        manifest["generation_elapsed_seconds"] = round(guard.elapsed, 6)
-        manifest["finalization_elapsed_seconds"] = round(max(0.0, guard.clock() - finalization_start), 6)
-        manifest["peak_resident_bytes"] = guard.peak_bytes
-        manifest["finished_utc"] = datetime.now(timezone.utc).isoformat()
-        manifest["terminal_status_utc"] = manifest["finished_utc"]
-        atomic_json(manifest_path, manifest)
+    # The accounting boundary follows the first terminal write and its resource check.
+    # One bounded metadata flush persists these measured values; its own tail is excluded.
+    accounting_end = guard.clock()
+    manifest["generation_elapsed_seconds"] = round(max(0.0, accounting_end - guard.started), 6)
+    manifest["finalization_elapsed_seconds"] = round(max(0.0, accounting_end - finalization_start), 6)
+    manifest["peak_resident_bytes"] = guard.peak_bytes
+    manifest["accounting_end_boundary"] = "post_first_terminal_manifest_write_resource_check"
+    manifest["accounting_note"] = (
+        "Elapsed time includes the first terminal manifest write and its resource check. "
+        "The ultimate metadata flush tail (one bounded flush and the return tail) is not included."
+    )
+    manifest["finished_utc"] = datetime.now(timezone.utc).isoformat()
+    manifest["terminal_status_utc"] = manifest["finished_utc"]
+    atomic_json(manifest_path, manifest)
     return manifest["exit_code"]

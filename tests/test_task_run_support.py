@@ -218,6 +218,33 @@ class RunSupportTests(unittest.TestCase):
             self.assertTrue(all(manifest['partitions'][part]['status'] == 'not_attempted'
                                 for part in ('development', 'final')))
 
+    def test_successful_terminal_write_refreshes_budget_and_finalization_elapsed(self):
+        import dwr.tasks.dataset as dataset
+        config = load_config('configs/tasks/constraint_v1.json')
+        limits = GenerationLimits({'source': 0, 'development': 0, 'final': 0}, 1, 1, 1, 8)
+        elapsed = {'value': 0.0, 'delayed': False}
+        guard = ResourceGuard(1, 8, clock=lambda: elapsed['value'], memory_reader=lambda: 1)
+        real_write = dataset.atomic_json
+
+        def injected_write(path, value):
+            real_write(path, value)
+            if 'artifacts' in value and not elapsed['delayed']:
+                elapsed['value'] += 0.05
+                elapsed['delayed'] = True
+
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / 'run'
+            with patch('dwr.tasks.dataset.atomic_json', injected_write):
+                status = dataset.run_dataset(config, out, ['fixture'], limits=limits,
+                                             guard=guard, source={'commit': 'fixture'})
+            manifest = json.loads((out / 'manifest.json').read_text(encoding='utf-8'))
+            self.assertEqual(status, 0)
+            self.assertAlmostEqual(manifest['generation_elapsed_seconds'], guard.elapsed)
+            self.assertAlmostEqual(manifest['finalization_elapsed_seconds'], 0.05)
+            self.assertAlmostEqual(remaining_global_seconds(manifest, 1), 0.95)
+            self.assertEqual(manifest['accounting_end_boundary'], 'post_first_terminal_manifest_write_resource_check')
+            self.assertIn('ultimate metadata flush tail', manifest['accounting_note'])
+
     def test_real_nonunique_rejection_serializes_through_orchestrator(self):
         config = load_config('configs/tasks/constraint_v1.json')
         rejection = replace(generate_candidate(config.resolved['seed'], 'source', 7), candidate_index=0)
