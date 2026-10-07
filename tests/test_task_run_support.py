@@ -9,12 +9,161 @@ from unittest.mock import patch
 
 from dwr.tasks.dataset import GenerationLimits, run_dataset, source_identity
 from dwr.tasks.generator import CandidateOutcome, generate_candidate
-from dwr.tasks.run_support import ConfigError, ResourceGuard, load_config, remaining_global_seconds, strict_json_loads
+from dwr.tasks.run_support import ConfigError, ResourceGuard, atomic_json, load_config, remaining_global_seconds, strict_json_loads
 from dwr.tasks.schema import Constraint, ConstraintTask, GivenAssignment, RelationKind, serialize_model_input
 from dwr.tasks.solver import solve
 
 
 class RunSupportTests(unittest.TestCase):
+    def test_atomic_json_retries_three_windows_replace_conflicts(self):
+        import dwr.tasks.run_support as support
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'manifest.json'
+            real_replace = Path.replace
+            attempts = []
+            retryable_codes = iter((5, 32, 33))
+
+            def replace_with_conflicts(source, destination):
+                attempts.append((source, destination))
+                if len(attempts) < 4:
+                    error = PermissionError('replacement conflict')
+                    error.winerror = next(retryable_codes)
+                    raise error
+                return real_replace(source, destination)
+
+            with patch.object(support.os, 'name', 'nt'), \
+                 patch.object(Path, 'replace', replace_with_conflicts), \
+                 patch.object(support.time, 'sleep') as sleep:
+                atomic_json(target, {'b': 2, 'a': '✓'})
+
+            self.assertEqual(len(attempts), 4)
+            self.assertEqual([call.args[0] for call in sleep.call_args_list], [0.01, 0.02, 0.04])
+            self.assertEqual(target.read_bytes(), '{"a":"✓","b":2}\n'.encode('utf-8'))
+            self.assertFalse(target.with_name(target.name + '.tmp').exists())
+
+    def test_atomic_json_stops_after_four_windows_conflicts_and_preserves_error(self):
+        import dwr.tasks.run_support as support
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'manifest.json'
+            attempts = []
+            errors = []
+
+            def always_conflict(source, destination):
+                error = PermissionError('permanent denial or sharing conflict')
+                error.winerror = 5
+                attempts.append((source, destination))
+                errors.append(error)
+                raise error
+
+            with patch.object(support.os, 'name', 'nt'), \
+                 patch.object(Path, 'replace', always_conflict), \
+                 patch.object(support.time, 'sleep') as sleep:
+                with self.assertRaises(PermissionError) as caught:
+                    atomic_json(target, {'status': 'incomplete'})
+
+            self.assertIs(caught.exception, errors[-1])
+            self.assertEqual(len(attempts), 4)
+            self.assertEqual([call.args[0] for call in sleep.call_args_list], [0.01, 0.02, 0.04])
+            self.assertTrue(target.with_name(target.name + '.tmp').exists())
+            self.assertFalse(target.exists())
+
+    def test_atomic_json_does_not_retry_non_windows_or_unrelated_errors(self):
+        import dwr.tasks.run_support as support
+        cases = (('posix', 32), ('nt', 13), ('nt', None))
+        for os_name, winerror in cases:
+            with self.subTest(os_name=os_name, winerror=winerror), tempfile.TemporaryDirectory() as directory:
+                target = Path(directory) / 'manifest.json'
+                attempts = []
+                error = PermissionError(f'winerror={winerror}')
+                if winerror is not None:
+                    error.winerror = winerror
+
+                def fail_replace(source, destination):
+                    attempts.append((source, destination))
+                    raise error
+
+                with patch.object(support.os, 'name', os_name), \
+                     patch.object(Path, 'replace', fail_replace), \
+                     patch.object(support.time, 'sleep') as sleep:
+                    with self.assertRaises(PermissionError) as caught:
+                        atomic_json(target, {'status': 'incomplete'})
+
+                self.assertIs(caught.exception, error)
+                self.assertEqual(len(attempts), 1)
+                sleep.assert_not_called()
+
+    def test_atomic_json_does_not_retry_temporary_write_failure(self):
+        import dwr.tasks.run_support as support
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'manifest.json'
+            with patch.object(support.os, 'name', 'nt'), \
+                 patch.object(Path, 'write_text', side_effect=OSError('disk write failed')) as write_text, \
+                 patch.object(Path, 'replace') as replace_path, \
+                 patch.object(support.time, 'sleep') as sleep:
+                with self.assertRaisesRegex(OSError, 'disk write failed'):
+                    atomic_json(target, {'status': 'incomplete'})
+            write_text.assert_called_once()
+            replace_path.assert_not_called()
+            sleep.assert_not_called()
+
+    def test_atomic_json_retry_time_remains_inside_generation_guard_accounting(self):
+        import dwr.tasks.dataset as dataset
+        import dwr.tasks.run_support as support
+        config = load_config('configs/tasks/constraint_v1.json')
+        limits = GenerationLimits({'source': 0, 'development': 0, 'final': 0}, 1, 1, 1, 8)
+        elapsed = {'value': 0.0}
+        guard = ResourceGuard(1, 8, clock=lambda: elapsed['value'], memory_reader=lambda: 1)
+        original_replace = Path.replace
+        replace_attempts = {'value': 0}
+
+        def one_terminal_conflict(source, destination):
+            replace_attempts['value'] += 1
+            if replace_attempts['value'] == 2:
+                error = PermissionError('replacement conflict')
+                error.winerror = 32
+                raise error
+            return original_replace(source, destination)
+
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / 'run'
+            with patch.object(support.os, 'name', 'nt'), \
+                 patch.object(Path, 'replace', one_terminal_conflict), \
+                 patch.object(support.time, 'sleep', side_effect=lambda delay: elapsed.__setitem__('value', elapsed['value'] + delay)):
+                status = dataset.run_dataset(config, out, ['fixture'], limits=limits, guard=guard,
+                                             source={'commit': 'fixture'})
+            manifest = json.loads((out / 'manifest.json').read_text(encoding='utf-8'))
+            self.assertEqual(status, 0)
+            self.assertAlmostEqual(manifest['generation_elapsed_seconds'], guard.elapsed)
+            self.assertAlmostEqual(manifest['generation_elapsed_seconds'], 0.01)
+            self.assertEqual(manifest['accounting_end_boundary'],
+                             'post_first_terminal_manifest_write_resource_check')
+
+    @unittest.skipUnless(__import__('os').name == 'nt', 'Windows ctypes cache regression')
+    def test_windows_memory_monitor_types_and_pointer_cache_stabilize_after_warmup(self):
+        import ctypes
+        import gc
+        import dwr.tasks.run_support as support
+
+        support.resident_bytes_windows()
+        gc.collect()
+
+        def relevant_pointer_cache():
+            return {key: value for key, value in ctypes._pointer_type_cache.items()
+                    if isinstance(key, tuple) and key and
+                    getattr(key[0], '__name__', None) == 'PROCESS_MEMORY_COUNTERS'}
+
+        before = relevant_pointer_cache()
+        before_type = support._WINDOWS_PROCESS_MEMORY_COUNTERS
+        before_pointer = support._WINDOWS_PROCESS_MEMORY_COUNTERS_POINTER
+        for index in range(252):
+            support.resident_bytes_windows()
+            if index == 125:
+                gc.collect()
+        after = relevant_pointer_cache()
+        self.assertIs(support._WINDOWS_PROCESS_MEMORY_COUNTERS, before_type)
+        self.assertIs(support._WINDOWS_PROCESS_MEMORY_COUNTERS_POINTER, before_pointer)
+        self.assertEqual(after, before)
+
     def test_duplicate_and_unknown_config_keys_fail(self):
         with self.assertRaises(ConfigError):
             strict_json_loads('{"x":1,"x":2}')

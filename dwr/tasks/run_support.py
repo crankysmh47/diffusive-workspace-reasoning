@@ -14,6 +14,29 @@ from pathlib import Path
 from typing import Callable, Any
 
 
+if os.name == "nt":
+    import ctypes
+    from ctypes import wintypes
+
+    class _WINDOWS_PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+        _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
+                    ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
+                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t), ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                    ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t)]
+
+    _WINDOWS_PROCESS_MEMORY_COUNTERS_POINTER = ctypes.POINTER(_WINDOWS_PROCESS_MEMORY_COUNTERS)
+    _WINDOWS_PSAPI = ctypes.WinDLL("Psapi.dll", use_last_error=True)
+    _WINDOWS_KERNEL32 = ctypes.WinDLL("Kernel32.dll", use_last_error=True)
+    _WINDOWS_GET_PROCESS_MEMORY_INFO = _WINDOWS_PSAPI.GetProcessMemoryInfo
+    _WINDOWS_GET_PROCESS_MEMORY_INFO.argtypes = [
+        wintypes.HANDLE, _WINDOWS_PROCESS_MEMORY_COUNTERS_POINTER, wintypes.DWORD]
+    _WINDOWS_GET_PROCESS_MEMORY_INFO.restype = wintypes.BOOL
+    _WINDOWS_GET_CURRENT_PROCESS = _WINDOWS_KERNEL32.GetCurrentProcess
+    _WINDOWS_GET_CURRENT_PROCESS.argtypes = []
+    _WINDOWS_GET_CURRENT_PROCESS.restype = wintypes.HANDLE
+
+
 class ConfigError(ValueError):
     pass
 
@@ -94,28 +117,11 @@ def resident_bytes_windows() -> int:
             return resident_pages * os.sysconf("SC_PAGE_SIZE")
         except (OSError, ValueError, IndexError, AttributeError) as exc:
             raise RuntimeError("cannot measure resident memory") from exc
-    import ctypes
-    from ctypes import wintypes
-
-    class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
-        _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
-                    ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
-                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t),
-                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t), ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
-                    ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t)]
-
-    counters = PROCESS_MEMORY_COUNTERS()
+    counters = _WINDOWS_PROCESS_MEMORY_COUNTERS()
     counters.cb = ctypes.sizeof(counters)
-    psapi = ctypes.WinDLL("Psapi.dll", use_last_error=True)
-    kernel32 = ctypes.WinDLL("Kernel32.dll", use_last_error=True)
-    fn = psapi.GetProcessMemoryInfo
-    fn.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESS_MEMORY_COUNTERS), wintypes.DWORD]
-    fn.restype = wintypes.BOOL
-    current_process = kernel32.GetCurrentProcess
-    current_process.argtypes = []
-    current_process.restype = wintypes.HANDLE
-    process = current_process()
-    if not fn(process, ctypes.byref(counters), counters.cb):
+    process = _WINDOWS_GET_CURRENT_PROCESS()
+    if not _WINDOWS_GET_PROCESS_MEMORY_INFO(
+            process, ctypes.byref(counters), counters.cb):
         raise RuntimeError("GetProcessMemoryInfo failed")
     return int(counters.WorkingSetSize)
 
@@ -181,4 +187,13 @@ def new_manifest(config: LoadedConfig, argv: list[str], outdir: Path, source: di
 def atomic_json(path: Path, value: Any) -> None:
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(stable_json(value) + "\n", encoding="utf-8", newline="\n")
-    tmp.replace(path)
+    delays = (0.01, 0.02, 0.04)
+    for attempt in range(4):
+        try:
+            tmp.replace(path)
+            return
+        except OSError as exc:
+            if (os.name != "nt" or getattr(exc, "winerror", None) not in (5, 32, 33)
+                    or attempt == 3):
+                raise
+            time.sleep(delays[attempt])
