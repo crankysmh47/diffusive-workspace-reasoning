@@ -1,5 +1,7 @@
 # Bootstrap review
 
+Historical bootstrap check. The later [research-readiness review](research_review.md) identified scientific design gaps and introduced the binding [v2.1 protocol](research_protocol.md). “No blocking inconsistencies” below describes the earlier bootstrap comparison, not current research readiness.
+
 Date: 2026-10-07. Scope: all bootstrap source and configuration files, README,
 implementation checklist, contribution instructions, and the complete v2 plan.
 
