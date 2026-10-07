@@ -5,7 +5,9 @@
   "seed_derivation": "sha256-prefix64-v1",
   "rng": {
     "implementation": "random.Random",
+    "initialization": "rng=random.Random(); rng.seed(stream_seed, version=2)",
     "version": 2,
+    "seed_material": "ascii-domain+0x00+root-seed-u64be+0x00+partition-ascii+0x00+candidate-index-u64be",
     "runtime": ["3.11", "3.12"],
     "module_global_allowed": false
   },
@@ -26,36 +28,87 @@
     "source": [["eq"], ["neq"], ["add_mod"]],
     "development_targets": [["eq", "neq"], ["eq", "add_mod"], ["neq", "add_mod"]],
     "final_targets": [["eq", "neq", "add_mod"]],
+    "candidate_partition_tokens": {
+      "source": "source",
+      "development_targets": "development",
+      "final_targets": "final"
+    },
     "source_id_buckets": {
       "algorithm": "sha256-canonical-content-bucket-v1",
       "train": 80,
       "validation": 10,
       "test": 10
     },
-    "development_target_use": ["validation", "diagnostic-test"],
+    "source_primitive_coverage": "each-kind-at-least-one-source-train-group",
+    "record_split_names": ["source_train", "source_validation", "source_test", "development_validation", "development_diagnostic_test", "final_test"],
+    "development_target_split": {
+      "algorithm": "sha256-structure-signature-bucket-v1",
+      "validation": 80,
+      "diagnostic_test": 20,
+      "validation_split_name": "development_validation",
+      "diagnostic_split_name": "development_diagnostic_test",
+      "min_validation_groups": 80,
+      "min_diagnostic_test_groups": 20,
+      "min_validation_groups_per_profile": 20,
+      "min_diagnostic_test_groups_per_profile": 5
+    },
+    "development_target_use": ["development_validation", "development_diagnostic_test"],
     "final_target_use": ["structural-audit", "untouched-test"],
-    "lineage_and_content_group_split_closure": true
+    "lineage_and_content_group_split_closure": true,
+    "source_id_hash_domain": "dwr-id-split-v1",
+    "development_hash_domain": "dwr-dev-split-v1",
+    "hash_domain_separator_hex": "00"
   },
   "generation": {
     "candidate_index_start": 0,
+    "partition_tokens_order": ["source", "development", "final"],
     "candidate_order": "accepted-candidate-index-ascending",
     "candidate_rng_domain": "dwr-generator-v1",
     "n_sampling": "uniform-inclusive",
     "composition_sampling": "uniform-registered-profile-within-partition",
     "constraint_count_sampling": "uniform-inclusive",
     "constraint_sampling": "uniform-distinct-normalized-eligible-tuples",
+    "kind_order": ["eq", "neq", "add_mod"],
+    "feasible_total_and_count_vector_order": "ascending-lexicographic",
+    "count_vector_sampling": "uniform-among-feasible-vectors",
     "witness_sampling": "independent-uniform-domain-values",
     "given_count_sampling": "uniform-inclusive",
     "given_variable_sampling": "uniform-distinct",
     "acceptance": "independent-oracle-solution-count-equals-one",
-    "target_accepted_per_partition": 300,
     "max_attempts_per_partition": 30000,
-    "max_accepted_per_partition": 300
+    "target_accepted_groups_by_partition": {
+      "source": 1000,
+      "development": 1800,
+      "final": 600
+    },
+    "target_accepted_per_development_profile": 600,
+    "target_accepted_per_final_profile": 600,
+    "max_accepted_per_partition": {
+      "source": 1000,
+      "development": 1800,
+      "final": 600
+    }
+  },
+  "solver": {
+    "variable_order": "v0-through-v(n-1)",
+    "value_order": [0, 1, 2],
+    "constraint_order": "canonical-serialized-order",
+    "first_solution_pass": "depth-first-stop-at-first-or-exhaustion",
+    "uniqueness_pass": "restart-depth-first-stop-at-second-or-exhaustion",
+    "uniqueness_solution_count_cap": 2,
+    "node_count": "consistent-partial-assignment-dfs-invocation-including-root-and-leaf"
+  },
+  "oracle": {
+    "assignment_order": "lexicographic-cartesian-product-v0-through-v(n-1)-values-0-1-2",
+    "enumerate_all": true,
+    "max_assignments": 729,
+    "primitive_evaluation": "inline-mathematical-formulas-independent-of-solver-verifier-generator"
   },
   "canonicalization": {
     "algorithm": "exhaustive-variable-permutations-v1",
     "content_domain": "dwr-content-v1",
     "structure_domain": "dwr-structure-v1",
+    "domain_separator_hex": "00",
     "constraint_order_invariant": true,
     "variable_renaming_invariant": true,
     "given_values_in_content_id": true,
@@ -72,10 +125,35 @@
       "test": 20
     },
     "source_train_min_structure_signatures": 12,
+    "source_train_min_groups_per_primitive": 1,
     "min_solution_value_fraction_each_partition": 0.1,
     "min_distinct_given_counts_per_partition": 2,
-    "min_interaction_sensitive_fraction_each_partition": 0.25,
-    "min_sensitive_examples_per_heldout_signature": 1,
+    "min_source_constraint_sensitive_fraction": 0.25,
+    "min_source_sensitive_examples_per_signature": 1,
+    "min_primary_eligible_groups_per_mixed_profile": 100,
+    "min_primary_eligible_structure_signatures_per_mixed_profile": 12,
+    "min_primary_eligible_fraction_per_mixed_partition": 0.25,
+    "min_primary_eligible_examples_per_heldout_signature": 1,
+    "mixed_primary_eligibility": {
+      "remove_all_constraints_of_each_present_kind": true,
+      "solution_count_must_increase_from_one_to_at_least_two": true,
+      "require_connected_unassigned_variable_constraint_factor_graph": true,
+      "every_present_kind_must_appear_in_connected_graph": true
+    },
+    "development_target_min_groups": {
+      "development_validation": 80,
+      "development_diagnostic_test": 20
+    },
+    "prompt_byte_bins": [0, 511, 639, 767, 1023, "infinity"],
+    "first_solution_node_bins": [[1, 1], [2, 3], [4, 7], [8, 15], [16, 31], [32, 63], [64, "infinity"]],
+    "common_support": {
+      "cell_dimensions": ["n", "given_count", "constraint_count", "prompt_byte_bin", "first_solution_node_bin"],
+      "cohorts": ["source_id_test", "development_validation_eq_neq", "development_validation_eq_add_mod", "development_validation_neq_add_mod", "final_test_eq_neq_add_mod"],
+      "min_groups_per_cell_per_cohort": 10,
+      "min_group_fraction_per_cohort_in_common_cells": 0.8,
+      "failure_blocks_model_comparison": true
+    },
+    "report_strata": ["n", "given_count", "constraint_count", "model_input_utf8_bytes", "first_solution_nodes"],
     "require_unique_solution": true,
     "require_two_or_more_unassigned": true,
     "require_deterministic_replay": true,
