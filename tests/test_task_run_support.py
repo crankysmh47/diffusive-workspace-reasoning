@@ -1,9 +1,11 @@
 import json
 import hashlib
 import tempfile
+import time
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 from dwr.tasks.dataset import GenerationLimits, run_dataset, source_identity
 from dwr.tasks.generator import CandidateOutcome, generate_candidate
@@ -18,6 +20,9 @@ class RunSupportTests(unittest.TestCase):
             strict_json_loads('{"x":1,"x":2}')
         with self.assertRaises(ConfigError):
             strict_json_loads('{"x":NaN}')
+        for text in ('{"outer":{"elapsed":1e999}}', '{"values":[-1e999]}'):
+            with self.assertRaises(ConfigError):
+                strict_json_loads(text)
         config = json.loads(Path('configs/tasks/constraint_v1.json').read_text(encoding='utf-8'))
         config['extra'] = 1
         with tempfile.TemporaryDirectory() as directory:
@@ -128,7 +133,7 @@ class RunSupportTests(unittest.TestCase):
         sol = solve(task).solution
         accepted = CandidateOutcome('source', 0, 3, ('eq',), task, sol, sol, solve(task), None)
         seen = []
-        readings = iter((0, 9 * 1024 * 1024))
+        readings = iter((0, 0, 9 * 1024 * 1024))
         guard = ResourceGuard(10, 8, clock=lambda: 0, memory_reader=lambda: next(readings))
         limits = GenerationLimits({'source': 1, 'development': 0, 'final': 0}, 1, 1, 10, 8)
         with tempfile.TemporaryDirectory() as directory:
@@ -166,6 +171,52 @@ class RunSupportTests(unittest.TestCase):
             manifest = json.loads((out / 'manifest.json').read_text(encoding='utf-8'))
             self.assertEqual(status, 1)
             self.assertIsNone(manifest['peak_resident_bytes'])
+
+    def test_setup_consuming_global_cap_blocks_candidates_and_completion(self):
+        config = load_config('configs/tasks/constraint_v1.json')
+        limits = GenerationLimits({'source': 0, 'development': 0, 'final': 0}, 1, 1, 0.01, 1024)
+        calls = []
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / 'run'
+            def delayed_source():
+                time.sleep(0.03)
+                return {'commit': 'fixture'}
+            with patch('dwr.tasks.dataset.source_identity', delayed_source):
+                status = run_dataset(config, out, ['fixture'], limits=limits,
+                                     candidate_fn=lambda *a, **k: calls.append(a))
+            manifest = json.loads((out / 'manifest.json').read_text(encoding='utf-8'))
+            self.assertEqual(calls, [])
+            self.assertEqual(status, 1)
+            self.assertEqual(manifest['status'], 'incomplete')
+            self.assertGreaterEqual(manifest['generation_elapsed_seconds'], 0.01)
+            self.assertTrue(all(manifest['partitions'][part]['status'] == 'not_attempted'
+                                and manifest['partitions'][part]['attempts'] == 0
+                                for part in ('source', 'development', 'final')))
+            self.assertEqual(set(manifest['artifacts']), {'outcomes.jsonl', 'records.jsonl'})
+
+    def test_finalization_failure_preserves_primary_resource_cap(self):
+        config = load_config('configs/tasks/constraint_v1.json')
+        limits = GenerationLimits({'source': 1, 'development': 0, 'final': 0}, 1, 1, 10, 8)
+        readings = iter((9 * 1024 * 1024, None))
+        def reader():
+            value = next(readings)
+            if value is None:
+                raise OSError('final measurement unavailable')
+            return value
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / 'run'
+            status = run_dataset(config, out, ['fixture'], limits=limits,
+                                 candidate_fn=lambda *a, **k: self.fail('cap must block candidate work'),
+                                 guard=ResourceGuard(10, 8, clock=lambda: 0, memory_reader=reader),
+                                 source={'commit': 'fixture'})
+            manifest = json.loads((out / 'manifest.json').read_text(encoding='utf-8'))
+            self.assertEqual(status, 1)
+            self.assertEqual(manifest['error']['message'], 'resident memory cap exceeded')
+            self.assertEqual(manifest['error']['phase'], 'generation')
+            self.assertEqual(manifest['finalization_errors'][0]['message'], 'resource measurement failed closed')
+            self.assertEqual(manifest['finalization_errors'][0]['phase'], 'finalization')
+            self.assertTrue(all(manifest['partitions'][part]['status'] == 'not_attempted'
+                                for part in ('development', 'final')))
 
     def test_real_nonunique_rejection_serializes_through_orchestrator(self):
         config = load_config('configs/tasks/constraint_v1.json')

@@ -32,8 +32,14 @@ def _constant(value):
 
 
 def strict_json_loads(text: str) -> Any:
+    def _finite_float(token: str) -> float:
+        value = float(token)
+        if not math.isfinite(value):
+            raise ConfigError(f"non-finite JSON number: {token}")
+        return value
+
     try:
-        return json.loads(text, object_pairs_hook=_pairs, parse_constant=_constant)
+        return json.loads(text, object_pairs_hook=_pairs, parse_constant=_constant, parse_float=_finite_float)
     except ConfigError:
         raise
     except (ValueError, TypeError) as exc:
@@ -123,6 +129,11 @@ class ResourceGuard:
         self.memory_reader = memory_reader
         self.started = clock()
         self.peak_bytes: int | None = None
+
+    def reset_origin(self) -> None:
+        """Anchor this guard at the start of a controller command."""
+        self.started = self.clock()
+        self.peak_bytes = None
 
     @property
     def elapsed(self) -> float:

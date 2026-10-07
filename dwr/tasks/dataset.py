@@ -95,7 +95,9 @@ def run_dataset(config: LoadedConfig, outdir: Path, argv: list[str], *,
                 candidate_fn: Callable = generate_candidate,
                 guard: ResourceGuard | None = None,
                 source: dict | None = None) -> int:
-    command_started = time.monotonic()
+    limits = limits or registered_limits(config.resolved)
+    guard = guard or ResourceGuard(limits.wall_seconds, limits.memory_mib)
+    guard.reset_origin()
     command_started_utc = datetime.now(timezone.utc).isoformat()
     outdir = Path(outdir).resolve()
     if outdir.exists():
@@ -103,11 +105,9 @@ def run_dataset(config: LoadedConfig, outdir: Path, argv: list[str], *,
     source = source or source_identity()
     outdir.parent.mkdir(parents=True, exist_ok=True)
     outdir.mkdir(parents=True)
-    limits = limits or registered_limits(config.resolved)
-    guard = guard or ResourceGuard(limits.wall_seconds, limits.memory_mib)
     manifest = new_manifest(config, argv, outdir, source, wall_cap_seconds=limits.wall_seconds)
     manifest["controller_started_utc"] = command_started_utc
-    manifest["setup_elapsed_seconds"] = round(time.monotonic() - command_started, 6)
+    manifest["setup_elapsed_seconds"] = round(guard.elapsed, 6)
     manifest["limits"].update({"max_attempts_per_partition": limits.attempts,
                                "target_accepted_groups_by_partition": limits.accepted,
                                "target_accepted_per_development_profile": limits.development_per_profile,
@@ -119,11 +119,12 @@ def run_dataset(config: LoadedConfig, outdir: Path, argv: list[str], *,
     atomic_json(manifest_path, manifest)  # provenance is durable before the first candidate call
     outcomes_path, records_path = outdir / "outcomes.jsonl", outdir / "records.jsonl"
     seen: set[str] = set()
-    start = time.monotonic()
+    start = guard.clock()
     cpu_start = time.process_time()
     manifest["first_work_started_utc"] = datetime.now(timezone.utc).isoformat()
     try:
         with outcomes_path.open("w", encoding="utf-8", newline="\n") as outcomes, records_path.open("w", encoding="utf-8", newline="\n") as records:
+            guard.check()
             for part in PARTITIONS:
                 state = manifest["partitions"][part]
                 state.update(status="running", not_attempted=False)
@@ -157,7 +158,7 @@ def run_dataset(config: LoadedConfig, outdir: Path, argv: list[str], *,
                 atomic_json(manifest_path, manifest)
     except BaseException as exc:
         manifest["status"] = "incomplete"
-        manifest["error"] = {"type": type(exc).__name__, "message": str(exc)}
+        manifest["error"] = {"type": type(exc).__name__, "message": str(exc), "phase": "generation"}
         for part, state in manifest["partitions"].items():
             if state["status"] == "running":
                 state["status"] = "incomplete"
@@ -167,7 +168,7 @@ def run_dataset(config: LoadedConfig, outdir: Path, argv: list[str], *,
     else:
         manifest["status"] = "complete"
         manifest["exit_code"] = 0
-    manifest["generation_work_elapsed_seconds"] = round(time.monotonic() - start, 6)
+    manifest["generation_work_elapsed_seconds"] = round(max(0.0, guard.clock() - start), 6)
     manifest["generation_cpu_seconds"] = round(time.process_time() - cpu_start, 6)
     finalization_start = time.monotonic()
     manifest["finalization_started_utc"] = datetime.now(timezone.utc).isoformat()
@@ -175,16 +176,37 @@ def run_dataset(config: LoadedConfig, outdir: Path, argv: list[str], *,
     manifest["terminal_status_utc"] = manifest["finished_utc"]
     manifest["artifacts"] = {p.name: {"sha256": sha256_file(p), "bytes": p.stat().st_size}
                               for p in (outcomes_path, records_path) if p.exists()}
-    try:
-        guard.check()
-    except (MemoryError, RuntimeError, TimeoutError) as exc:
+    def record_finalization_error(exc: BaseException) -> None:
+        error = {"type": type(exc).__name__, "message": str(exc), "phase": "finalization"}
+        if "error" not in manifest:
+            manifest["error"] = error
+        else:
+            manifest.setdefault("finalization_errors", []).append(error)
         manifest["status"] = "incomplete"
         manifest["exit_code"] = 1
-        manifest["error"] = {"type": type(exc).__name__, "message": str(exc)}
-    manifest["generation_elapsed_seconds"] = round(max(time.monotonic() - command_started, guard.elapsed), 6)
-    manifest["finalization_elapsed_seconds"] = round(time.monotonic() - finalization_start, 6)
+
+    try:
+        guard.check()
+        if guard.elapsed >= limits.wall_seconds:
+            raise TimeoutError("active command wall-time cap reached during finalization")
+    except (MemoryError, RuntimeError, TimeoutError) as exc:
+        record_finalization_error(exc)
+    manifest["generation_elapsed_seconds"] = round(guard.elapsed, 6)
+    manifest["finalization_elapsed_seconds"] = round(max(0.0, guard.clock() - finalization_start), 6)
     manifest["peak_resident_bytes"] = guard.peak_bytes
     manifest["finished_utc"] = datetime.now(timezone.utc).isoformat()
     manifest["terminal_status_utc"] = manifest["finished_utc"]
     atomic_json(manifest_path, manifest)
+    try:
+        guard.check()
+        if guard.elapsed >= limits.wall_seconds:
+            raise TimeoutError("active command wall-time cap reached while writing terminal manifest")
+    except (MemoryError, RuntimeError, TimeoutError) as exc:
+        record_finalization_error(exc)
+        manifest["generation_elapsed_seconds"] = round(guard.elapsed, 6)
+        manifest["finalization_elapsed_seconds"] = round(max(0.0, guard.clock() - finalization_start), 6)
+        manifest["peak_resident_bytes"] = guard.peak_bytes
+        manifest["finished_utc"] = datetime.now(timezone.utc).isoformat()
+        manifest["terminal_status_utc"] = manifest["finished_utc"]
+        atomic_json(manifest_path, manifest)
     return manifest["exit_code"]
