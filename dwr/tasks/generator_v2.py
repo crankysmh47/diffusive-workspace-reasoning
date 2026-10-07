@@ -31,7 +31,7 @@ class CandidateHeader:
     def __post_init__(self) -> None:
         if isinstance(self.n, bool) or not isinstance(self.n, int) or self.n not in (3, 4, 5, 6):
             raise ValueError("n must be an integer from 3 through 6")
-        if not isinstance(self.profile, tuple) or self.profile not in tuple(
+        if type(self.profile) is not tuple or any(type(kind) is not str for kind in self.profile) or self.profile not in tuple(
                 profile for profiles in PROFILES.values() for profile in profiles):
             raise ValueError("profile must be a registered immutable relation-kind tuple")
 
@@ -40,6 +40,18 @@ class CandidateHeader:
 class SourceEligibilityEvidence:
     removal_solution_counts: tuple[int, ...]
     sensitive: bool
+
+    def __post_init__(self) -> None:
+        if type(self.removal_solution_counts) is not tuple:
+            raise TypeError("source removal counts must be an immutable tuple")
+        if not 2 <= len(self.removal_solution_counts) <= 8:
+            raise ValueError("source removal counts must cover 2 through 8 constraints")
+        if any(type(count) is not int or not 0 <= count <= 729 for count in self.removal_solution_counts):
+            raise TypeError("source removal counts must be nonnegative bounded integers")
+        if type(self.sensitive) is not bool:
+            raise TypeError("source sensitivity must be a bool")
+        if self.sensitive != any(count >= 2 for count in self.removal_solution_counts):
+            raise ValueError("source sensitivity disagrees with removal counts")
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,12 +64,66 @@ class MixedEligibilityEvidence:
     primary_eligible: bool
     ineligibility_reason: str | None
 
+    def __post_init__(self) -> None:
+        if type(self.kinds) is not tuple or any(type(kind) is not str for kind in self.kinds):
+            raise TypeError("mixed kinds must be an immutable tuple of strings")
+        if (not 2 <= len(self.kinds) <= 3 or self.kinds != tuple(sorted(set(self.kinds))) or
+                any(kind not in {item.value for item in KIND_ORDER} for kind in self.kinds)):
+            raise ValueError("mixed kinds must be sorted, unique registered relation kinds")
+        if type(self.kind_removal_solution_counts) is not tuple:
+            raise TypeError("mixed removal counts must be an immutable tuple")
+        if len(self.kind_removal_solution_counts) != len(self.kinds):
+            raise ValueError("mixed removal counts must align with kinds")
+        if any(type(count) is not int or not 0 <= count <= 729
+               for count in self.kind_removal_solution_counts):
+            raise TypeError("mixed removal counts must be nonnegative bounded integers")
+        if type(self.factor_graph_connected) is not bool:
+            raise TypeError("factor graph connectivity must be a bool")
+        if type(self.factor_graph_kinds) is not tuple or any(type(kind) is not str for kind in self.factor_graph_kinds):
+            raise TypeError("factor graph kinds must be an immutable tuple of strings")
+        if (self.factor_graph_kinds != tuple(sorted(set(self.factor_graph_kinds))) or
+                not set(self.factor_graph_kinds) <= set(self.kinds)):
+            raise ValueError("factor graph kinds must be a sorted subset of present kinds")
+        if any(kind not in {item.value for item in KIND_ORDER} for kind in self.factor_graph_kinds):
+            raise ValueError("factor graph kinds must be registered relation kinds")
+        if type(self.all_present_kinds_in_graph) is not bool:
+            raise TypeError("all-present-kinds flag must be a bool")
+        expected_all_in_graph = set(self.kinds) <= set(self.factor_graph_kinds)
+        if self.all_present_kinds_in_graph != expected_all_in_graph:
+            raise ValueError("all-present-kinds flag disagrees with factor graph kinds")
+        if self.factor_graph_connected and not self.factor_graph_kinds:
+            raise ValueError("connected factor graph must contain at least one relation kind")
+        if type(self.primary_eligible) is not bool:
+            raise TypeError("primary eligibility must be a bool")
+        necessary = all(count >= 2 for count in self.kind_removal_solution_counts)
+        expected_eligible = necessary and self.factor_graph_connected and expected_all_in_graph
+        if self.primary_eligible != expected_eligible:
+            raise ValueError("primary eligibility disagrees with private evidence")
+        expected_reason = (None if expected_eligible else "mixed_kind_not_necessary" if not necessary
+                           else "mixed_unknown_factor_disconnected")
+        if self.ineligibility_reason is not None and type(self.ineligibility_reason) is not str:
+            raise TypeError("mixed ineligibility reason must be a string or None")
+        if self.ineligibility_reason != expected_reason:
+            raise ValueError("mixed ineligibility reason disagrees with private evidence")
+
 
 @dataclass(frozen=True, slots=True)
 class CandidatePrivateEvidence:
     oracle_unique: bool
     source: SourceEligibilityEvidence | None
     mixed: MixedEligibilityEvidence | None
+
+    def __post_init__(self) -> None:
+        if type(self.oracle_unique) is not bool:
+            raise TypeError("oracle_unique must be a bool")
+        if not self.oracle_unique:
+            raise ValueError("private eligibility evidence requires an oracle-unique task")
+        if self.source is not None and type(self.source) is not SourceEligibilityEvidence:
+            raise TypeError("source evidence has the wrong type")
+        if self.mixed is not None and type(self.mixed) is not MixedEligibilityEvidence:
+            raise TypeError("mixed evidence has the wrong type")
+        if (self.source is None) == (self.mixed is None):
+            raise ValueError("private evidence must contain exactly one eligibility record")
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,43 +140,81 @@ class CandidateOutcome:
     private_evidence: CandidatePrivateEvidence | None
 
     def __post_init__(self) -> None:
+        if type(self.partition) is not str:
+            raise TypeError("partition must be a string")
         _validate(self.partition, self.candidate_index, 0)
+        if type(self.candidate_index) is not int:
+            raise TypeError("candidate_index must be an integer")
+        if type(self.n) is not int:
+            raise TypeError("n must be an integer")
+        if type(self.profile) is not tuple:
+            raise TypeError("profile must be an immutable tuple")
         CandidateHeader(self.n, self.profile)
         if self.profile not in PROFILES[self.partition]:
             raise ValueError("profile is not registered for candidate partition")
-        if self.task is not None and not isinstance(self.task, ConstraintTask):
+        if self.task is not None and type(self.task) is not ConstraintTask:
             raise TypeError("task must be ConstraintTask or None")
-        if self.witness is not None and not isinstance(self.witness, Solution):
+        if self.witness is not None and type(self.witness) is not Solution:
             raise TypeError("witness must be Solution or None")
-        if self.solution is not None and not isinstance(self.solution, Solution):
+        if self.solution is not None and type(self.solution) is not Solution:
             raise TypeError("solution must be Solution or None")
-        if self.solver_result is not None and not isinstance(self.solver_result, SolveResult):
+        if self.solver_result is not None and type(self.solver_result) is not SolveResult:
             raise TypeError("solver_result must be SolveResult or None")
-        if self.private_evidence is not None and not isinstance(self.private_evidence, CandidatePrivateEvidence):
+        if self.private_evidence is not None and type(self.private_evidence) is not CandidatePrivateEvidence:
             raise TypeError("private_evidence must be CandidatePrivateEvidence or None")
+        if self.rejection_reason is not None and type(self.rejection_reason) is not str:
+            raise TypeError("rejection_reason must be a string or None")
         if self.rejection_reason not in (None, "profile_quota_full", "no_witness_feasible_constraint_set", "oracle_non_unique"):
             raise ValueError("unknown v2 candidate rejection reason")
+        task_payload = (self.task, self.witness, self.solution, self.solver_result, self.private_evidence)
         if self.rejection_reason == "profile_quota_full":
-            if any(value is not None for value in (self.task, self.witness, self.solution, self.solver_result, self.private_evidence)):
+            if any(value is not None for value in task_payload):
                 raise ValueError("quota outcomes cannot contain candidate work")
-        if self.rejection_reason == "no_witness_feasible_constraint_set" and self.task is not None:
-            raise ValueError("infeasible witness outcome cannot contain a task")
-        if self.rejection_reason == "oracle_non_unique" and (self.task is None or self.private_evidence is not None):
-            raise ValueError("non-unique outcome has inconsistent private evidence")
-        if self.rejection_reason in ("no_witness_feasible_constraint_set", "oracle_non_unique") and self.witness is None:
-            raise ValueError("candidate rejection requires the sampled private witness")
-        if self.rejection_reason is None and any(value is None for value in (self.task, self.solution, self.solver_result, self.private_evidence)):
-            raise ValueError("oracle-unique outcome requires task, solution, solver, and private evidence")
-        if self.rejection_reason is None and self.witness is None:
-            raise ValueError("oracle-unique outcome requires its private witness")
+        elif self.rejection_reason == "no_witness_feasible_constraint_set":
+            if self.witness is None or any(value is not None for value in
+                    (self.task, self.solution, self.solver_result, self.private_evidence)):
+                raise ValueError("no-feasible-vector outcomes require only the sampled witness")
+        elif self.rejection_reason == "oracle_non_unique":
+            if self.task is None or self.witness is None or any(value is not None for value in
+                    (self.solution, self.solver_result, self.private_evidence)):
+                raise ValueError("non-unique outcomes require task and witness without solution evidence")
+        else:
+            if any(value is None for value in task_payload):
+                raise ValueError("oracle-unique outcomes require task, witness, solution, solver, and private evidence")
+        if self.task is not None:
+            self._validate_task_header()
+        if self.witness is not None:
+            self._validate_solution_shape(self.witness, "witness")
+        if self.task is not None and self.solution is not None:
+            self._validate_solution_shape(self.solution, "solution")
+        if self.rejection_reason is None and self.witness != self.solution:
+            raise ValueError("unique task witness and solution must match")
+        if self.rejection_reason is None and self.solver_result.solution != self.solution:
+            raise ValueError("solver result must agree with the unique solution")
         if self.private_evidence is not None:
             if not self.private_evidence.oracle_unique:
                 raise ValueError("private evidence is reserved for oracle-unique tasks")
             if self.partition == "source":
                 if self.private_evidence.source is None or self.private_evidence.mixed is not None:
                     raise ValueError("source candidate has inconsistent private evidence")
+                if self.task is not None and len(self.private_evidence.source.removal_solution_counts) != len(self.task.constraints):
+                    raise ValueError("source evidence must contain one result per constraint")
             elif self.private_evidence.mixed is None or self.private_evidence.source is not None:
                 raise ValueError("mixed candidate has inconsistent private evidence")
+            elif self.private_evidence.mixed.kinds != tuple(sorted(self.profile)):
+                raise ValueError("mixed evidence kinds disagree with candidate profile")
+
+    def _validate_task_header(self) -> None:
+        expected_kinds = tuple(kind.value for kind in KIND_ORDER
+                               if any(constraint.kind is kind for constraint in self.task.constraints))
+        if len(self.task.variables) != self.n or expected_kinds != self.profile:
+            raise ValueError("candidate header disagrees with its task")
+
+    def _validate_solution_shape(self, value: Solution, name: str) -> None:
+        expected_names = tuple(f"v{index}" for index in range(self.n))
+        actual_names = tuple(variable for variable, _ in value.assignments)
+        if actual_names != expected_names or self.task is not None and expected_names != self.task.variables:
+            raise ValueError(f"{name} variables disagree with candidate task")
 
     @property
     def oracle_unique(self) -> bool:

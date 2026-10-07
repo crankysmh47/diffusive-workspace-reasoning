@@ -3,14 +3,17 @@ import itertools
 import json
 import random
 import unittest
+from dataclasses import replace
 
 from dwr.tasks.audit import audit_interactions
 from dwr.tasks.generator_v2 import (
-    CandidateHeader, _count_vectors, _mixed_primary_eligibility, _source_sensitive,
+    CandidateHeader, CandidatePrivateEvidence, MixedEligibilityEvidence,
+    SourceEligibilityEvidence, _count_vectors, _mixed_primary_eligibility, _source_sensitive,
     generate_candidate, sample_candidate_header,
 )
+from dwr.tasks.generator import generate_candidate as generate_candidate_v1
 from dwr.tasks.oracle import enumerate_solutions
-from dwr.tasks.schema import Constraint, ConstraintTask, GivenAssignment, RelationKind, serialize_model_input
+from dwr.tasks.schema import Constraint, ConstraintTask, GivenAssignment, RelationKind, Solution, serialize_model_input, serialize_task
 from dwr.tasks.solver import solve
 
 
@@ -143,6 +146,90 @@ class CandidateGeneratorV2Tests(unittest.TestCase):
         self.assertEqual(prompt, serialize_model_input(outcome.task))
         self.assertNotIn(outcome.witness.assignments.__repr__(), prompt)
         self.assertEqual(set(json.loads(prompt)), {"answer_schema", "instruction", "rules", "task"})
+
+    def test_prompt_projection_is_differentially_independent_of_private_evidence(self):
+        outcome = generate_candidate(20261007, "source", 5)
+        source = outcome.private_evidence.source
+        counts = list(source.removal_solution_counts)
+        counts[0] += 1 if counts[0] < 729 else -1
+        changed = replace(outcome, private_evidence=CandidatePrivateEvidence(
+            True, SourceEligibilityEvidence(tuple(counts), source.sensitive), None))
+        self.assertNotEqual(outcome.private_evidence, changed.private_evidence)
+        self.assertEqual(serialize_model_input(outcome.task), serialize_model_input(changed.task))
+
+    def test_v1_candidate_27_serialization_golden_remains_unchanged(self):
+        outcome = generate_candidate_v1(20261007, "source", 27)
+        self.assertEqual(outcome.rejection_reason, None)
+        self.assertEqual(serialize_task(outcome.task),
+                         '{"constraints":[{"kind":"eq","variables":["v0","v1"]},{"kind":"eq","variables":["v0","v2"]}],"givens":[{"value":0,"variable":"v2"},{"value":1,"variable":"v3"}],"modulus":3,"schema_version":"constraint-task-v1","variables":["v0","v1","v2","v3"]}')
+
+    def test_private_evidence_rejects_mutable_counts_and_nonboolean_flags(self):
+        outcome = generate_candidate(20261007, "source", 5)
+        with self.assertRaises((TypeError, ValueError)):
+            replace(outcome, private_evidence=CandidatePrivateEvidence(
+                "yes", SourceEligibilityEvidence([1], False), None))
+        with self.assertRaises((TypeError, ValueError)):
+            SourceEligibilityEvidence((1,), "no")
+        with self.assertRaises((TypeError, ValueError)):
+            CandidatePrivateEvidence("yes", outcome.private_evidence.source, None)
+        with self.assertRaises((TypeError, ValueError)):
+            CandidatePrivateEvidence(False, outcome.private_evidence.source, None)
+
+    def test_private_evidence_rejects_inconsistent_counts_kinds_and_reasons(self):
+        with self.assertRaises((TypeError, ValueError)):
+            SourceEligibilityEvidence((True, 1), True)
+        with self.assertRaises((TypeError, ValueError)):
+            SourceEligibilityEvidence((-1, 1), False)
+        with self.assertRaises((TypeError, ValueError)):
+            MixedEligibilityEvidence(("eq", "eq"), (2, 2), True, ("eq",), True, True, None)
+        with self.assertRaises((TypeError, ValueError)):
+            MixedEligibilityEvidence(("eq", "neq"), (1, 2), True, ("eq", "neq"), True,
+                                     True, None)
+        with self.assertRaises((TypeError, ValueError)):
+            MixedEligibilityEvidence(("eq", "neq"), (2, 2), True, ("eq",), False,
+                                     True, None)
+        with self.assertRaises((TypeError, ValueError)):
+            MixedEligibilityEvidence(("eq", "neq"), [2, 2], True, ("eq", "neq"), True,
+                                     True, None)
+        with self.assertRaises((TypeError, ValueError)):
+            MixedEligibilityEvidence(("eq", "neq"), (2, 2), True, ["eq", "neq"], True,
+                                     True, None)
+        for field in ("factor_graph_connected", "all_present_kinds_in_graph", "primary_eligible"):
+            values = {"kinds": ("eq", "neq"), "kind_removal_solution_counts": (2, 2),
+                      "factor_graph_connected": True, "factor_graph_kinds": ("eq", "neq"),
+                      "all_present_kinds_in_graph": True, "primary_eligible": True,
+                      "ineligibility_reason": None}
+            values[field] = "yes"
+            with self.subTest(field=field), self.assertRaises((TypeError, ValueError)):
+                MixedEligibilityEvidence(**values)
+        with self.assertRaises((TypeError, ValueError)):
+            MixedEligibilityEvidence(("eq", "neq"), (1, 2), True, ("eq", "neq"), True,
+                                     False, "unknown_reason")
+
+    def test_outcome_rejects_header_witness_solution_and_status_mismatches(self):
+        unique = generate_candidate(20261007, "source", 5)
+        with self.assertRaises((TypeError, ValueError)):
+            replace(unique, n=3)
+        with self.assertRaises((TypeError, ValueError)):
+            replace(unique, witness=Solution((("v0", 0), ("v1", 0), ("v2", 0))))
+        with self.assertRaises((TypeError, ValueError)):
+            replace(unique, profile=("eq",))
+        nonunique = generate_candidate(20261007, "source", 1)
+        self.assertEqual(nonunique.rejection_reason, "oracle_non_unique")
+        with self.assertRaises((TypeError, ValueError)):
+            replace(nonunique, solution=unique.solution)
+        with self.assertRaises((TypeError, ValueError)):
+            replace(unique, rejection_reason="profile_quota_full")
+        with self.assertRaises((TypeError, ValueError)):
+            replace(unique, rejection_reason="no_witness_feasible_constraint_set")
+
+    def test_unique_ineligible_candidates_remain_nonterminal_and_consistent(self):
+        outcome = generate_candidate(42, "source", 5)
+        self.assertTrue(outcome.oracle_unique)
+        self.assertFalse(outcome.eligible)
+        self.assertIs(type(outcome.eligible), bool)
+        self.assertEqual(outcome.eligibility_reason, "source_insensitive")
+        self.assertIsNone(outcome.rejection_reason)
 
     def test_module_random_state_and_invalid_bool_indices(self):
         state = random.getstate()
