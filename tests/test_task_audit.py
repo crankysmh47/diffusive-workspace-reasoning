@@ -208,40 +208,7 @@ class AuditTests(unittest.TestCase):
             self.assertEqual(report["status"], "blocked")
             self.assertEqual(report["g2"]["status"], "not_assessed")
             self.assertNotIn("replay_pass", manifest)
-            self.assertFalse((data / "audit_results.jsonl").exists())
-
-    def test_incomplete_generation_run_stays_not_assessed_and_strict_manifest_rejects_unknown(self):
-        with tempfile.TemporaryDirectory() as directory:
-            data = Path(directory) / "data"
-            data.mkdir()
-            (data / "outcomes.jsonl").write_text("", encoding="utf-8")
-            (data / "records.jsonl").write_text("", encoding="utf-8")
-            config = load_config("configs/tasks/constraint_v1.json")
-            manifest = {"manifest_version": "dwr-task-run-v1", "status": "incomplete",
-                "exit_code": 1, "generation_elapsed_seconds": 1.0, "config_sha256": config.sha256,
-                "resolved_config": config.resolved, "seed": config.resolved["seed"],
-                "seed_derivation": config.resolved["seed_derivation"],
-                "source": {"commit": "fixture", "dirty": False, "dirty_diff_sha256": "0" * 64},
-                "partitions": {}, "artifacts": {}}
-            for name in ("outcomes.jsonl", "records.jsonl"):
-                path = data / name
-                manifest["artifacts"][name] = {"sha256": sha256_file(path), "bytes": path.stat().st_size}
-            (data / "manifest.json").write_text(stable_json(manifest) + "\n", encoding="utf-8")
-            result = run_audit(Path("configs/tasks/constraint_v1.json"), data, ["fixture"])
-            self.assertEqual(result, 1)
-            report = json.loads((data / "audit_report.json").read_text(encoding="utf-8"))
-            self.assertEqual(report["status"], "incomplete_generation", report)
-            self.assertEqual(report["g2"]["status"], "not_assessed")
-            self.assertFalse(json.loads((data / "audit_manifest.json").read_text(encoding="utf-8")).get("replay_pass", False))
-
-            manifest["unexpected"] = True
-            (data / "manifest.json").write_text(stable_json(manifest) + "\n", encoding="utf-8")
-            result = run_audit(Path("configs/tasks/constraint_v1.json"), data, ["fixture"])
-            self.assertEqual(result, 1)
-            report = json.loads((data / "audit_report.json").read_text(encoding="utf-8"))
-            self.assertEqual(report["status"], "audit_error")
-            self.assertEqual(report["g2"]["status"], "not_assessed")
-
+            self.assertEqual((data / "audit_results.jsonl").read_text(encoding="utf-8"), "")
 
 if __name__ == "__main__":
     unittest.main()

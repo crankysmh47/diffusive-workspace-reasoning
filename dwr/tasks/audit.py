@@ -6,6 +6,8 @@ import hashlib
 import itertools
 import json
 import math
+import platform as platform_info
+import re
 import sys
 import time
 from collections import Counter, defaultdict
@@ -15,6 +17,7 @@ from typing import Any, Iterable
 
 from .canonical import (content_id, development_split, lineage_id, source_split,
                         structure_signature)
+from .dataset import source_identity
 from .generator import PARTITIONS, PROFILES, CandidateOutcome, generate_candidate
 from .oracle import enumerate_assignments, enumerate_solutions
 from .run_support import (ResourceGuard, atomic_json, load_config,
@@ -43,6 +46,15 @@ GENERATION_MANIFEST_KEYS = {
     "finalization_started_utc", "finalization_elapsed_seconds", "finished_utc", "terminal_status_utc",
     "artifacts", "exit_code", "error", "finalization_errors", "peak_resident_bytes",
     "accounting_end_boundary", "accounting_note"}
+GENERATION_REQUIRED_KEYS = {
+    "manifest_version", "status", "created_utc", "command", "cwd", "source", "python", "platform",
+    "config_path", "config_sha256", "resolved_config", "seed", "seed_derivation", "output_dir", "limits",
+    "generation_elapsed_seconds", "partitions", "controller_started_utc", "setup_elapsed_seconds",
+    "generation_work_elapsed_seconds", "generation_cpu_seconds", "finalization_started_utc",
+    "finalization_elapsed_seconds", "finished_utc", "terminal_status_utc", "artifacts", "exit_code",
+    "peak_resident_bytes", "accounting_end_boundary", "accounting_note"}
+PARTITION_STATE_KEYS = {"status", "attempts", "accepted", "not_attempted", "profile_accepted"}
+ARTIFACT_NAMES = {"outcomes.jsonl", "records.jsonl"}
 
 
 def _integer(value: Any, name: str, minimum: int = 0) -> int:
@@ -254,7 +266,7 @@ def audit_interactions(task: ConstraintTask, partition: str) -> dict:
 
 def replay_outcomes(rows: list[dict], seed: int, full_profiles_by_partition: dict,
                     seen_content_by_partition: dict, development_profile_target: int = 600,
-                    check=None) -> list[dict]:
+                    check=None, on_row=None) -> list[dict]:
     """Replay a bounded recorded candidate prefix, preserving quota and duplicate semantics."""
     expected_rows = []
     accepted_by_profile: dict[str, Counter] = {p: Counter() for p in PARTITIONS}
@@ -285,6 +297,7 @@ def replay_outcomes(rows: list[dict], seed: int, full_profiles_by_partition: dic
         if row != expected:
             raise ValueError(f"candidate replay mismatch at {part}:{row['candidate_index']}")
         expected_rows.append(expected)
+        if on_row is not None: on_row(expected, outcome, repeated)
         if check is not None: check()
         if outcome.accepted and not repeated:
             seen.add(content_id(outcome.task))
@@ -348,17 +361,22 @@ def assess_g2(metrics: dict, config: dict) -> dict:
             "claim": "structural G2 suitability only" if not failures else "no-go for model comparison"}
 
 
-def compute_metrics(records: list[dict], config: dict, check=None) -> dict:
+def compute_metrics(records: list[dict], config: dict, check=None, *,
+                    validated_infos: list[dict] | None = None,
+                    interaction_results: list[dict] | None = None) -> dict:
     """Compute interaction, coverage, variation, strata and common-support floors."""
     gate = config["audit_gate"]
     enriched = []
-    for raw in records:
+    if (validated_infos is None) != (interaction_results is None):
+        raise ValueError("validated infos and interaction results must be supplied together")
+    if validated_infos is not None and (len(validated_infos) != len(records) or len(interaction_results) != len(records)):
+        raise ValueError("precomputed audit results do not align with records")
+    for index, raw in enumerate(records):
         if check is not None: check()
-        info = validate_record(raw, config)
-        interaction = audit_interactions(info["task"], info["partition"])
+        info = validate_record(raw, config) if validated_infos is None else validated_infos[index]
+        interaction = audit_interactions(info["task"], info["partition"]) if interaction_results is None else interaction_results[index]
         enriched.append({**raw, **info, "interaction": interaction,
                          "primary_eligible": interaction["sensitive"] if info["partition"] != "source" else False})
-        if check is not None: check()
     validate_corpus_closure(enriched)
     failures: list[str] = []
     partitions = {}
@@ -454,35 +472,178 @@ def compute_metrics(records: list[dict], config: dict, check=None) -> dict:
             "floor_failures": sorted(set(failures)), "structural_pass": not failures}
 
 
-def _verify_manifest(data_dir: Path, config=None) -> tuple[dict, list[dict], list[dict]]:
+def _same_typed_value(left: Any, right: Any) -> bool:
+    if type(left) is not type(right): return False
+    if isinstance(left, dict):
+        return set(left) == set(right) and all(_same_typed_value(left[k], right[k]) for k in left)
+    if isinstance(left, list):
+        return len(left) == len(right) and all(_same_typed_value(a, b) for a, b in zip(left, right))
+    return left == right
+
+
+def _registered_limits(config: dict) -> dict:
+    return {"wall_seconds_global": config["audit_gate"]["cap_wall_seconds"],
+            "resident_memory_mib": config["audit_gate"]["cap_resident_memory_mib"],
+            "cpu_workers": config["audit_gate"]["cpu_workers"],
+            "max_attempts_per_partition": config["generation"]["max_attempts_per_partition"],
+            "target_accepted_groups_by_partition": config["generation"]["target_accepted_groups_by_partition"],
+            "target_accepted_per_development_profile": config["generation"]["target_accepted_per_development_profile"]}
+
+
+def _finite_nonnegative(value: Any, name: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+        raise ValueError(f"{name} must be finite and nonnegative")
+
+
+def _validate_source_identity(source: Any, name: str) -> None:
+    if not isinstance(source, dict) or set(source) != {"commit", "dirty", "dirty_diff_sha256", "checkout_root"}:
+        raise ValueError(f"{name} source identity has wrong fields")
+    if not isinstance(source["commit"], str) or not re.fullmatch(r"[0-9a-f]{40}", source["commit"]):
+        raise ValueError(f"{name} commit must be a full lowercase Git SHA-1")
+    if type(source["dirty"]) is not bool:
+        raise ValueError(f"{name}.dirty must be boolean")
+    if not isinstance(source["dirty_diff_sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", source["dirty_diff_sha256"]):
+        raise ValueError(f"{name} dirty diff identity must be SHA-256")
+    if not isinstance(source["checkout_root"], str) or not source["checkout_root"]:
+        raise ValueError(f"{name} checkout root is required")
+
+
+def _validate_producer_nested(manifest: dict, config: dict | None, data_dir: Path,
+                              expected_limits: dict | None = None) -> None:
+    limits = manifest["limits"]
+    limit_keys = {"wall_seconds_global", "resident_memory_mib", "cpu_workers",
+                  "max_attempts_per_partition", "target_accepted_groups_by_partition",
+                  "target_accepted_per_development_profile"}
+    if not isinstance(limits, dict) or set(limits) != limit_keys:
+        raise ValueError("generation limits have wrong fields")
+    for key in ("wall_seconds_global",): _finite_nonnegative(limits[key], f"limits.{key}")
+    for key in ("resident_memory_mib", "cpu_workers", "max_attempts_per_partition", "target_accepted_per_development_profile"):
+        _integer(limits[key], f"limits.{key}", 1)
+    targets = limits["target_accepted_groups_by_partition"]
+    if not isinstance(targets, dict) or set(targets) != set(PARTITIONS):
+        raise ValueError("partition target limits have wrong fields")
+    for part, value in targets.items(): _integer(value, f"limits.target_accepted_groups_by_partition.{part}")
+    partitions = manifest["partitions"]
+    if not isinstance(partitions, dict) or set(partitions) != set(PARTITIONS):
+        raise ValueError("partition manifest has wrong fields")
+    for part, state in partitions.items():
+        if not isinstance(state, dict) or set(state) - PARTITION_STATE_KEYS:
+            raise ValueError(f"partition {part} state has wrong fields")
+        required = {"status", "attempts", "accepted", "not_attempted"}
+        if not required <= set(state): raise ValueError(f"partition {part} state is missing fields")
+        if state["status"] not in ("not_attempted", "running", "incomplete", "complete"):
+            raise ValueError(f"partition {part} has invalid status")
+        attempts, accepted = _integer(state["attempts"], f"partition.{part}.attempts"), _integer(state["accepted"], f"partition.{part}.accepted")
+        if type(state["not_attempted"]) is not bool or state["not_attempted"] != (state["status"] == "not_attempted"):
+            raise ValueError(f"partition {part} not_attempted flag disagrees with status")
+        if attempts > limits["max_attempts_per_partition"] or accepted > targets[part] or accepted > attempts:
+            raise ValueError(f"partition {part} counters exceed registered limits")
+        if state["status"] == "not_attempted" and (attempts != 0 or accepted != 0):
+            raise ValueError(f"not-attempted partition {part} has nonzero counters")
+        if state["status"] == "complete" and accepted != targets[part]:
+            raise ValueError(f"complete partition {part} misses accepted target")
+        profile_accepted = state.get("profile_accepted")
+        if profile_accepted is not None:
+            profile_names = {"/".join(p) for p in PROFILES[part]}
+            if not isinstance(profile_accepted, dict) or set(profile_accepted) != profile_names:
+                raise ValueError(f"partition {part} profile counts have wrong fields")
+            counts = [_integer(value, f"partition.{part}.profile_accepted.{name}") for name, value in profile_accepted.items()]
+            if sum(counts) != accepted: raise ValueError(f"partition {part} profile counts do not sum to accepted")
+            if part == "development" and any(value > limits["target_accepted_per_development_profile"] for value in profile_accepted.values()):
+                raise ValueError("development profile count exceeds quota")
+        elif accepted:
+            raise ValueError(f"partition {part} accepted records lack profile counts")
+    if config is not None:
+        scientific_limits = expected_limits or _registered_limits(config)
+        if not _same_typed_value(limits, scientific_limits):
+            raise ValueError("producer limits differ from registered scientific limits")
+    artifacts = manifest["artifacts"]
+    if not isinstance(artifacts, dict) or set(artifacts) - ARTIFACT_NAMES:
+        raise ValueError("generation artifacts contain unknown names")
+    has_work = any(state["attempts"] > 0 for state in partitions.values())
+    for name in ARTIFACT_NAMES:
+        path = data_dir / name
+        identity = artifacts.get(name)
+        if identity is None:
+            if path.exists(): raise ValueError(f"unhashed producer artifact exists: {name}")
+            if manifest["status"] == "complete" or has_work:
+                raise ValueError(f"producer artifact identity missing: {name}")
+            continue
+        if not isinstance(identity, dict) or set(identity) != {"sha256", "bytes"}:
+            raise ValueError(f"artifact {name} identity has wrong fields")
+        if (not isinstance(identity["sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", identity["sha256"])):
+            raise ValueError(f"artifact {name} hash must be SHA-256")
+        _integer(identity["bytes"], f"artifact.{name}.bytes")
+        if not path.is_file() or identity["sha256"] != sha256_file(path) or identity["bytes"] != path.stat().st_size:
+            raise ValueError(f"artifact identity mismatch: {name}")
+    if "error" in manifest:
+        error = manifest["error"]
+        if not isinstance(error, dict) or set(error) != {"type", "message", "phase"} or any(not isinstance(error[k], str) for k in error):
+            raise ValueError("generation error object has wrong fields or types")
+        if error["phase"] not in ("generation", "finalization"): raise ValueError("invalid generation error phase")
+    if "finalization_errors" in manifest:
+        errors = manifest["finalization_errors"]
+        if not isinstance(errors, list) or any(not isinstance(e, dict) or set(e) != {"type", "message", "phase"} or
+                e["phase"] != "finalization" or any(not isinstance(e[k], str) for k in e) for e in errors):
+            raise ValueError("finalization errors must be well-formed finalization records")
+
+
+def _verify_manifest(data_dir: Path, config=None, expected_limits: dict | None = None) -> tuple[dict, list[dict], list[dict]]:
     manifest_path = data_dir / "manifest.json"
     manifest = strict_json_loads(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(manifest, dict) or manifest.get("manifest_version") != "dwr-task-run-v1":
         raise ValueError("unknown generation manifest")
     if set(manifest) - GENERATION_MANIFEST_KEYS:
         raise ValueError(f"generation manifest has unknown fields: {sorted(set(manifest) - GENERATION_MANIFEST_KEYS)}")
-    for key in ("status", "config_sha256", "seed_derivation", "generation_elapsed_seconds", "partitions", "artifacts", "source"):
-        if key not in manifest: raise ValueError(f"generation manifest missing {key}")
-    elapsed = manifest["generation_elapsed_seconds"]
-    if isinstance(elapsed, bool) or not isinstance(elapsed, (int, float)) or not math.isfinite(elapsed) or elapsed < 0:
-        raise ValueError("generation manifest has invalid elapsed time")
+    missing = GENERATION_REQUIRED_KEYS - set(manifest)
+    if missing: raise ValueError(f"generation manifest missing fields: {sorted(missing)}")
+    if manifest["status"] not in ("complete", "incomplete"):
+        raise ValueError("generation manifest must be terminal before audit")
+    if type(manifest["exit_code"]) is not int or manifest["exit_code"] != (0 if manifest["status"] == "complete" else 1):
+        raise ValueError("generation exit code disagrees with terminal status")
+    for key in ("created_utc", "cwd", "python", "platform", "config_path", "output_dir",
+                "controller_started_utc", "finalization_started_utc", "finished_utc",
+                "terminal_status_utc", "accounting_end_boundary", "accounting_note"):
+        if not isinstance(manifest[key], str) or not manifest[key]: raise ValueError(f"manifest.{key} must be a nonempty string")
+    if not isinstance(manifest["command"], list) or not manifest["command"] or any(not isinstance(x, str) for x in manifest["command"]):
+        raise ValueError("manifest.command must be a nonempty string list")
+    if not isinstance(manifest["python"], str) or not isinstance(manifest["platform"], str):
+        raise ValueError("manifest runtime identity must be strings")
+    _finite_nonnegative(manifest["generation_elapsed_seconds"], "generation_elapsed_seconds")
+    _finite_nonnegative(manifest["generation_work_elapsed_seconds"], "generation_work_elapsed_seconds")
+    _finite_nonnegative(manifest["generation_cpu_seconds"], "generation_cpu_seconds")
+    _finite_nonnegative(manifest["setup_elapsed_seconds"], "setup_elapsed_seconds")
+    _finite_nonnegative(manifest["finalization_elapsed_seconds"], "finalization_elapsed_seconds")
+    peak = manifest["peak_resident_bytes"]
+    if peak is not None: _integer(peak, "peak_resident_bytes")
+    if not isinstance(manifest["config_sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", manifest["config_sha256"]):
+        raise ValueError("config_sha256 must be SHA-256")
+    if not isinstance(manifest["seed_derivation"], str): raise ValueError("seed_derivation must be a string")
+    _integer(manifest["seed"], "seed")
+    if manifest["seed"] >= 2**64: raise ValueError("seed is outside uint64 range")
+    _validate_source_identity(manifest["source"], "generation")
     if config is not None:
-        if manifest["config_sha256"] != config.sha256 or manifest.get("resolved_config") != config.resolved:
+        if not _same_typed_value(manifest["resolved_config"], config.resolved):
             raise ValueError("generation manifest configuration identity mismatch")
-        if manifest.get("seed") != config.resolved["seed"]:
+        if manifest["config_sha256"] != config.sha256:
+            raise ValueError("generation manifest config hash mismatch")
+        if manifest["config_path"] != str(config.path):
+            raise ValueError("generation manifest config path mismatch")
+        if manifest["output_dir"] != str(data_dir.resolve()):
+            raise ValueError("generation manifest output path mismatch")
+        if manifest["seed"] != config.resolved["seed"]:
             raise ValueError("generation manifest seed mismatch")
-        source = manifest["source"]
-        if (not isinstance(source, dict) or not isinstance(source.get("commit"), str) or
-                type(source.get("dirty")) is not bool or not isinstance(source.get("dirty_diff_sha256"), str)):
-            raise ValueError("generation manifest source identity is incomplete")
-    artifacts = manifest.get("artifacts")
-    if not isinstance(artifacts, dict): raise ValueError("manifest artifacts missing")
-    for name in ("outcomes.jsonl", "records.jsonl"):
-        path = data_dir / name
-        identity = artifacts.get(name)
-        if not path.is_file() or not isinstance(identity, dict) or identity.get("sha256") != sha256_file(path) or identity.get("bytes") != path.stat().st_size:
-            raise ValueError(f"artifact identity mismatch: {name}")
-    return manifest, read_outcomes(data_dir / "outcomes.jsonl"), read_records(data_dir / "records.jsonl")
+        if manifest["seed_derivation"] != config.resolved["seed_derivation"]:
+            raise ValueError("generation manifest seed derivation mismatch")
+        expected_limits = expected_limits or _registered_limits(config.resolved)
+    if expected_limits is not None:
+        if not _same_typed_value(manifest["limits"], expected_limits):
+            raise ValueError("generation manifest limits differ from registered/test expected limits")
+    _validate_producer_nested(manifest, config.resolved if config is not None else None, data_dir, expected_limits)
+    outcomes_path, records_path = data_dir / "outcomes.jsonl", data_dir / "records.jsonl"
+    outcomes = read_outcomes(outcomes_path) if outcomes_path.exists() else []
+    records = read_records(records_path) if records_path.exists() else []
+    return manifest, outcomes, records
 
 
 def validate_complete_generation(manifest: dict, outcomes: list[dict], records: list[dict], config: dict) -> None:
@@ -568,129 +729,210 @@ def source_train_composition_absence(records: list[dict]) -> dict:
             "heldout_compositions_absent": not overlap, "overlap": overlap}
 
 
-def run_audit(config_path: Path, data_dir: Path, argv: list[str], *, guard: ResourceGuard | None = None) -> int:
-    """Run and persist audit, replay, resource and terminal reports under inherited budget."""
+def run_audit(config_path: Path, data_dir: Path, argv: list[str], *, guard: ResourceGuard | None = None,
+              expected_limits: dict | None = None) -> int:
+    """Audit a corpus once, streaming each completed integrity/replay measurement."""
     clock = guard.clock if guard is not None else time.monotonic
     started = clock()
+    try:
+        cpu_started = time.process_time()
+    except Exception:
+        cpu_started = None
     config = load_config(config_path)
     data_dir = Path(data_dir).resolve()
     generation_manifest = strict_json_loads((data_dir / "manifest.json").read_text(encoding="utf-8"))
     remaining = remaining_global_seconds(generation_manifest, config.resolved["audit_gate"]["cap_wall_seconds"])
+    output = data_dir / "audit_manifest.json"
+    report_path, results_path = data_dir / "audit_report.json", data_dir / "audit_results.jsonl"
+    audit_paths = (output, report_path, results_path, output.with_name(output.name + ".tmp"),
+                   report_path.with_name(report_path.name + ".tmp"), results_path.with_name(results_path.name + ".tmp"))
+    existing = [path.name for path in audit_paths if path.exists()]
+    if existing: raise FileExistsError(f"audit output already exists for this corpus: {existing}")
+    audit_source = source_identity()
     guard = guard or ResourceGuard(remaining, config.resolved["audit_gate"]["cap_resident_memory_mib"], clock=clock)
     guard.wall_seconds = min(guard.wall_seconds, remaining)
     guard.memory_bytes = config.resolved["audit_gate"]["cap_resident_memory_mib"] * 1024 * 1024
-    guard.started = started  # include config/manifest setup and audit-manifest persistence
-    output = data_dir / "audit_manifest.json"
-    report_path, results_path = data_dir / "audit_report.json", data_dir / "audit_results.jsonl"
+    guard.started = started
+    progress = {"records_seen": 0, "record_integrity_assessed": 0,
+                "record_interactions_assessed": 0, "replay_candidates_assessed": 0,
+                "accepted_records_reconciled": 0}
     audit_manifest = {"manifest_version": "dwr-task-audit-v1", "status": "running",
                       "created_utc": datetime.now(timezone.utc).isoformat(), "command": argv,
-                      "cwd": str(Path.cwd()), "python": sys.version,
+                      "cwd": str(Path.cwd()), "python": sys.version, "platform": platform_info.platform(),
                       "config_sha256": config.sha256, "generation_manifest_sha256": sha256_file(data_dir / "manifest.json"),
-                      "resolved_config": config.resolved,
-                      "source": generation_manifest.get("source"),
+                      "resolved_config": config.resolved, "source": audit_source,
+                      "generation_source": generation_manifest.get("source"),
                       "generation_status": generation_manifest.get("status"),
                       "generation_elapsed_seconds": generation_manifest.get("generation_elapsed_seconds"),
                       "remaining_global_seconds_at_start": remaining,
-                      "limits": {"wall_seconds_global": config.resolved["audit_gate"]["cap_wall_seconds"],
-                                 "resident_memory_mib": config.resolved["audit_gate"]["cap_resident_memory_mib"], "cpu_workers": 1},
-                      "output_paths": {"report": str(report_path), "results": str(results_path)}}
-    atomic_json(output, audit_manifest)
-    report = {"status": "not_assessed", "g2": {"status": "not_assessed", "pass": False,
-              "floor_failures": ["audit_not_completed"], "claim": "not assessed"}}
-    try:
-        guard.check()
-        manifest, outcomes, records = _verify_manifest(data_dir, config)
-        if manifest.get("status") != "complete":
-            report.update(status="incomplete_generation", reason="generation was not COMPLETE; G2 cannot pass")
-            raise StopIteration
-        validate_complete_generation(manifest, outcomes, records, config.resolved)
-        replayed = replay_outcomes(outcomes, config.resolved["seed"],
-                                   {p: set(PROFILES[p]) for p in PARTITIONS}, {},
-                                   config.resolved["generation"]["target_accepted_per_development_profile"],
-                                   check=guard.check)
-        accepted_outcomes = [row for row in replayed if row["accepted"]]
-        record_by_key = {(r["partition"], r["candidate_index"]): r for r in records}
-        if len(record_by_key) != len(records): raise ValueError("duplicate accepted record key")
-        for outcome in accepted_outcomes:
-            key = (outcome["partition"], outcome["candidate_index"])
-            if key not in record_by_key: raise ValueError(f"accepted outcome has no record: {key}")
-            task = parse_task_json(stable_json(outcome["task"]))
-            expected = make_record(task, outcome["partition"], outcome["candidate_index"])
-            if record_by_key[key] != expected: raise ValueError(f"accepted record differs from replay: {key}")
-        if len(accepted_outcomes) != len(records): raise ValueError("orphan accepted record")
-        guard.check()
-        metrics = compute_metrics(records, config.resolved, check=guard.check)
-        metrics["generation_complete"] = True
-        metrics["replay_pass"] = True
-        metrics["integrity_pass"] = True
-        metrics["floor_failures"] = metrics["floor_failures"]
+                      "limits": _registered_limits(config.resolved),
+                      "output_paths": {"report": str(report_path), "results": str(results_path)},
+                      "audit_cpu_started_seconds": cpu_started, "progress": dict(progress)}
+    # Exclusive creation and the preflight above ensure previous evidence is never replaced.
+    with output.open("x", encoding="utf-8", newline="\n") as stream:
+        stream.write(stable_json(audit_manifest) + "\n")
+    infos: list[dict] = []
+    interaction_results: list[dict] = []
+    record_by_key: dict[tuple[str, int], dict] = {}
+    metrics = None
+    primary_error = None
+    finalization_errors = []
+    phase = "setup"
+    generation_complete = False
+    audit_complete = False
+    replay_complete = False
+    with results_path.open("x", encoding="utf-8", newline="\n") as results:
+        def persist_result(value: dict) -> None:
+            results.write(stable_json(value) + "\n")
+            results.flush()
+            audit_manifest["progress"] = dict(progress)
+            atomic_json(output, audit_manifest)
+
+        try:
+            guard.check()
+            phase = "manifest"
+            manifest, outcomes, records = _verify_manifest(data_dir, config, expected_limits)
+            generation_complete = manifest["status"] == "complete"
+            if generation_complete:
+                validate_complete_generation(manifest, outcomes, records, config.resolved)
+            attempts_by_partition = Counter(row["partition"] for row in outcomes)
+            record_counts_by_partition = Counter(row["partition"] for row in records)
+            for part, state in manifest["partitions"].items():
+                if attempts_by_partition[part] != state["attempts"]:
+                    raise ValueError(f"partial outcomes disagree with {part} manifest attempts")
+                if record_counts_by_partition[part] != state["accepted"]:
+                    raise ValueError(f"partial records disagree with {part} manifest accepted count")
+            record_by_key = {(row["partition"], row["candidate_index"]): row for row in records}
+            if len(record_by_key) != len(records): raise ValueError("duplicate accepted record key")
+            phase = "record_integrity_and_interactions"
+            for raw in records:
+                guard.check()
+                progress["records_seen"] += 1
+                info = validate_record(raw, config.resolved)
+                progress["record_integrity_assessed"] += 1
+                interaction = audit_interactions(info["task"], info["partition"])
+                progress["record_interactions_assessed"] += 1
+                infos.append(info)
+                interaction_results.append(interaction)
+                persist_result({"kind": "record_interaction", "partition": raw["partition"],
+                                "candidate_index": raw["candidate_index"],
+                                "content_id": info["content_id"], "integrity": "pass",
+                                "interaction": interaction})
+                guard.check()
+            validate_corpus_closure(infos)
+            metrics = compute_metrics(records, config.resolved, check=guard.check,
+                                      validated_infos=infos, interaction_results=interaction_results)
+            phase = "candidate_replay"
+            def on_replay(row: dict, outcome: CandidateOutcome, repeated: bool) -> None:
+                key = (row["partition"], row["candidate_index"])
+                if row["accepted"]:
+                    record = record_by_key.get(key)
+                    if record is None: raise ValueError(f"accepted replay outcome has no record: {key}")
+                    expected = make_record(outcome.task, outcome.partition, outcome.candidate_index)
+                    if record != expected: raise ValueError(f"accepted record differs from replay: {key}")
+                    progress["accepted_records_reconciled"] += 1
+                elif key in record_by_key:
+                    raise ValueError(f"rejected replay outcome has an accepted record: {key}")
+                progress["replay_candidates_assessed"] += 1
+                persist_result({"kind": "candidate_replay", "partition": row["partition"],
+                                "candidate_index": row["candidate_index"], "replay": "pass",
+                                "accepted": row["accepted"], "rejection_reason": row["rejection_reason"]})
+            replayed = replay_outcomes(outcomes, config.resolved["seed"],
+                {p: set(PROFILES[p]) for p in PARTITIONS}, {},
+                config.resolved["generation"]["target_accepted_per_development_profile"],
+                check=guard.check, on_row=on_replay)
+            replay_complete = True
+            if progress["accepted_records_reconciled"] != len(records):
+                raise ValueError("replay and accepted record counts disagree")
+            audit_complete = True
+        except BaseException as exc:
+            if isinstance(exc, KeyboardInterrupt):
+                primary_error = {"type": type(exc).__name__, "message": "interrupted", "phase": phase}
+            else:
+                primary_error = {"type": type(exc).__name__, "message": str(exc), "phase": phase}
+
+    structural_complete = metrics is not None
+    if metrics is not None:
+        metrics["generation_complete"] = generation_complete
+        metrics["replay_pass"] = replay_complete
+        metrics["integrity_pass"] = progress["record_integrity_assessed"] == len(record_by_key)
+        metrics["record_interactions_assessed"] = progress["record_interactions_assessed"]
+        metrics["replay_candidates_assessed"] = progress["replay_candidates_assessed"]
         metrics["structural_pass"] = metrics["structural_pass"]
-        g2 = assess_g2(metrics, config.resolved)
-        report = {"status": "complete", "g2": g2, "metrics": metrics,
-                  "counts": {"outcomes": len(outcomes), "accepted_records": len(records)},
-                  "source_sensitive_triangle_watch": {
-                      "n3_all_eq_triangle_is_preserved_as_sensitive_fail": True}}
-        with results_path.open("w", encoding="utf-8", newline="\n") as stream:
-            interactions = metrics["interactions"]
-            for item in interactions: stream.write(stable_json(item) + "\n")
+    g2 = assess_g2(metrics, config.resolved) if generation_complete and replay_complete and metrics is not None and primary_error is None else {
+        "status": "not_assessed", "pass": False,
+        "floor_failures": ["generation_incomplete_or_audit_unfinished"],
+        "claim": "not assessed; incomplete generation or audit blocks G2"}
+    if primary_error is None:
+        terminal_status = "complete" if generation_complete and audit_complete else "incomplete_generation"
+    elif primary_error["type"] in ("TimeoutError", "MemoryError", "RuntimeError"):
+        terminal_status = "blocked" if remaining <= 0 and primary_error["type"] == "TimeoutError" else "incomplete"
+    else:
+        terminal_status = "audit_error"
+    unassessed = []
+    if progress["record_integrity_assessed"] < len(record_by_key):
+        unassessed.append("remaining record integrity and interactions")
+    if not replay_complete: unassessed.append("remaining candidate replay")
+    if not generation_complete or not replay_complete: unassessed.append("G2")
+    report = {"status": terminal_status, "generation_status": generation_manifest.get("status"),
+              "g2": g2, "progress": progress, "metrics": metrics,
+              "unassessed": unassessed,
+              "error": primary_error, "finalization_errors": finalization_errors}
+    if not generation_complete:
+        report["reason"] = "generation was not COMPLETE; partial diagnostics do not establish G2 suitability"
+
+    try:
         guard.check()
-        audit_manifest["replay_pass"] = True
-        audit_manifest["integrity_pass"] = True
-    except StopIteration:
-        pass
-    except (TimeoutError, MemoryError, RuntimeError) as exc:
-        status = "blocked" if remaining <= 0 and isinstance(exc, TimeoutError) else "incomplete"
-        report = {"status": status, "reason": f"{type(exc).__name__}: {exc}",
-                  "g2": {"status": "not_assessed", "pass": False,
-                         "floor_failures": ["audit_cap_or_resource_error"], "claim": "not assessed"}}
-        audit_manifest["error"] = {"type": type(exc).__name__, "message": str(exc)}
+    except (MemoryError, RuntimeError, TimeoutError) as exc:
+        finalization_errors.append({"type": type(exc).__name__, "message": str(exc), "phase": "finalization"})
+        if primary_error is None:
+            primary_error = finalization_errors[-1]
+            report["error"] = primary_error
+            report["status"] = "blocked" if remaining <= 0 and isinstance(exc, TimeoutError) else "incomplete"
+            report["g2"] = {"status": "not_assessed", "pass": False,
+                            "floor_failures": ["audit_finalization_cap"], "claim": "not assessed"}
+    report["finalization_errors"] = finalization_errors
+    try:
+        cpu_elapsed = None if cpu_started is None else max(0.0, time.process_time() - cpu_started)
     except Exception as exc:
-        report = {"status": "audit_error", "reason": f"{type(exc).__name__}: {exc}",
-                  "g2": {"status": "not_assessed", "pass": False,
-                         "floor_failures": ["integrity_or_replay_error"], "claim": "not assessed"}}
-        audit_manifest["error"] = {"type": type(exc).__name__, "message": str(exc)}
-    own_elapsed = guard.elapsed
-    combined = float(generation_manifest.get("generation_elapsed_seconds", 0.0) or 0.0) + own_elapsed
-    if own_elapsed >= remaining and report["status"] == "complete":
-        report = {"status": "incomplete", "reason": "audit wall-time cap reached", "g2": {
-            "status": "not_assessed", "pass": False, "floor_failures": ["audit_cap"], "claim": "not assessed"}}
-    audit_manifest.update({"status": report["status"], "finished_utc": datetime.now(timezone.utc).isoformat(),
-                           "audit_elapsed_seconds": round(own_elapsed, 6),
-                           "combined_generation_and_audit_elapsed_seconds": round(combined, 6),
-                           "peak_resident_bytes": guard.peak_bytes,
-                           "accounting_scope": "includes audit setup through terminal report preparation; final metadata flush tail excluded",
-                           "artifacts": {}})
-    report["resources"] = {"audit_elapsed_seconds": round(own_elapsed, 6),
-                            "combined_generation_and_audit_elapsed_seconds": round(combined, 6),
-                            "peak_resident_bytes": guard.peak_bytes,
-                            "accounting_scope": "through first terminal report write and resource check; final report and manifest flush tails excluded"}
+        cpu_elapsed = None
+        audit_manifest["cpu_measurement_error"] = str(exc)
+    audit_manifest.update({"status": report["status"], "audit_elapsed_seconds": round(guard.elapsed, 6),
+        "combined_generation_and_audit_elapsed_seconds": round(float(generation_manifest.get("generation_elapsed_seconds", 0.0)) + guard.elapsed, 6),
+        "audit_cpu_seconds": cpu_elapsed, "peak_resident_bytes": guard.peak_bytes,
+        "accounting_end_boundary": "post_first_terminal_report_resource_check",
+        "accounting_note": "Final bounded report and manifest flush tails are excluded.",
+        "progress": progress, "error": primary_error, "finalization_errors": finalization_errors})
+    report["resources"] = {"audit_elapsed_seconds": round(guard.elapsed, 6),
+        "combined_generation_and_audit_elapsed_seconds": round(float(generation_manifest.get("generation_elapsed_seconds", 0.0)) + guard.elapsed, 6),
+        "audit_cpu_seconds": cpu_elapsed, "peak_resident_bytes": guard.peak_bytes,
+        "accounting_note": audit_manifest["accounting_note"]}
     atomic_json(report_path, report)
     try:
         guard.check()
-    except (TimeoutError, MemoryError, RuntimeError) as exc:
-        status = "blocked" if remaining <= 0 and isinstance(exc, TimeoutError) else "incomplete"
-        report = {"status": status, "reason": f"{type(exc).__name__}: {exc}", "g2": {
-            "status": "not_assessed", "pass": False, "floor_failures": ["audit_cap_or_resource_error"], "claim": "not assessed"}}
-        audit_manifest["error"] = {"type": type(exc).__name__, "message": str(exc)}
-        atomic_json(report_path, report)
-        audit_manifest["status"] = status
-        audit_manifest["exit_code"] = 1
-    # The boundary follows the first terminal report write and its resource check.
-    # One bounded final report/manifest flush is excluded, matching Task 4b accounting.
-    own_elapsed = guard.elapsed
-    combined = float(generation_manifest.get("generation_elapsed_seconds", 0.0) or 0.0) + own_elapsed
-    report["resources"] = {"audit_elapsed_seconds": round(own_elapsed, 6),
-                            "combined_generation_and_audit_elapsed_seconds": round(combined, 6),
-                            "peak_resident_bytes": guard.peak_bytes,
-                            "accounting_scope": "through first terminal report write and resource check; final report and manifest flush tails excluded"}
-    audit_manifest.update({"status": report["status"], "audit_elapsed_seconds": round(own_elapsed, 6),
-                           "combined_generation_and_audit_elapsed_seconds": round(combined, 6),
-                           "peak_resident_bytes": guard.peak_bytes,
-                           "accounting_end_boundary": "post_first_terminal_report_write_resource_check"})
+    except (MemoryError, RuntimeError, TimeoutError) as exc:
+        finalization_errors.append({"type": type(exc).__name__, "message": str(exc), "phase": "finalization"})
+        if primary_error is None:
+            primary_error = finalization_errors[-1]
+            report["error"] = primary_error
+            report["status"] = "blocked" if remaining <= 0 and isinstance(exc, TimeoutError) else "incomplete"
+            report["g2"] = {"status": "not_assessed", "pass": False,
+                            "floor_failures": ["audit_finalization_cap"], "claim": "not assessed"}
+        report["finalization_errors"] = finalization_errors
+        audit_manifest["finalization_errors"] = finalization_errors
+    report["finalization_errors"] = finalization_errors
+    audit_manifest.update({"status": report["status"], "audit_elapsed_seconds": round(guard.elapsed, 6),
+        "combined_generation_and_audit_elapsed_seconds": round(float(generation_manifest.get("generation_elapsed_seconds", 0.0)) + guard.elapsed, 6),
+        "audit_cpu_seconds": None if cpu_started is None else max(0.0, time.process_time() - cpu_started),
+        "peak_resident_bytes": guard.peak_bytes, "progress": progress,
+        "error": primary_error, "finalization_errors": finalization_errors,
+        "exit_code": 0 if report["status"] == "complete" else 1})
+    report["resources"].update({"audit_elapsed_seconds": round(guard.elapsed, 6),
+        "combined_generation_and_audit_elapsed_seconds": round(float(generation_manifest.get("generation_elapsed_seconds", 0.0)) + guard.elapsed, 6),
+        "peak_resident_bytes": guard.peak_bytes})
     atomic_json(report_path, report)
-    if results_path.exists(): audit_manifest["artifacts"][results_path.name] = {"sha256": sha256_file(results_path), "bytes": results_path.stat().st_size}
-    audit_manifest["artifacts"][report_path.name] = {"sha256": sha256_file(report_path), "bytes": report_path.stat().st_size}
-    audit_manifest["exit_code"] = 0 if report.get("status") == "complete" else 1
+    audit_manifest["artifacts"] = {results_path.name: {"sha256": sha256_file(results_path), "bytes": results_path.stat().st_size},
+                                   report_path.name: {"sha256": sha256_file(report_path), "bytes": report_path.stat().st_size}}
     atomic_json(output, audit_manifest)
     return audit_manifest["exit_code"]
 

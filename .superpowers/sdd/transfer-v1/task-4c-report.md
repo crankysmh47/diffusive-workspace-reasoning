@@ -31,3 +31,27 @@ Exact commands and results in this worktree:
 4. `git diff --check` — exit 0 before final report creation.
 
 No production corpus, long replay, training run, or scientific suitability claim was made. Passing synthetic aggregate fixtures only test the reporting helper; they are not corpus evidence. A future controller must run the audit on complete records from the frozen reviewed generator commit. The report/manifest accounting note excludes the ultimate bounded terminal flush tail, following Task 4b's reviewed boundary.
+
+## Review round 1 follow-up
+
+Date: 2026-10-08. Review base: `14991b18bbefe3485fc88c31b43df2b30e2a5554`.
+
+### Regression evidence
+
+The retained pre-fix behavioral probes in `task-4c-review.md` are the evidence for the original defects: partial producer rows were not validated or measured, an updated artifact hash allowed a wrong partial solution to remain unexamined, a rerun replaced prior audit metadata and rehashed stale results, the audit source was copied from the generator, and six nested-manifest mutations were accepted. The first local regression run against the pre-fix implementation failed because the new tests referenced the not-yet-existing `expected_limits` and `source_identity` hooks (TypeError/missing attribute). That run is recorded only as API/harness RED; it is not claimed as independent behavioral RED evidence.
+
+### Fixes and consumer API
+
+- `run_audit` now validates, measures and replays the bounded prefix of valid records from incomplete generation when budget remains. It streams completed interaction/replay results into `audit_results.jsonl`, persists assessed progress, and retains partial diagnostics through caps/errors. Generation status `COMPLETE` and completed replay remain required for G2. Zero remaining budget still emits blocked/not-assessed without replay; a finalization cap is recorded separately and does not overwrite the primary error.
+- `run_audit` refuses any existing audit output or temporary artifact before creating outputs. It permits one audit per corpus and hashes only outputs created by that invocation.
+- Audit metadata now records executing `source` independently from `generation_source`, `platform`, and `audit_cpu_seconds` (null when unavailable), alongside the existing wall/RSS accounting boundary.
+- `_verify_manifest(data_dir, config=None, expected_limits=None)` strictly validates producer top-level and nested schemas, scalar types, source/config/seed identities, registered limits, partition/profile counters and artifact identities. `expected_limits` is an internal function injection for small producer fixtures; the CLI exposes no limit override and `load_config` remains closed. `replay_outcomes(..., on_row=None)` supports streaming completed replay rows; `compute_metrics(..., validated_infos=..., interaction_results=...)` accepts aligned prefix results so completed measurements are not repeated.
+
+### Verification
+
+- `python -m unittest tests.test_task_audit_review1 tests.test_task_audit -v` — 19 passed in 0.433s, including actual small `run_dataset` incomplete/cap/strict-manifest fixtures and the retained-behavior regressions.
+- `python -m unittest discover -s tests -v` — 67 passed in 0.690s.
+- `python -m dwr.tasks.audit --help` — exit 0; CLI remains `--config` and `--data` only.
+- `git diff --check` — exit 0.
+
+No corpus or training was run. These tests establish controller and consumer-contract behavior only; they do not establish corpus suitability. The final bounded report/manifest flush remains outside the shared wall-time accounting boundary as documented in the original Task 4b contract. No production scientific limits or generation rules changed.
