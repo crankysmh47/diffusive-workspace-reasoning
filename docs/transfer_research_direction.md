@@ -1,6 +1,6 @@
 # Main direction: transferable computation with exchangeable workspaces
 
-Decision date: 2026-10-07. User selected reusable computation across tasks as the main direction. Status: design, no implementation or results. This document specifies the research focus of protocol v2.2; the protocol retains the experimental safeguards. Other directions are parked in [spare_research_ideas.md](spare_research_ideas.md).
+Decision date: 2026-10-07. User selected reusable computation across tasks as the main direction. Status: the CPU task contract and generation/audit infrastructure exist; the first bounded corpus attempt is incomplete and G2 is not assessed. No workspace, model, training, or transfer result exists. This document specifies the research focus of protocol v2.2; the protocol retains the experimental safeguards. Other directions are parked in [spare_research_ideas.md](spare_research_ideas.md). See [task suitability](task_suitability.md) and [execution state](execution_state.md).
 
 ## Central question
 

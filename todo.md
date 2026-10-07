@@ -9,27 +9,30 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 - [x] Add a minimal installable Python package and ignore generated artifacts/secrets.
 - [x] Create the private GitHub repository and push the initial commit.
 
-## 1. Transfer task specification and correctness — next milestone, CPU only
+## 1. Transfer task specification and correctness — completed, CPU only
 
-- [ ] Write `docs/task_spec.md` from the [main direction](docs/transfer_research_direction.md): exact finite-domain primitive semantics, source-task mixture, held-out composition signatures, strict prompt/answer syntax and verifier metric. Candidate primitives are not yet a validated benchmark.
-- [ ] Fix the distinctions among composition, size/depth and cross-family transfer; define development target signatures separately from untouched final target signatures.
-- [ ] Implement board-independent constraint parsing/verifying under `dwr/tasks/`; test malformed assignments, unknown variables, missing/duplicate values, domain violations and every primitive's semantics in `tests/`.
-- [ ] Implement a deterministic reference solver and independent exhaustive tiny-instance oracle; cross-check zero/one/multiple solutions, counting uniqueness only up to two.
-- [ ] Implement seeded generation with source lineage and separate first-solution/uniqueness statistics; test regeneration, annotation exclusion and answer validity.
-- [ ] Record nonzero test discovery and actual results for `python -m unittest discover -s tests -v`. Optional 4×4 Sudoku fixtures must not become a mandatory larger-Sudoku experiment.
+- [x] Write `docs/task_spec.md` from the [main direction](docs/transfer_research_direction.md): exact finite-domain primitive semantics, source-task mixture, held-out composition signatures, strict prompt/answer syntax and verifier metric. The contract is implemented; corpus suitability remains gated.
+- [x] Fix the distinctions among composition, size/depth and cross-family transfer; define development target signatures separately from untouched final target signatures.
+- [x] Implement board-independent constraint parsing/verifying under `dwr/tasks/`; test malformed assignments, unknown variables, missing/duplicate values, domain violations and every primitive's semantics in `tests/`.
+- [x] Implement a deterministic reference solver and independent exhaustive tiny-instance oracle; cross-check zero/one/multiple solutions, counting uniqueness only up to two.
+- [x] Implement seeded generation with source lineage and separate first-solution/uniqueness statistics; unit checks cover deterministic regeneration, annotation exclusion and answer validity. Complete-corpus regeneration remains unverified.
+- [x] Record nonzero test discovery and actual results for `python -m unittest discover -s tests -v`. The fresh suite at the frozen source commit reported 69 passed; optional 4×4 Sudoku fixtures remain optional.
 
-Gate G1: an explicit transfer question, task contract and independent CPU correctness evidence.
+Gate G1: passed for the frozen task contract and CPU correctness implementation. This does not validate corpus suitability or model behavior.
 
 ## 2. Composition suitability and immutable transfer splits
 
-- [ ] Implement and test canonical structure/lineage grouping, including variable renaming and constraint-order changes; define which transformations preserve each primitive's semantics.
-- [ ] Audit source primitive coverage, withheld composition coverage, isomorphic/augmented duplicates and generation lineage intersections in `docs/task_suitability.md`.
-- [ ] Check nontrivial uniquely solvable instances and independent group counts; match or stratify input length, size and solver difficulty across the composition comparison.
-- [ ] Use development data to choose sample/group counts and prospective precision; register an absolute transfer criterion, ID-learning guardrails and a practical EX-IDX effect size.
-- [ ] Freeze source train/validation/ID-test plus composition-transfer validation/test, with distinct development/final composition signatures. Keep size/depth and later cross-family tests separately identified.
-- [ ] Commit small generator/split manifests and hashes under `configs/splits/`; keep generated records in ignored `data/`. Verify regeneration and model-input leakage checks.
+- [x] Implement and test canonical structure/lineage grouping, including variable renaming and constraint-order changes; define which transformations preserve each primitive's semantics.
+- [x] Run the independent audit on the available partial corpus and record assessed versus unassessed dimensions in `docs/task_suitability.md`. The incomplete attempt did not assess held-out composition coverage or G2.
+- [x] Record observed unique-solution examples, independent group counts, structural sensitivity and support diagnostics.
+- [ ] Match or stratify input length, size and solver difficulty across a complete source/target composition comparison.
+- [ ] Use development data to choose sample/group counts and prospective precision; register an absolute transfer criterion, ID-learning guardrails and a practical EX-IDX effect size. No development data were generated.
+- [ ] Freeze source train/validation/ID-test plus composition-transfer validation/test, with distinct development/final composition signatures. Development/final partitions were not attempted.
+- [x] Commit a small manifest of the registered config/source and partial local artifact hashes under `configs/splits/`; generated records remain ignored in `data/`.
+- [x] Verify model-input annotation exclusion and candidate replay on the 185-record partial corpus.
+- [ ] Regenerate a complete corpus and verify its registered hashes; the current run is incomplete and was not retried.
 
-Gate G2: the benchmark genuinely withholds compositions while exposing their primitives. No target-answer tuning or relaxed grouping to fill splits.
+Gate G2: not assessed and not passed. The fixed-size EX/IDX experiment is conditional on a future versioned development-only resolution and a complete passing audit; no target-answer tuning or relaxed grouping is permitted.
 
 ## 3. Run infrastructure and frozen-backbone reference
 

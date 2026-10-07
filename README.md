@@ -2,7 +2,7 @@
 
 Studying whether exchangeable latent workspaces learn reusable computation that transfers to unseen task compositions and structures.
 
-**Status:** Repository bootstrap. The generator, solver, models, training, and evaluation are not implemented yet. No experimental results are claimed.
+**Status:** The finite-domain task contract, CPU verifier/oracle/solver, seeded generator, and independent audit are implemented. The first bounded corpus run is incomplete and G2 is not assessed; no benchmark, model, training, or transfer result is claimed. See [task suitability](docs/task_suitability.md) and [execution state](docs/execution_state.md).
 
 The main question is whether one trained workspace and decoder interface can transfer without task-specific retraining. Exchangeability is the central architectural hypothesis. Variable slot count is a supporting experiment after a fixed-size transfer study; diffusion and other alternatives are parked.
 
@@ -20,7 +20,7 @@ The main question is whether one trained workspace and decoder interface can tra
 
 | Component | Initial scope |
 | --- | --- |
-| Task | Controlled finite-domain constraint compositions; exact grammar and split specification is the next gate; Sudoku is optional fixture work |
+| Task | Controlled finite-domain constraint compositions; implemented grammar and verifier, with suitability still gated; Sudoku remains optional fixture work |
 | Backbone | One frozen 1.5B–2B decoder-only base model; checkpoint selection pending |
 | Workspace | 64 slots, dimension 768, iid Gaussian initialization |
 | Update | `Z_next = Z + F(LN(Z), X)`, shared parameters across steps |
@@ -71,7 +71,7 @@ Keep dataset splits and decoder access matched. Check exchangeable updates for p
 
 Every experiment must capture source/configuration/model/data identities, environment, RNG streams, per-example outcomes, parameter counts and full costs. Confirmatory effects require a preregistered comparison, at least three training seeds, suitable uncertainty analysis and a fixed test-access policy. Preserve failed and negative runs. See the protocol for exact requirements.
 
-**Next action:** specify the primitive grammar, held-out compositions and strict verifier/oracle contract in `docs/task_spec.md`, then implement the CPU task checks. Backbone selection, memory feasibility, sample sizes and numerical study budgets remain open gates; no training is ready to launch.
+**Next action:** design a versioned development-only resolution for the measured source-sensitivity and common-support blockers, while preserving final target definitions and all current outcomes. Do not retry the corpus under altered rules. Workspace/model work remains conditional on a passing G2 audit; training is not ready to launch.
 
 ## Licensing
 

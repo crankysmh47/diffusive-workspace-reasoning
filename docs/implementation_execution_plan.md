@@ -18,8 +18,10 @@ Spec: docs/research_protocol.md and docs/transfer_research_direction.md; Task 1 
 1. Fix task spec, schema/interfaces, composition/source split definitions, initial CPU audit configuration and explicit gate thresholds. No code. Check independent small oracle strategy and nontriviality before fixing generation choices.
 2. Implement immutable task structures/strict serialization/verifier and independent exhaustive oracle with red-green unittest checks.
 3. Implement deterministic CSP reference solver with capped solution counting, first-solution and uniqueness statistics, and oracle comparison tests.
-4. Implement seeded generator, canonical structure/content identities, family-safe development split generation and bounded suitability audit; log source/env/config identities before work, hashes and coverage after work. Preserve failures. Check meaningful nontriviality and absent held-out compositions independently.
-5. Evaluate G1/G2 evidence. If failed, retain no-go and stop architecture work. If passed, inspect ML environment, pin dependencies and implement needed provenance infrastructure/fixed-N EX/IDX components plus CPU gradient/permutation tests; do not claim a frozen-LM end-to-end implementation from tensor components alone.
+4a. Implement canonical content/structure/lineage identities and deterministic candidate generation; test renaming, operand symmetry, RNG streams and hand-traced candidate outcomes.
+4b. Add strict config/provenance/resource handling and bounded generation orchestration, preserving partial artifacts and sharing one global wall-time cap with audit/replay.
+4c. Independently reconstruct records, replay candidate streams, measure source sensitivity and mixed-task necessity, and report structural support. Incomplete generation cannot pass G2.
+5. Review the actual G1/G2 evidence. If G2 fails or is not assessed, retain the no-go and stop architecture work. Only if it passes, inspect the ML environment, pin dependencies and implement needed provenance infrastructure/fixed-N EX/IDX components plus CPU gradient/permutation tests; do not claim a frozen-LM end-to-end implementation from tensor components alone.
 6. Broad review, actual verification, durable execution-state handoff at the first unmet scientific/environment gate. Update TODO only for verified outputs.
 
 ## Review focus

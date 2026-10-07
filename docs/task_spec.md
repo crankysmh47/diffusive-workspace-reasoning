@@ -1,6 +1,6 @@
 # Finite-domain composition task, v1
 
-Status: frozen CPU task contract for implementation and a bounded structural-suitability audit. This is a task-design specification, not a validated benchmark, a confirmatory study, or authorization to train. The audit thresholds below are prospective suitability floors; they do not establish power or a practical effect size.
+Status: frozen CPU task contract, implemented and checked with standard-library correctness tests. A bounded corpus attempt exercised the contract but did not complete; G2 is not assessed and this is not a validated benchmark, confirmatory study, or authorization to train. The audit thresholds below are prospective suitability floors; they do not establish power or a practical effect size. See [the bounded suitability result](task_suitability.md).
 
 ## Question and scope
 
