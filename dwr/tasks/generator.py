@@ -12,6 +12,11 @@ from .oracle import enumerate_solutions
 from .schema import Constraint, ConstraintTask, GivenAssignment, RelationKind, Solution
 from .solver import SolveResult, solve
 
+
+if __name__ == "__main__":
+    from .cli import main
+    raise SystemExit(main())
+
 PARTITIONS = ("source", "development", "final")
 PROFILES = {
     "source": (("eq",), ("neq",), ("add_mod",)),
