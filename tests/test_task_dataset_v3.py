@@ -524,6 +524,63 @@ class DatasetV3Tests(unittest.TestCase):
                                  config=self.config.resolved, mode="feasibility", limits=limits)
             self.assertTrue((out / "terminal_failure.json").exists())
 
+    def test_second_bound_hash_failure_retains_recovered_artifact_identity(self):
+        from dwr.tasks.dataset_v2 import sha256_file as original_hash
+        bound_hash_calls = 0
+        def fail_final_bound_hash(path):
+            nonlocal bound_hash_calls
+            if Path(path).name == "source_capacity_bound.json":
+                bound_hash_calls += 1
+                if bound_hash_calls == 2:
+                    raise OSError("injected finalization bound hash failure")
+            return original_hash(path)
+        with tempfile.TemporaryDirectory() as temp:
+            out = Path(temp) / "run"
+            with patch("dwr.tasks.dataset_v2.sha256_file", side_effect=fail_final_bound_hash):
+                _, limits, source = self._run_small_closed_source(out)
+            import json
+            manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+            bound_path = out / "source_capacity_bound.json"
+            provisional_path = out / "source_capacity_bound_provisional.json"
+            bound_identity = manifest["artifacts"].get("source_capacity_bound.json")
+            provisional_identity = manifest["artifacts"].get("source_capacity_bound_provisional.json")
+            self.assertEqual(bound_identity["sha256"], original_hash(bound_path))
+            self.assertEqual(bound_identity["bytes"], bound_path.stat().st_size)
+            self.assertEqual(provisional_identity["sha256"], original_hash(provisional_path))
+            self.assertEqual(provisional_identity["bytes"], provisional_path.stat().st_size)
+            self.assertEqual(manifest["source_capacity_bound"]["reason"], "operational_error")
+            replay_files_v3(out / "outcomes.jsonl", out / "records.jsonl", self.config,
+                            "feasibility", manifest, limits=limits, allow_partial=True)
+
+    def test_records_hash_failure_retains_repaired_bound_identity(self):
+        from dwr.tasks.dataset_v2 import sha256_file as original_hash
+        failed = False
+        def fail_records_hash(path):
+            nonlocal failed
+            if Path(path).name == "records.jsonl" and not failed:
+                failed = True
+                raise OSError("injected finalization records hash failure")
+            return original_hash(path)
+        with tempfile.TemporaryDirectory() as temp:
+            out = Path(temp) / "run"
+            with patch("dwr.tasks.dataset_v2.sha256_file", side_effect=fail_records_hash):
+                _, limits, source = self._run_small_closed_source(out)
+            import json
+            manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+            bound_path = out / "source_capacity_bound.json"
+            provisional_path = out / "source_capacity_bound_provisional.json"
+            bound_identity = manifest["artifacts"].get("source_capacity_bound.json")
+            provisional_identity = manifest["artifacts"].get("source_capacity_bound_provisional.json")
+            self.assertEqual(bound_identity["sha256"], original_hash(bound_path))
+            self.assertEqual(bound_identity["bytes"], bound_path.stat().st_size)
+            self.assertEqual(provisional_identity["sha256"], original_hash(provisional_path))
+            self.assertEqual(provisional_identity["bytes"], provisional_path.stat().st_size)
+            self.assertEqual(manifest["source_capacity_bound"]["reason"], "operational_error")
+            self.assertNotIn("records.jsonl", manifest["artifacts"])
+            with self.assertRaisesRegex(ValueError, "artifact set is invalid"):
+                replay_files_v3(out / "outcomes.jsonl", out / "records.jsonl", self.config,
+                                "feasibility", manifest, limits=limits, allow_partial=True)
+
     def test_first_ineligible_unique_owns_content_and_later_copy_is_duplicate(self):
         base = generate_candidate_v3(20261007, "source", 1)
         self.assertTrue(base.oracle_unique and base.eligible)

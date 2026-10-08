@@ -512,7 +512,7 @@ def _run_dataset(config: LoadedConfig, outdir: Path, mode: str, argv: list[str],
         manifest["status"] = "incomplete"
         manifest["exit_code"] = 1
 
-    artifacts = {}
+    artifacts = manifest.setdefault("artifacts", {})
     manifest["error"] = primary_error
     if generator_id == "dwr-generator-v3" and mode == "feasibility":
         bound_path = outdir / "source_capacity_bound.json"
