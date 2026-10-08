@@ -36,7 +36,9 @@ The four-cohort common-support proxy has no common cells because its three devel
 
 ## Resource accounting and verification limits
 
-The authoritative terminal audit manifest records 125.985 seconds combined wall time, 125.578125 seconds combined CPU time, and 183,894,016 peak resident bytes. Generation used 47.375 seconds wall / 47.125 seconds CPU and peaked at 25,817,088 bytes. The audit used 78.61 seconds wall / 78.453125 seconds CPU; its terminal combined peak was 183,894,016 bytes. The run stayed within the 600-second and 1-GiB caps. The generation cap, rather than a resource cap, caused the NO-GO.
+The authoritative terminal audit manifest records 125.985 seconds combined wall time, 125.578125 seconds combined CPU time, and 183,894,016 peak resident bytes. Generation used 47.375 seconds wall / 47.125 seconds CPU and peaked at 25,817,088 bytes. The audit used 78.61 seconds wall / 78.453125 seconds CPU; its terminal combined peak was 183,894,016 bytes. The CPU values are genuine recorded values with different timing boundaries: generation CPU omits setup before its timer and artifact hashing/terminal finalization after its timer, while audit CPU includes setup and charged finalization. Thus 125.578125 seconds is a mixed-boundary sum, not whole-command CPU. Whole-command CPU was not measured and cannot be reconstructed from these fields. The run stayed within the 600-second and 1-GiB caps. The generation cap, rather than a resource cap, caused the NO-GO.
+
+The 2026-10-08 reporting correction fixes full-mode source eligibility reporting and future generation CPU timing; it does not regenerate this attempt or alter its artifacts. See [audit and accounting correction](audit_reporting_correction.md).
 
 The controller's fresh `python -m unittest discover -s tests -v` run at the frozen source commit passed 138 tests in 2.250 seconds. This is CPU implementation evidence only. It does not convert the partial generation into a passing suitability audit. No model, training, final corpus, archival backup, or independent reproduction was performed.
 

@@ -8,6 +8,8 @@ The frozen v2 implementation source is `9f08efddb60537c61a89a90325bc9c832c32ca1c
 
 At the frozen source commit, the controller's fresh CPU suite passed 138 tests in 2.250 seconds. This validates implementation checks, not corpus suitability. Exact run metrics and artifact hashes are in [v2 suitability](task_suitability_v2.md) and [the compact feasibility evidence manifest](../configs/splits/constraint-v2-feasibility-nogo.json).
 
+The historical generation CPU value (47.125 seconds) excludes setup before its timer and artifact hashing/terminal finalization after it. The recorded combined CPU value (125.578125 seconds) adds that narrower generation interval to audit CPU measured across a broader boundary; whole-command CPU was unavailable and cannot be reconstructed. These annotations preserve the recorded values and artifact identities. The bounded code correction is recorded in [audit and accounting correction](audit_reporting_correction.md); it does not rerun or replace the preserved NO-GO attempt.
+
 The four-cohort support proxy has no common cells because development-validation data were not generated. That is unavailable evidence; it does not establish target mismatch or zero target yield. Preserve the attempt and proceed only with a prospective, versioned development-only design for bounded source-generation yield/quota feasibility, followed by the composition-support question. No arbitrary rerun is authorized by this result. G2, fixed-size EX/IDX implementation, model selection, and training remain blocked.
 
 ## Durable v2 decisions — 2026-10-08

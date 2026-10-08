@@ -52,6 +52,7 @@
     "combined_cpu_seconds": 125.578125,
     "combined_peak_resident_bytes": 183894016
   },
+  "historical_cpu_boundary_note": "The recorded 47.125 generation CPU seconds omit setup before the timer and artifact hashing/terminal finalization after it. The 125.578125 combined CPU seconds sum that narrower generation interval with audit CPU measured across a broader boundary. Whole-command CPU was unavailable and cannot be reconstructed; all recorded values and artifact hashes remain unchanged.",
   "artifacts": {
     "data/constraint-v2-feasibility-20261008T062621Z/manifest.json": {
       "bytes": 11909,
