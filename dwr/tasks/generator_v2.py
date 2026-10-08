@@ -138,8 +138,12 @@ class CandidateOutcome:
     solver_result: SolveResult | None
     rejection_reason: str | None
     private_evidence: CandidatePrivateEvidence | None
+    generator_id: str = "dwr-generator-v2"
 
     def __post_init__(self) -> None:
+        if type(self.generator_id) is not str or self.generator_id not in (
+                "dwr-generator-v2", "dwr-generator-v3"):
+            raise ValueError("generator_id must be a registered generator identity")
         if type(self.partition) is not str:
             raise TypeError("partition must be a string")
         _validate(self.partition, self.candidate_index, 0)
@@ -152,6 +156,9 @@ class CandidateOutcome:
         CandidateHeader(self.n, self.profile)
         if self.profile not in PROFILES[self.partition]:
             raise ValueError("profile is not registered for candidate partition")
+        if self.generator_id == "dwr-generator-v3" and self.partition == "source" and self.profile == ("neq",):
+            if not 4 <= self.n <= 6:
+                raise ValueError("v3 source neq candidates require n from 4 through 6")
         if self.task is not None and type(self.task) is not ConstraintTask:
             raise TypeError("task must be ConstraintTask or None")
         if self.witness is not None and type(self.witness) is not Solution:
@@ -164,8 +171,16 @@ class CandidateOutcome:
             raise TypeError("private_evidence must be CandidatePrivateEvidence or None")
         if self.rejection_reason is not None and type(self.rejection_reason) is not str:
             raise TypeError("rejection_reason must be a string or None")
-        if self.rejection_reason not in (None, "profile_quota_full", "no_witness_feasible_constraint_set", "oracle_non_unique"):
-            raise ValueError("unknown v2 candidate rejection reason")
+        v2_reasons = (None, "profile_quota_full", "no_witness_feasible_constraint_set", "oracle_non_unique")
+        v3_reasons = (None, "no_witness_feasible_constraint_set", "oracle_non_unique",
+                      "no_neq_witness", "no_feasible_neq_constraint_total")
+        accepted_reasons = v2_reasons if self.generator_id == "dwr-generator-v2" else v3_reasons
+        if self.rejection_reason not in accepted_reasons:
+            raise ValueError("candidate rejection reason is not registered for generator identity")
+        if self.rejection_reason in ("no_neq_witness", "no_feasible_neq_constraint_total") and (
+                self.generator_id != "dwr-generator-v3" or self.partition != "source" or
+                self.profile != ("neq",)):
+            raise ValueError("source neq proposal reasons require the v3 source neq stream")
         task_payload = (self.task, self.witness, self.solution, self.solver_result, self.private_evidence)
         if self.rejection_reason == "profile_quota_full":
             if any(value is not None for value in task_payload):
@@ -174,6 +189,13 @@ class CandidateOutcome:
             if self.witness is None or any(value is not None for value in
                     (self.task, self.solution, self.solver_result, self.private_evidence)):
                 raise ValueError("no-feasible-vector outcomes require only the sampled witness")
+        elif self.rejection_reason == "no_neq_witness":
+            if any(value is not None for value in task_payload):
+                raise ValueError("no-neq-witness outcomes cannot contain candidate work")
+        elif self.rejection_reason == "no_feasible_neq_constraint_total":
+            if self.witness is None or any(value is not None for value in
+                    (self.task, self.solution, self.solver_result, self.private_evidence)):
+                raise ValueError("no-feasible-neq-total outcomes require only the sampled witness")
         elif self.rejection_reason == "oracle_non_unique":
             if self.task is None or self.witness is None or any(value is not None for value in
                     (self.solution, self.solver_result, self.private_evidence)):
@@ -345,6 +367,56 @@ def _mixed_primary_eligibility(task: ConstraintTask) -> MixedEligibilityEvidence
     return MixedEligibilityEvidence(kinds, kind_counts, connected, graph_kinds, all_in_graph, eligible, reason)
 
 
+def _finish_candidate(partition: str, candidate_index: int, n: int, profile: tuple[str, ...],
+                      witness: Solution, task: ConstraintTask, *,
+                      generator_id: str = "dwr-generator-v2") -> CandidateOutcome:
+    """Apply the shared oracle, solver, and private-evidence contract to a proposal."""
+    oracle = enumerate_solutions(task)
+    if not oracle.solutions:
+        raise RuntimeError("witness-first generation produced a task that rejects its witness")
+    if len(oracle.solutions) != 1:
+        return CandidateOutcome(partition, candidate_index, n, profile, task, witness,
+                                None, None, "oracle_non_unique", None, generator_id)
+    solver_result = solve(task)
+    if solver_result.solution != oracle.solutions[0]:
+        raise RuntimeError("solver and independent oracle disagree on accepted candidate")
+    source_evidence = _source_sensitive(task) if partition == "source" else None
+    mixed_evidence = _mixed_primary_eligibility(task) if partition != "source" else None
+    evidence = CandidatePrivateEvidence(True, source_evidence, mixed_evidence)
+    return CandidateOutcome(partition, candidate_index, n, profile, task, witness,
+                            oracle.solutions[0], solver_result, None, evidence, generator_id)
+
+
+def _propose_from_v2_witness(rng: random.Random, partition: str, candidate_index: int,
+                             n: int, profile: tuple[str, ...], witness: Solution, *,
+                             generator_id: str = "dwr-generator-v2") -> CandidateOutcome:
+    """Continue the frozen v2 proposal after its witness draw; also used by v3 non-neq tasks."""
+    names = tuple(f"v{i}" for i in range(n))
+    witness_values = dict(witness.assignments)
+    pools = tuple(_witness_satisfied_tuples(n, kind, witness_values) for kind in KIND_ORDER)
+    capacities = tuple(len(pool) if kind.value in profile else 0 for kind, pool in zip(KIND_ORDER, pools))
+    feasible = tuple((total, tuple(_count_vectors(profile, capacities, total)))
+                     for total in range(2, 9))
+    feasible = tuple((total, vectors) for total, vectors in feasible if vectors)
+    if not feasible:
+        return CandidateOutcome(partition, candidate_index, n, profile, None, witness,
+                                None, None, "no_witness_feasible_constraint_set", None, generator_id)
+    total, vectors = rng.choice(feasible)
+    counts = rng.choice(vectors)
+    constraints: list[Constraint] = []
+    for index, kind in enumerate(KIND_ORDER):
+        if counts[index]:
+            constraints.extend(Constraint(kind, operands)
+                               for operands in rng.sample(pools[index], counts[index]))
+    constraints.sort(key=canonical_constraint_key)
+    given_count = rng.randint(1, n - 2)
+    given_variables = tuple(sorted(rng.sample(names, given_count)))
+    givens = tuple(GivenAssignment(variable, witness_values[variable]) for variable in given_variables)
+    task = ConstraintTask("constraint-task-v1", 3, names, tuple(constraints), givens)
+    return _finish_candidate(partition, candidate_index, n, profile, witness, task,
+                             generator_id=generator_id)
+
+
 def generate_candidate(root_seed: int, partition: str, candidate_index: int, *,
                        full_profiles: frozenset[tuple[str, ...]] = frozenset()) -> CandidateOutcome:
     """Generate one stateless candidate; corpus deduplication belongs to orchestration."""
@@ -358,8 +430,8 @@ def generate_candidate(root_seed: int, partition: str, candidate_index: int, *,
     def rejected(reason: str | None, witness: Solution | None, task: ConstraintTask | None = None,
                  solution: Solution | None = None, solver_result: SolveResult | None = None,
                  evidence: CandidatePrivateEvidence | None = None) -> CandidateOutcome:
-        return CandidateOutcome(partition, candidate_index, n, profile, task, witness,
-                                solution, solver_result, reason, evidence)
+        return CandidateOutcome(partition, candidate_index, n, profile, task,
+                                witness, solution, solver_result, reason, evidence)
 
     if profile in full_profiles:
         # The candidate index and n/profile header are consumed; no witness draw occurs.
@@ -367,35 +439,4 @@ def generate_candidate(root_seed: int, partition: str, candidate_index: int, *,
 
     names = tuple(f"v{i}" for i in range(n))
     witness = Solution(tuple((name, rng.randrange(3)) for name in names))
-    witness_values = dict(witness.assignments)
-    pools = tuple(_witness_satisfied_tuples(n, kind, witness_values) for kind in KIND_ORDER)
-    capacities = tuple(len(pool) if kind.value in profile else 0 for kind, pool in zip(KIND_ORDER, pools))
-    feasible = tuple((total, tuple(_count_vectors(profile, capacities, total)))
-                     for total in range(2, 9))
-    feasible = tuple((total, vectors) for total, vectors in feasible if vectors)
-    if not feasible:
-        return rejected("no_witness_feasible_constraint_set", witness)
-    total, vectors = rng.choice(feasible)
-    counts = rng.choice(vectors)
-    constraints: list[Constraint] = []
-    for index, kind in enumerate(KIND_ORDER):
-        if counts[index]:
-            constraints.extend(Constraint(kind, operands)
-                               for operands in rng.sample(pools[index], counts[index]))
-    constraints.sort(key=canonical_constraint_key)
-    given_count = rng.randint(1, n - 2)
-    given_variables = tuple(sorted(rng.sample(names, given_count)))
-    givens = tuple(GivenAssignment(variable, witness_values[variable]) for variable in given_variables)
-    task = ConstraintTask("constraint-task-v1", 3, names, tuple(constraints), givens)
-    oracle = enumerate_solutions(task)
-    if not oracle.solutions:
-        raise RuntimeError("witness-first generation produced a task that rejects its witness")
-    if len(oracle.solutions) != 1:
-        return rejected("oracle_non_unique", witness, task)
-    solver_result = solve(task)
-    if solver_result.solution != oracle.solutions[0]:
-        raise RuntimeError("solver and independent oracle disagree on accepted candidate")
-    source_evidence = _source_sensitive(task) if partition == "source" else None
-    mixed_evidence = _mixed_primary_eligibility(task) if partition != "source" else None
-    evidence = CandidatePrivateEvidence(True, source_evidence, mixed_evidence)
-    return rejected(None, witness, task, oracle.solutions[0], solver_result, evidence)
+    return _propose_from_v2_witness(rng, partition, candidate_index, n, profile, witness)

@@ -72,6 +72,17 @@ class CandidateGeneratorV2Tests(unittest.TestCase):
         self.assertEqual(tuple(item.variables for item in outcome.task.constraints), expected_constraints)
         self.assertEqual(tuple(item.variable for item in outcome.task.givens), expected_given_variables)
 
+    def test_v2_post_refactor_candidate_bytes_and_default_identity_are_unchanged(self):
+        outcome = generate_candidate(20261007, "source", 5)
+        self.assertEqual(outcome.generator_id, "dwr-generator-v2")
+        self.assertEqual((outcome.n, outcome.profile, outcome.rejection_reason),
+                         (5, ("add_mod",), None))
+        self.assertEqual(outcome.witness.assignments,
+                         (("v0", 1), ("v1", 1), ("v2", 1), ("v3", 0), ("v4", 1)))
+        self.assertEqual(serialize_task(outcome.task),
+            '{"constraints":[{"kind":"add_mod","variables":["v0","v3","v1"]},{"kind":"add_mod","variables":["v0","v3","v4"]},{"kind":"add_mod","variables":["v2","v3","v1"]},{"kind":"add_mod","variables":["v2","v3","v4"]},{"kind":"add_mod","variables":["v3","v4","v1"]}],"givens":[{"value":1,"variable":"v4"}],"modulus":3,"schema_version":"constraint-task-v1","variables":["v0","v1","v2","v3","v4"]}')
+        self.assertEqual(outcome.private_evidence.source.removal_solution_counts, (1, 1, 1, 1, 3))
+
     def test_no_witness_feasible_count_vector_is_a_rejection(self):
         self.assertEqual(tuple(_count_vectors(("eq", "neq"), (0, 0, 0), 2)), ())
         self.assertEqual(tuple(_count_vectors(("eq", "neq"), (1, 1, 0), 3)), ())
@@ -222,6 +233,13 @@ class CandidateGeneratorV2Tests(unittest.TestCase):
             replace(unique, rejection_reason="profile_quota_full")
         with self.assertRaises((TypeError, ValueError)):
             replace(unique, rejection_reason="no_witness_feasible_constraint_set")
+
+    def test_candidate_outcome_accepts_closed_v3_no_neq_witness_payload(self):
+        outcome = generate_candidate(20261007, "source", 1)
+        candidate = replace(outcome, task=None, witness=None, solution=None,
+                            solver_result=None, private_evidence=None,
+                            rejection_reason="no_neq_witness", generator_id="dwr-generator-v3")
+        self.assertEqual(candidate.rejection_reason, "no_neq_witness")
 
     def test_unique_ineligible_candidates_remain_nonterminal_and_consistent(self):
         outcome = generate_candidate(42, "source", 5)

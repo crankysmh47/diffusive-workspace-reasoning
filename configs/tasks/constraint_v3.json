@@ -1,0 +1,428 @@
+{
+  "config_version": "constraint-generation-v3",
+  "task_schema_version": "constraint-task-v1",
+  "seed": 20261007,
+  "seed_derivation": "sha256-prefix64-v3",
+  "rng": {
+    "implementation": "random.Random",
+    "initialization": "rng=random.Random(); rng.seed(stream_seed, version=2)",
+    "version": 2,
+    "seed_material": "dwr-generator-v3-domain+0x00+root-seed-u64be+0x00+partition-ascii+0x00+candidate-index-u64be",
+    "runtime": [
+      "3.11",
+      "3.12"
+    ],
+    "module_global_allowed": false
+  },
+  "grammar": {
+    "modulus": 3,
+    "domain": [
+      0,
+      1,
+      2
+    ],
+    "variable_count": [
+      3,
+      6
+    ],
+    "variable_names": "v0-through-v(n-1)",
+    "relation_kinds": [
+      "eq",
+      "neq",
+      "add_mod"
+    ],
+    "constraint_count": [
+      2,
+      8
+    ],
+    "given_count": [
+      1,
+      "n_minus_2"
+    ],
+    "distinct_operands": true,
+    "duplicate_constraint_policy": "reject-after-operand-symmetry-normalization",
+    "value_relabeling_symmetry": false
+  },
+  "composition_partition": {
+    "assignment": "set-of-relation-kinds-v1",
+    "source": [
+      [
+        "eq"
+      ],
+      [
+        "neq"
+      ],
+      [
+        "add_mod"
+      ]
+    ],
+    "development_targets": [
+      [
+        "eq",
+        "neq"
+      ],
+      [
+        "eq",
+        "add_mod"
+      ],
+      [
+        "neq",
+        "add_mod"
+      ]
+    ],
+    "final_targets": [
+      [
+        "eq",
+        "neq",
+        "add_mod"
+      ]
+    ],
+    "candidate_partition_tokens": {
+      "source": "source",
+      "development_targets": "development",
+      "final_targets": "final"
+    },
+    "source_id_buckets": {
+      "algorithm": "sha256-canonical-content-bucket-v1",
+      "train": 80,
+      "validation": 10,
+      "test": 10
+    },
+    "source_primitive_coverage": "each-kind-at-least-one-source-train-group",
+    "record_split_names": [
+      "source_train",
+      "source_validation",
+      "source_test",
+      "development_validation",
+      "development_diagnostic_test",
+      "final_test"
+    ],
+    "development_target_split": {
+      "algorithm": "sha256-structure-signature-bucket-v1",
+      "validation": 80,
+      "diagnostic_test": 20,
+      "validation_split_name": "development_validation",
+      "diagnostic_split_name": "development_diagnostic_test",
+      "min_validation_groups": 80,
+      "min_diagnostic_test_groups": 20,
+      "min_validation_groups_per_profile": 20,
+      "min_diagnostic_test_groups_per_profile": 5
+    },
+    "development_target_use": [
+      "development_validation"
+    ],
+    "development_diagnostic_test_use": "report-only-no-choice-input",
+    "final_target_use": [
+      "structural-audit",
+      "untouched-test"
+    ],
+    "lineage_and_content_group_split_closure": true,
+    "source_id_hash_domain": "dwr-id-split-v1",
+    "development_hash_domain": "dwr-dev-split-v1",
+    "hash_domain_separator_hex": "00"
+  },
+  "generation": {
+    "candidate_index_start": 0,
+    "partition_tokens_order": [
+      "source",
+      "development",
+      "final"
+    ],
+    "candidate_order": "candidate-index-ascending",
+    "candidate_rng_domain": "dwr-generator-v3",
+    "seed_derivation": "sha256-prefix64-v3",
+    "n_sampling": "uniform-inclusive",
+    "profile_schedule_source": [
+      "eq",
+      "neq",
+      "add_mod"
+    ],
+    "profile_schedule_development": [
+      [
+        "eq",
+        "neq"
+      ],
+      [
+        "eq",
+        "add_mod"
+      ],
+      [
+        "neq",
+        "add_mod"
+      ]
+    ],
+    "profile_schedule_final": [
+      [
+        "eq",
+        "neq",
+        "add_mod"
+      ]
+    ],
+    "witness_sampling": "independent-uniform-domain-values",
+    "witness_draw_order": "v0-through-v(n-1)-before-constraint-enumeration",
+    "constraint_tuple_pool": "normalized-v1-operands-satisfied-by-private-witness",
+    "constraint_total_sampling": "uniform-among-feasible-totals-2-through-8",
+    "constraint_count_vector_order": "ascending-lexicographic-in-kind-order",
+    "constraint_count_vector_sampling": "uniform-among-feasible-vectors-for-selected-total",
+    "constraint_sampling": "uniform-without-replacement-per-kind-in-kind-order",
+    "kind_order": [
+      "eq",
+      "neq",
+      "add_mod"
+    ],
+    "given_count_sampling": "uniform-inclusive-from-1-through-n-minus-2",
+    "given_variable_sampling": "uniform-distinct-from-ordered-variables-then-sorted",
+    "uniqueness_acceptance": "independent-exhaustive-oracle-solution-count-equals-one",
+    "solver_agreement": "deterministic-solver-solution-must-equal-unique-oracle-solution-or-fail",
+    "private_eligibility": "source-single-constraint-sensitivity; mixed-kind-necessity-then-unknown-factor-connectivity",
+    "eligibility_outcome": "returned-as-private-evidence-without-run-wide-seen-set-or-deduplication",
+    "max_attempts_per_partition": 30000,
+    "mode_quotas": {
+      "feasibility": {
+        "source_by_profile": {
+          "eq": 334,
+          "neq": 333,
+          "add_mod": 333
+        },
+        "development_validation_by_profile": {
+          "eq/neq": 100,
+          "eq/add_mod": 100,
+          "neq/add_mod": 100
+        },
+        "final": 0
+      },
+      "full": {
+        "source_by_profile": {
+          "eq": 334,
+          "neq": 333,
+          "add_mod": 333
+        },
+        "development_by_profile": {
+          "eq/neq": 600,
+          "eq/add_mod": 600,
+          "neq/add_mod": 600
+        },
+        "final_by_profile": {
+          "eq/neq/add_mod": 600
+        }
+      }
+    },
+    "mode_caps": {
+      "feasibility": {
+        "active_seconds_generation_plus_audit": 600,
+        "cpu_workers": 1,
+        "resident_memory_mib": 1024
+      },
+      "full": {
+        "active_seconds_generation_plus_audit": 600,
+        "cpu_workers": 1,
+        "resident_memory_mib": 1024
+      }
+    },
+    "profile_selection": {
+      "algorithm": "active-registered-order-minus-full-mod-index-before-n-v1",
+      "empty_active_behavior": "raise-value-error-before-rng"
+    },
+    "source_neq_v3": {
+      "n_min": 4,
+      "n_max": 6,
+      "given_min": 2,
+      "given_max": "n_minus_2",
+      "witness_order": "lexicographic-product-values-0-1-2",
+      "require_all_three_values": true,
+      "min_distinct_given_values": 2,
+      "witness_selection": "uniform-rng-choice",
+      "tuple_pool": "normalized-v1-neq-satisfied-by-witness-touching-unknown",
+      "min_constraint_count": "2*(n-g)",
+      "max_constraint_count": "min(8,pool_capacity)",
+      "constraint_total_sampling": "uniform-inclusive",
+      "tuple_sampling": "uniform-without-replacement",
+      "empty_witness_reason": "no_neq_witness",
+      "empty_total_reason": "no_feasible_neq_constraint_total"
+    },
+    "feasibility_source_support_capacity_bound": {
+      "enabled": true,
+      "top_k_cells": 10,
+      "minimum_source_train_mass": 0.8,
+      "source_cohort": "accepted-eligible-unique-source_train",
+      "cell_helper": "dwr.tasks.audit._cell",
+      "requires_source_quota_closure": true,
+      "requires_source_prefix_replay": true,
+      "target_attempts_at_boundary": 0
+    }
+  },
+  "solver": {
+    "variable_order": "v0-through-v(n-1)",
+    "value_order": [
+      0,
+      1,
+      2
+    ],
+    "constraint_order": "canonical-serialized-order",
+    "first_solution_pass": "depth-first-stop-at-first-or-exhaustion",
+    "uniqueness_pass": "restart-depth-first-stop-at-second-or-exhaustion",
+    "uniqueness_solution_count_cap": 2,
+    "partial_consistency": "reject-only-if-all-operands-assigned-and-formula-false",
+    "domain_propagation_or_lookahead": false,
+    "check_fully_grounded_given_constraints_before_dfs": true,
+    "contradictory_given_constraints_node_counts": 0,
+    "root_counted_once_per_pass_if_consistent": true,
+    "node_count": "consistent-partial-assignment-dfs-invocation-including-root-and-leaf"
+  },
+  "oracle": {
+    "assignment_order": "lexicographic-cartesian-product-v0-through-v(n-1)-values-0-1-2",
+    "enumerate_all": true,
+    "max_assignments": 729,
+    "primitive_evaluation": "inline-mathematical-formulas-independent-of-solver-verifier-generator"
+  },
+  "canonicalization": {
+    "algorithm": "exhaustive-variable-permutations-v1",
+    "content_domain": "dwr-content-v1",
+    "structure_domain": "dwr-structure-v1",
+    "domain_separator_hex": "00",
+    "constraint_order_invariant": true,
+    "variable_renaming_invariant": true,
+    "given_values_in_content_id": true,
+    "given_values_in_structure_signature": false,
+    "anchor_positions_in_structure_signature": true,
+    "actual_operand_symmetries_only": true
+  },
+  "audit_gate": {
+    "min_accepted_groups_per_partition": 100,
+    "min_structure_signatures_per_partition": 12,
+    "source_id_groups_min": {
+      "train": 100,
+      "validation": 20,
+      "test": 20
+    },
+    "source_train_min_structure_signatures": 12,
+    "source_train_min_groups_per_primitive": 1,
+    "min_solution_value_fraction_each_partition": 0.1,
+    "min_distinct_given_counts_per_partition": 2,
+    "min_source_constraint_sensitive_fraction": 0.25,
+    "min_source_sensitive_examples_per_signature": 1,
+    "min_primary_eligible_groups_per_mixed_profile": 100,
+    "min_primary_eligible_structure_signatures_per_mixed_profile": 12,
+    "min_primary_eligible_fraction_per_mixed_partition": 0.25,
+    "min_primary_eligible_examples_per_heldout_signature": 1,
+    "mixed_primary_eligibility": {
+      "remove_all_constraints_of_each_present_kind": true,
+      "solution_count_must_increase_from_one_to_at_least_two": true,
+      "require_connected_unassigned_variable_constraint_factor_graph": true,
+      "every_present_kind_must_appear_in_connected_graph": true
+    },
+    "development_target_min_groups": {
+      "development_validation": 80,
+      "development_diagnostic_test": 20
+    },
+    "prompt_byte_bins": [
+      0,
+      511,
+      639,
+      767,
+      1023,
+      "infinity"
+    ],
+    "first_solution_node_bins": [
+      [
+        1,
+        1
+      ],
+      [
+        2,
+        3
+      ],
+      [
+        4,
+        7
+      ],
+      [
+        8,
+        15
+      ],
+      [
+        16,
+        31
+      ],
+      [
+        32,
+        63
+      ],
+      [
+        64,
+        "infinity"
+      ]
+    ],
+    "common_support": {
+      "cell_dimensions": [
+        "n",
+        "given_count",
+        "constraint_count",
+        "prompt_byte_bin",
+        "first_solution_node_bin"
+      ],
+      "cohorts": [
+        "source_id_test_all_groups",
+        "development_validation_eq_neq_primary_eligible",
+        "development_validation_eq_add_mod_primary_eligible",
+        "development_validation_neq_add_mod_primary_eligible",
+        "final_test_eq_neq_add_mod_primary_eligible"
+      ],
+      "development_diagnostic_test_included": false,
+      "ineligible_mixed_target_groups_count_toward_support": false,
+      "target_denominator": "primary-eligible-unique-content-groups-only",
+      "source_id_test_denominator": "all-source-id-test-content-groups",
+      "min_groups_per_cell_per_cohort": 10,
+      "min_group_fraction_per_cohort_in_common_cells": 0.8,
+      "failure_blocks_model_comparison": true
+    },
+    "report_strata": [
+      "n",
+      "given_count",
+      "constraint_count",
+      "model_input_utf8_bytes",
+      "first_solution_nodes"
+    ],
+    "require_unique_solution": true,
+    "require_two_or_more_unassigned": true,
+    "require_deterministic_replay": true,
+    "require_model_input_annotation_exclusion": true,
+    "cap_wall_seconds": 600,
+    "cpu_workers": 1,
+    "cap_resident_memory_mib": 1024,
+    "cap_behavior": "stop-preserve-partial-mark-incomplete-no-rule-relaxation"
+  },
+  "artifacts": {
+    "encoding": "utf-8-no-bom",
+    "task_records": "outside-git",
+    "model_input_projection_separately_hashed": true,
+    "per_example_outcomes": true,
+    "aggregate_report": "docs/task_suitability.md",
+    "small_hash_manifest_versioned": true
+  },
+  "provenance": {
+    "date": "2026-10-08",
+    "status": "prospective-v3-registered-generation-proposal",
+    "source_spec": "docs/task_spec_v3.md",
+    "generation_changes": [
+      "witness-first tuple sampling",
+      "active registered-order profile assignment before n",
+      "symmetry-aware source neq witness and tuple proposal",
+      "feasibility source-train top-ten support capacity bound",
+      "private source sensitivity and mixed primary eligibility"
+    ],
+    "frozen_contract_sections": [
+      "grammar",
+      "composition_partition",
+      "solver",
+      "oracle",
+      "canonicalization",
+      "audit_gate"
+    ],
+    "eligibility_reason_precedence": [
+      "mixed_kind_not_necessary",
+      "mixed_unknown_factor_disconnected"
+    ],
+    "candidate_seed_derivation": "sha256-prefix64-v3"
+  }
+}
