@@ -836,6 +836,111 @@ def validate_preflight_v3(path: Path | None, config: LoadedConfig, source: dict,
         not math.isclose(top_count / bound["source_train_group_count"], bound["top_k_mass"],
                          rel_tol=0.0, abs_tol=1e-12)):
         raise ValueError("v3 preflight source capacity histogram does not reconcile")
+    # The source-prefix report is already linked by the generation manifest and the
+    # capacity proof. Read it under this same live guard and independently reconstruct
+    # its closed identity from the hashed context and the exact stream prefix bytes.
+    prefix_link = generation.get("source_prefix")
+    prefix_fields = {"context_file", "context_sha256", "replay_file", "replay_sha256"}
+    if (type(prefix_link) is not dict or set(prefix_link) != prefix_fields or
+        prefix_link.get("context_file") != "source_prefix_context.json" or
+        prefix_link.get("replay_file") != "source_prefix_replay.json" or
+        prefix_link.get("context_sha256") != artifacts["source_prefix_context.json"]["sha256"] or
+        prefix_link.get("replay_sha256") != artifacts["source_prefix_replay.json"]["sha256"] or
+        bound["source_prefix_replay_sha256"] != prefix_link.get("replay_sha256")):
+        raise ValueError("v3 preflight source-prefix generation linkage is malformed")
+    context_path = generation_dir / prefix_link["context_file"]
+    replay_path = generation_dir / prefix_link["replay_file"]
+    check(); prefix_context = strict_json_loads(context_path.read_text(encoding="utf-8")); check()
+    check(); prefix_replay = strict_json_loads(replay_path.read_text(encoding="utf-8")); check()
+    context_fields = {"context_version", "generator_id", "config_version", "config_sha256", "source",
+        "producer", "mode", "source_attempts", "source_outcome_prefix_bytes",
+        "source_outcome_prefix_sha256", "source_accepted_record_count", "source_record_prefix_bytes",
+        "source_record_prefix_sha256", "source_quota_targets", "source_quota_counts",
+        "source_quota_closed", "development_attempts", "final_attempts"}
+    if type(prefix_context) is not dict or set(prefix_context) != context_fields:
+        raise ValueError("v3 preflight source-prefix context has unknown or missing fields")
+    expected_generation_producer = _producer_identity("dwr-generator-v3")
+    if (prefix_context["context_version"] != "dwr-task-v3-source-prefix-context-v1" or
+        prefix_context["generator_id"] != contract.generator_id or
+        prefix_context["config_version"] != contract.config_version or
+        prefix_context["config_sha256"] != config.sha256 or
+        not _same_typed(prefix_context["source"], source) or
+        not _same_typed(prefix_context["producer"], generation.get("producer")) or
+        not _same_typed(generation.get("producer"), expected_generation_producer) or
+        prefix_context["mode"] != "feasibility" or
+        type(prefix_context["source_quota_closed"]) is not bool or
+        prefix_context["source_quota_closed"] is not True or
+        type(prefix_context["source_attempts"]) is not int or prefix_context["source_attempts"] <= 0 or
+        type(prefix_context["source_accepted_record_count"]) is not int or
+        prefix_context["source_accepted_record_count"] < 0 or
+        type(prefix_context["development_attempts"]) is not int or prefix_context["development_attempts"] != 0 or
+        type(prefix_context["final_attempts"]) is not int or prefix_context["final_attempts"] != 0):
+        raise ValueError("v3 preflight source-prefix context identity or counts mismatch")
+    quota_names = {"eq", "neq", "add_mod"}
+    for name in ("source_quota_targets", "source_quota_counts"):
+        value = prefix_context[name]
+        if (type(value) is not dict or set(value) != quota_names or
+            any(type(count) is not int or count < 0 for count in value.values())):
+            raise ValueError("v3 preflight source-prefix quota counts are malformed")
+    if (not _same_typed(prefix_context["source_quota_targets"], prefix_context["source_quota_counts"]) or
+        sum(prefix_context["source_quota_counts"].values()) != prefix_context["source_accepted_record_count"]):
+        raise ValueError("v3 preflight source-prefix quota closure does not reconcile")
+    prefix_numeric = ("source_outcome_prefix_bytes", "source_record_prefix_bytes")
+    prefix_hashes = ("source_outcome_prefix_sha256", "source_record_prefix_sha256")
+    if (any(type(prefix_context[name]) is not int or prefix_context[name] < 0 for name in prefix_numeric) or
+        any(type(prefix_context[name]) is not str or len(prefix_context[name]) != 64 or
+            any(char not in "0123456789abcdef" for char in prefix_context[name]) for name in prefix_hashes) or
+        type(prefix_context["producer"]) is not dict or
+        set(prefix_context["producer"]) != set(contract.generation_producer_fields) or
+        any(type(value) is not str or len(value) != 64 or
+            any(char not in "0123456789abcdef" for char in value)
+            for value in prefix_context["producer"].values())):
+        raise ValueError("v3 preflight source-prefix hashes or producer are malformed")
+    prefix_rows = {}
+    for stream_name, length_key, hash_key in (
+        ("outcomes.jsonl", "source_outcome_prefix_bytes", "source_outcome_prefix_sha256"),
+        ("records.jsonl", "source_record_prefix_bytes", "source_record_prefix_sha256")):
+        digest = hashlib.sha256()
+        consumed = 0
+        newline_count = 0
+        with (generation_dir / stream_name).open("rb") as stream:
+            while consumed < prefix_context[length_key]:
+                check()
+                chunk = stream.read(min(1024 * 1024, prefix_context[length_key] - consumed))
+                if not chunk:
+                    break
+                digest.update(chunk)
+                newline_count += chunk.count(b"\n")
+                consumed += len(chunk)
+        check()
+        if (consumed != prefix_context[length_key] or
+            digest.hexdigest() != prefix_context[hash_key]):
+            raise ValueError("v3 preflight source-prefix bytes do not match their context hashes")
+        prefix_rows[stream_name] = newline_count
+    if (prefix_rows["outcomes.jsonl"] != prefix_context["source_attempts"] or
+        prefix_rows["records.jsonl"] != prefix_context["source_accepted_record_count"]):
+        raise ValueError("v3 preflight source-prefix counts do not match their byte prefixes")
+    expected_prefix_replay = {
+        "replay_version": "dwr-task-v3-source-prefix-replay-v1",
+        "status": "PASS_SOURCE_CLOSURE",
+        "context_sha256": prefix_link["context_sha256"],
+        "generator_id": contract.generator_id,
+        "config_sha256": config.sha256,
+        "source": source,
+        "producer": expected_generation_producer,
+        "source_attempts": prefix_context["source_attempts"],
+        "source_accepted_record_count": prefix_context["source_accepted_record_count"],
+        "source_quota_counts": prefix_context["source_quota_counts"],
+        "source_quota_closed": True,
+        "development_attempts": 0,
+        "final_attempts": 0,
+        "source_outcome_prefix_bytes": prefix_context["source_outcome_prefix_bytes"],
+        "source_outcome_prefix_sha256": prefix_context["source_outcome_prefix_sha256"],
+        "source_record_prefix_bytes": prefix_context["source_record_prefix_bytes"],
+        "source_record_prefix_sha256": prefix_context["source_record_prefix_sha256"],
+    }
+    if not _same_typed(prefix_replay, expected_prefix_replay):
+        raise ValueError("v3 preflight source-prefix replay does not match its generation context")
     # The report, gate and run manifest are one closed passing audit identity. Validate the
     # report itself instead of accepting a gate-only PASS with a matching file hash.
     report_path = generation_dir / "audit_report.json"
@@ -883,6 +988,11 @@ def validate_preflight_v3(path: Path | None, config: LoadedConfig, source: dict,
         audit_report["metrics"].get("structural_pass") is not True or
         type(audit_report["source_prefix_replay"]) is not dict):
         raise ValueError("v3 preflight audit report payload is malformed")
+    if (replay["outcomes_sha256"] != artifacts["outcomes.jsonl"]["sha256"] or
+        replay["records_sha256"] != artifacts["records.jsonl"]["sha256"]):
+        raise ValueError("v3 preflight audit replay hashes do not match generation streams")
+    if not _same_typed(audit_report["source_prefix_replay"], prefix_replay):
+        raise ValueError("v3 preflight report source-prefix replay differs from its linked artifact")
     if (audit_report["audit_version"] != contract.audit_version or audit_report["status"] != "complete" or
         audit_report["generation_complete"] is not True or audit_report["generation_status"] != "complete" or
         audit_report["replay_pass"] is not True or audit_report["integrity_pass"] is not True or

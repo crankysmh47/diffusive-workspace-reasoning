@@ -74,22 +74,53 @@ class PreflightV3Tests(unittest.TestCase):
                   "checkout_root": str(ROOT)}
         generation_dir = root / "generation"
         generation_dir.mkdir()
+        outcomes = b'{"synthetic":1}\n{"synthetic":2}\n{"synthetic":3}\n'
+        records = b'{"synthetic":1}\n{"synthetic":2}\n{"synthetic":3}\n'
+        generation_producer = dataset_v2._producer_identity("dwr-generator-v3")
+        context = {"context_version": "dwr-task-v3-source-prefix-context-v1",
+            "generator_id": contract.generator_id, "config_version": contract.config_version,
+            "config_sha256": self.config.sha256, "source": source, "producer": generation_producer,
+            "mode": "feasibility", "source_attempts": 3,
+            "source_outcome_prefix_bytes": len(outcomes),
+            "source_outcome_prefix_sha256": hashlib.sha256(outcomes).hexdigest(),
+            "source_accepted_record_count": 3,
+            "source_record_prefix_bytes": len(records),
+            "source_record_prefix_sha256": hashlib.sha256(records).hexdigest(),
+            "source_quota_targets": {"eq": 1, "neq": 1, "add_mod": 1},
+            "source_quota_counts": {"eq": 1, "neq": 1, "add_mod": 1},
+            "source_quota_closed": True, "development_attempts": 0, "final_attempts": 0}
+        context_bytes = (stable_json(context) + "\n").encode("utf-8")
+        context_sha = hashlib.sha256(context_bytes).hexdigest()
+        prefix_replay = {"replay_version": "dwr-task-v3-source-prefix-replay-v1",
+            "status": "PASS_SOURCE_CLOSURE", "context_sha256": context_sha,
+            "generator_id": contract.generator_id, "config_sha256": self.config.sha256,
+            "source": source, "producer": generation_producer,
+            "source_attempts": 3, "source_accepted_record_count": 3,
+            "source_quota_counts": {"eq": 1, "neq": 1, "add_mod": 1},
+            "source_quota_closed": True, "development_attempts": 0, "final_attempts": 0,
+            "source_outcome_prefix_bytes": len(outcomes),
+            "source_outcome_prefix_sha256": hashlib.sha256(outcomes).hexdigest(),
+            "source_record_prefix_bytes": len(records),
+            "source_record_prefix_sha256": hashlib.sha256(records).hexdigest()}
+        prefix = {"context_file": "source_prefix_context.json",
+            "context_sha256": context_sha,
+            "replay_file": "source_prefix_replay.json",
+            "replay_sha256": hashlib.sha256((stable_json(prefix_replay) + "\n").encode("utf-8")).hexdigest()}
         identities = {}
-        for name, body in (("outcomes.jsonl", b"{}\n"), ("records.jsonl", b"{}\n"),
+        for name, body in (("outcomes.jsonl", outcomes), ("records.jsonl", records),
                            ("source_capacity_bound.json", b"{}\n"),
-                           ("source_prefix_context.json", b"{}\n"),
-                           ("source_prefix_replay.json", b"{}\n")):
+                           ("source_prefix_context.json", context_bytes),
+                           ("source_prefix_replay.json", (stable_json(prefix_replay) + "\n").encode("utf-8"))):
             (generation_dir / name).write_bytes(body)
             identities[name] = {"sha256": hashlib.sha256(body).hexdigest(), "bytes": len(body)}
         capacity = {"bound_version": "dwr-task-v3-source-capacity-bound-v1",
             "status": "PASS_CAPACITY_BOUND", "reason": None,
-            "source_prefix_replay_sha256": "c" * 64, "top_k_cells": 10,
+            "source_prefix_replay_sha256": identities["source_prefix_replay.json"]["sha256"], "top_k_cells": 10,
             "minimum_source_train_mass": 0.8, "source_train_group_count": 100,
             "top_cells": [{"cell": [3, 2, 4, 0, 0], "count": 80}], "top_k_mass": 0.8}
-        prefix = {"context_file": "source_prefix_context.json", "replay_file": "source_prefix_replay.json"}
         generation = {"status": "complete", "mode": "feasibility", "source": source,
                       "artifacts": identities, "source_capacity_bound": capacity,
-                      "source_prefix": prefix, "producer": dataset_v2._producer_identity("dwr-generator-v3"),
+                      "source_prefix": prefix, "producer": generation_producer,
                       "generation_elapsed_seconds": 5.0, "generation_cpu_seconds": 4.0,
                       "peak_resident_bytes": 10}
         (generation_dir / "manifest.json").write_text(stable_json(generation), encoding="utf-8")
@@ -104,9 +135,10 @@ class PreflightV3Tests(unittest.TestCase):
         report["generation_source"] = source
         report["audit_source"] = source
         report.update({"generation_complete": True, "generation_status": "complete",
-            "replay": {"status": "complete", "outcomes_sha256": "a" * 64, "records_sha256": "b" * 64},
+            "replay": {"status": "complete", "outcomes_sha256": identities["outcomes.jsonl"]["sha256"],
+                       "records_sha256": identities["records.jsonl"]["sha256"]},
             "replay_pass": True, "integrity_pass": True, "capacity_bound": capacity,
-            "source_prefix_replay": {},
+            "source_prefix_replay": prefix_replay,
             "four_cohort_common_support_proxy": {"pass": True}, "final_assessment": "not_assessed",
             "metrics": {"structural_pass": True},
             "denominator_profiles": {}, "per_example_outcomes": [],
@@ -168,8 +200,105 @@ class PreflightV3Tests(unittest.TestCase):
         (generation_dir / "audit_manifest.json").write_text(stable_json(run_manifest), encoding="utf-8")
         return source, wrapper_path
 
+    def _rewrite_linked_prefix_replay(self, wrapper, report, gate, run_manifest, generation_dir,
+                                      field, value):
+        replay_path = generation_dir / "source_prefix_replay.json"
+        replay = json.loads(replay_path.read_text(encoding="utf-8"))
+        if field == "source.commit":
+            replay["source"]["commit"] = value
+        elif field.startswith("producer."):
+            replay["producer"][field.split(".", 1)[1]] = value
+        else:
+            replay[field] = value
+        replay_bytes = (stable_json(replay) + "\n").encode("utf-8")
+        replay_path.write_bytes(replay_bytes)
+        # Keep the report and linked replay equally substituted. The consumer must
+        # compare both against the generation/context identities, not merely each other.
+        report["source_prefix_replay"] = copy.deepcopy(replay)
+        generation_path = generation_dir / "manifest.json"
+        generation = json.loads(generation_path.read_text(encoding="utf-8"))
+        replay_identity = {"sha256": hashlib.sha256(replay_bytes).hexdigest(), "bytes": len(replay_bytes)}
+        generation["artifacts"]["source_prefix_replay.json"] = replay_identity
+        generation["source_prefix"]["replay_sha256"] = replay_identity["sha256"]
+        generation["source_capacity_bound"]["source_prefix_replay_sha256"] = replay_identity["sha256"]
+        capacity_bytes = (stable_json(generation["source_capacity_bound"]) + "\n").encode("utf-8")
+        (generation_dir / "source_capacity_bound.json").write_bytes(capacity_bytes)
+        generation["artifacts"]["source_capacity_bound.json"] = {
+            "sha256": hashlib.sha256(capacity_bytes).hexdigest(), "bytes": len(capacity_bytes)}
+        generation_path.write_text(stable_json(generation), encoding="utf-8")
+        generation_hash = sha256_file(generation_path)
+        wrapper["generation_manifest_sha256"] = generation_hash
+        wrapper["generation_artifacts"] = copy.deepcopy(generation["artifacts"])
+        report["generation_manifest_sha256"] = generation_hash
+        report["generation_artifacts"] = copy.deepcopy(generation["artifacts"])
+        report["capacity_bound"] = copy.deepcopy(generation["source_capacity_bound"])
+        gate["generation_manifest_sha256"] = generation_hash
+        gate["generation_artifacts"] = copy.deepcopy(generation["artifacts"])
+        gate["capacity_bound"] = copy.deepcopy(generation["source_capacity_bound"])
+        gate["source_prefix"] = copy.deepcopy(generation["source_prefix"])
+        run_manifest["generation_manifest_sha256"] = generation_hash
+        run_manifest["generation_artifacts"] = copy.deepcopy(generation["artifacts"])
+
     def test_closed_synthetic_v3_handoff_accepts_and_mutations_reject(self):
         mutations = {
+            "unbound replay outcomes hash": lambda w, r, g, m, d: r["replay"].update(outcomes_sha256="e" * 64),
+            "unbound replay records hash": lambda w, r, g, m, d: r["replay"].update(records_sha256="f" * 64),
+            "prefix replay version substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(
+                replay_version="dwr-task-v2-source-prefix-replay-v1"),
+            "prefix replay source substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(
+                source={**r["source_prefix_replay"]["source"], "commit": "other"}),
+            "prefix replay config substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(config_sha256="f" * 64),
+            "prefix replay producer substitution": lambda w, r, g, m, d: r["source_prefix_replay"]["producer"].update(
+                {next(iter(r["source_prefix_replay"]["producer"])): "f" * 64}),
+            "prefix replay context substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(context_sha256="e" * 64),
+            "prefix replay count substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(source_accepted_record_count=4),
+            "prefix replay prefix hash substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(
+                source_record_prefix_sha256="d" * 64),
+            "prefix replay status substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(status="NO_GO"),
+            "prefix replay generator substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(generator_id="dwr-generator-v2"),
+            "prefix replay source attempts substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(source_attempts=4),
+            "prefix replay quota counts substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(
+                source_quota_counts={"eq": 2, "neq": 1, "add_mod": 1}),
+            "prefix replay quota closure substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(source_quota_closed=False),
+            "prefix replay development attempts substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(development_attempts=1),
+            "prefix replay final attempts substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(final_attempts=1),
+            "prefix replay outcome bytes substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(source_outcome_prefix_bytes=1),
+            "prefix replay outcome hash substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(source_outcome_prefix_sha256="e" * 64),
+            "prefix replay record bytes substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(source_record_prefix_bytes=1),
+            "rehash linked wrong replay version": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "replay_version", "dwr-task-v2-source-prefix-replay-v1"),
+            "rehash linked wrong source": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "source.commit", "other"),
+            "rehash linked wrong config": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "config_sha256", "f" * 64),
+            "rehash linked wrong context": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "context_sha256", "e" * 64),
+            "rehash linked wrong source producer": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "producer.generator_v3_sha256", "f" * 64),
+            "rehash linked wrong count": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "source_accepted_record_count", 4),
+            "rehash linked wrong prefix hash": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "source_record_prefix_sha256", "d" * 64),
+            "rehash linked wrong source quota": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "source_quota_counts", {"eq": 2, "neq": 1, "add_mod": 1}),
+            "rehash linked wrong replay status": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "status", "NO_GO"),
+            "rehash linked wrong generator": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "generator_id", "dwr-generator-v2"),
+            "rehash linked wrong source attempts": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "source_attempts", 4),
+            "rehash linked wrong quota closure": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "source_quota_closed", False),
+            "rehash linked wrong development attempts": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "development_attempts", 1),
+            "rehash linked wrong final attempts": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "final_attempts", 1),
+            "rehash linked wrong outcome prefix bytes": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "source_outcome_prefix_bytes", 1),
+            "rehash linked wrong outcome prefix hash": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "source_outcome_prefix_sha256", "e" * 64),
+            "rehash linked wrong record prefix bytes": lambda w, r, g, m, d: self._rewrite_linked_prefix_replay(
+                w, r, g, m, d, "source_record_prefix_bytes", 1),
             "alternate gate basename": lambda w, r, g, m, d: w.update(audit_artifact_path=str(d / "alternate_gate.json")),
             "wrong gate hash with rehashed wrapper": lambda w, r, g, m, d: w.update(audit_artifact_sha256="f" * 64),
             "wrong generation hash wrapper": lambda w, r, g, m, d: w.update(generation_manifest_sha256="f" * 64),
@@ -197,6 +326,10 @@ class PreflightV3Tests(unittest.TestCase):
         from dwr.tasks.stream_contract import resolve_stream
         for producer_field in resolve_stream("dwr-generator-v3").audit_producer_fields:
             mutations[f"producer field {producer_field}"] = lambda w, r, g, m, d, key=producer_field: m["producer"].update({key: "f" * 64})
+        for producer_field in resolve_stream("dwr-generator-v3").generation_producer_fields:
+            mutations[f"rehash linked generation producer field {producer_field}"] = (
+                lambda w, r, g, m, d, key=producer_field: self._rewrite_linked_prefix_replay(
+                    w, r, g, m, d, f"producer.{key}", "f" * 64))
         with tempfile.TemporaryDirectory() as temp:
             source, wrapper = self._accepted_handoff(Path(temp))
             with patch("dwr.tasks.manifest_v2.validate_manifest_v3"):
@@ -207,6 +340,33 @@ class PreflightV3Tests(unittest.TestCase):
                 source, wrapper = self._accepted_handoff(Path(temp), mutate)
                 with patch("dwr.tasks.manifest_v2.validate_manifest_v3"), self.assertRaises((ValueError, FileNotFoundError)):
                     validate_preflight_v3(wrapper, self.config, source, limits=self.limits)
+
+    def test_actual_v3_cli_producer_handoff_is_consumable(self):
+        from dwr.tasks import audit_cli_v2
+        from dwr.tasks.audit_cli_v3 import main as audit_main
+        from dwr.tasks.stream_contract import resolve_stream
+        with tempfile.TemporaryDirectory() as temp:
+            source, wrapper = self._accepted_handoff(Path(temp))
+            generation_dir = wrapper.parent
+            report = json.loads((generation_dir / "audit_report.json").read_text(encoding="utf-8"))
+            report["gate"] = json.loads((generation_dir / "audit_gate.json").read_text(encoding="utf-8"))
+            for name in ("audit_manifest.json", "audit_report.json", "audit_gate.json", "preflight_report.json"):
+                (generation_dir / name).unlink()
+            config_path = ROOT / "configs/tasks/constraint_v3.json"
+            with patch("dwr.tasks.audit_v2.run_audit_v3", return_value=report), \
+                 patch.object(audit_cli_v2, "source_identity", return_value=source), \
+                 patch("dwr.tasks.manifest_v2.validate_manifest_v3"):
+                exit_code = audit_main(["--config", str(config_path), "--mode", "feasibility",
+                                        "--data", str(generation_dir)])
+            self.assertEqual(exit_code, 0)
+            produced_wrapper = generation_dir / "preflight_report.json"
+            self.assertTrue(produced_wrapper.is_file())
+            with patch("dwr.tasks.manifest_v2.validate_manifest_v3"):
+                consumed = validate_preflight_v3(produced_wrapper, self.config, source, limits=self.limits)
+            self.assertEqual(consumed["linkage_version"], resolve_stream("dwr-generator-v3").consumed_preflight_version)
+            terminal = json.loads((generation_dir / "audit_manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(terminal["artifacts"]["preflight_report.json"]["sha256"],
+                             sha256_file(produced_wrapper))
 
     def test_terminal_cap_downgrades_synthetic_pass_and_invalidates_wrapper(self):
         from dwr.tasks import audit_cli_v2
