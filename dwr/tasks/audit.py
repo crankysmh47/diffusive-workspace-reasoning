@@ -316,19 +316,25 @@ def _cell(record: dict) -> tuple:
 
 
 def common_support(cohorts: dict[str, list[dict]], min_per_cell: int = 10,
-                   min_fraction: float = 0.8) -> dict:
-    """Compute prospective five-cohort exact joint support with explicit empty failures."""
-    selected = {name: list(cohorts.get(name, [])) for name in COHORTS}
-    for name in COHORTS[1:]:
+                   min_fraction: float = 0.8, *,
+                   cohort_names: tuple[str, ...] | None = None) -> dict:
+    """Compute exact joint support; preserve the registered v1 cohorts by default."""
+    names = COHORTS if cohort_names is None else cohort_names
+    if (not isinstance(names, tuple) or not names or
+            any(type(name) is not str or not name for name in names) or
+            len(set(names)) != len(names)):
+        raise ValueError("cohort_names must be a nonempty tuple of distinct names")
+    selected = {name: list(cohorts.get(name, [])) for name in names}
+    for name in names[1:]:
         selected[name] = [row for row in selected[name] if row.get("primary_eligible") is True]
-    counts = {name: Counter(_cell(r) for r in selected[name]) for name in COHORTS}
-    denominators = {name: len(selected[name]) for name in COHORTS}
-    nonempty = {name: denominators[name] > 0 for name in COHORTS}
-    common_cells = sorted(set.intersection(*(set(counts[name]) for name in COHORTS))) if all(nonempty.values()) else []
-    common_cells = [cell for cell in common_cells if all(counts[name][cell] >= min_per_cell for name in COHORTS)]
+    counts = {name: Counter(_cell(r) for r in selected[name]) for name in names}
+    denominators = {name: len(selected[name]) for name in names}
+    nonempty = {name: denominators[name] > 0 for name in names}
+    common_cells = sorted(set.intersection(*(set(counts[name]) for name in names))) if all(nonempty.values()) else []
+    common_cells = [cell for cell in common_cells if all(counts[name][cell] >= min_per_cell for name in names)]
     result = {}
     passed = True
-    for name in COHORTS:
+    for name in names:
         n = denominators[name]
         in_common = sum(counts[name][cell] for cell in common_cells)
         fraction = in_common / n if n else 0.0

@@ -183,6 +183,17 @@ class AuditTests(unittest.TestCase):
         self.assertTrue(result["pass"])
         self.assertEqual(result["cohorts"]["development_validation_eq_neq_primary_eligible"]["count"], 10)
 
+    def test_common_support_accepts_ordered_four_cohort_proxy(self):
+        from dwr.tasks.audit import make_record
+        task = task_for_negative()
+        row = make_record(task, "source", 0)
+        row.update({"model_input_bytes": len(row["model_input"].encode()), "primary_eligible": True})
+        names = ("source_train", "development_eq_neq", "development_eq_add_mod", "development_neq_add_mod")
+        cohorts = {name: [dict(row) for _ in range(10)] for name in names}
+        result = common_support(cohorts, cohort_names=names)
+        self.assertTrue(result["pass"])
+        self.assertEqual(tuple(result["cohorts"]), names)
+
     def test_prospective_g2_fixture_passes_and_no_go_fixture_fails(self):
         from dwr.tasks.audit import assess_g2
         config = load_config("configs/tasks/constraint_v1.json").resolved

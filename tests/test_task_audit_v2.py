@@ -1,0 +1,263 @@
+import tempfile
+import time
+import unittest
+from contextlib import redirect_stdout
+from io import StringIO
+from pathlib import Path
+from unittest.mock import patch
+
+from dwr.tasks import audit_v2
+from dwr.tasks.audit import audit_interactions, make_record
+from dwr.tasks.schema import Constraint, ConstraintTask, GivenAssignment, RelationKind
+
+
+def mixed_task():
+    return ConstraintTask("constraint-task-v1", 3, ("v0", "v1", "v2", "v3", "v4"),
+        (Constraint(RelationKind.EQ, ("v1", "v2")),
+         Constraint(RelationKind.ADD_MOD, ("v2", "v3", "v4")),
+         Constraint(RelationKind.NEQ, ("v1", "v0")),
+         Constraint(RelationKind.NEQ, ("v3", "v0"))),
+        (GivenAssignment("v0", 0), GivenAssignment("v4", 1)))
+
+
+def sensitive_source_task():
+    return ConstraintTask("constraint-task-v1", 3, ("v0", "v1", "v2"),
+        (Constraint(RelationKind.EQ, ("v0", "v1")),
+         Constraint(RelationKind.EQ, ("v1", "v2"))),
+        (GivenAssignment("v0", 0),))
+
+
+class AuditV2Tests(unittest.TestCase):
+    def test_independent_mixed_annotation_check_rejects_corrupt_private_fields(self):
+        task = mixed_task()
+        interaction = audit_interactions(task, "final")
+        self.assertTrue(interaction["sensitive"])
+        valid = {"partition": "final", "private_evidence": {
+            "oracle_unique": True, "source": None,
+            "mixed": {"kinds": ["add_mod", "eq", "neq"],
+                      "kind_removal_solution_counts": interaction["removal_solution_counts"],
+                      "factor_graph_connected": interaction["factor_graph_connected"],
+                      "factor_graph_kinds": interaction["factor_graph_kinds"],
+                      "all_present_kinds_in_graph": interaction["all_present_kinds_in_graph"],
+                      "primary_eligible": interaction["sensitive"],
+                      "ineligibility_reason": None}}}
+        audit_v2._private_matches(valid, interaction)
+        for field, changed in (("factor_graph_connected", False),
+                               ("factor_graph_connected", 1),
+                               ("kind_removal_solution_counts", [1, 1, 1]),
+                               ("primary_eligible", False)):
+            corrupt = {**valid, "private_evidence": {**valid["private_evidence"],
+                "mixed": {**valid["private_evidence"]["mixed"], field: changed}}}
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                audit_v2._private_matches(corrupt, interaction)
+
+    def test_common_support_four_cohort_exact_cell_floor_and_default_names(self):
+        task = ConstraintTask("constraint-task-v1", 3, ("v0", "v1", "v2"),
+            tuple(Constraint(RelationKind.EQ, pair) for pair in
+                  (("v0", "v1"), ("v0", "v2"), ("v1", "v2"))),
+            (GivenAssignment("v0", 0),))
+        source = make_record(task, "source", 0)
+        source.update({"model_input_bytes": len(source["model_input"].encode()), "primary_eligible": True})
+        names = audit_v2.FEASIBILITY_COHORTS
+        cohorts = {name: [dict(source) for _ in range(10)] for name in names}
+        proxy = audit_v2.v1.common_support(cohorts, min_per_cell=10, min_fraction=0.8,
+                                           cohort_names=names)
+        self.assertTrue(proxy["pass"])
+        self.assertEqual(tuple(proxy["cohorts"]), names)
+        with self.assertRaises(ValueError):
+            audit_v2.v1.common_support(cohorts, cohort_names=("same", "same"))
+        # Four of five examples lie in the shared cell: exactly the registered 80% mass floor.
+        cohorts = {}
+        for name in names:
+            cohorts[name] = [dict(source) for _ in range(4)] + [dict(source, model_input_bytes=2048)]
+        boundary = audit_v2.v1.common_support(cohorts, min_per_cell=2, min_fraction=0.8,
+                                              cohort_names=names)
+        self.assertTrue(boundary["pass"])
+        self.assertEqual(boundary["cohorts"][names[0]]["fraction_in_common_cells"], 0.8)
+
+    def test_feasibility_aggregation_ignores_heldout_metric_rows(self):
+        from dwr.tasks.config_v2 import load_config_v2
+        config = load_config_v2("configs/tasks/constraint_v2.json").resolved
+        base = audit_v2._feasibility_metrics([], config)
+        opaque = [{"partition": "source", "split": "source_test", "task": object(),
+                   "solution": object(), "interaction": {"sensitive": True},
+                   "profile": ["eq"], "signature": "opaque"}]
+        self.assertEqual(audit_v2._feasibility_metrics(opaque, config), base)
+
+    def test_feasibility_raw_mixed_eligible_fraction_uses_preeligibility_denominator(self):
+        from dwr.tasks.config_v2 import load_config_v2
+        config = load_config_v2("configs/tasks/constraint_v2.json").resolved
+        base = make_record(mixed_task(), "final", 0)
+        rows = []
+        for index in range(4):
+            interaction = audit_interactions(mixed_task(), "final")
+            interaction["sensitive"] = index == 0
+            rows.append({**base, "partition": "development", "candidate_index": index,
+                         "split": "development_validation", "profile": ["eq", "neq"],
+                         "model_input_bytes": len(base["model_input"].encode("utf-8")),
+                         "interaction": interaction, "primary_eligible": index == 0,
+                         "signature": f"signature-{index}"})
+        result = audit_v2._feasibility_metrics(rows, config)
+        dev = result["development_validation"]
+        self.assertEqual(dev["groups"], 4)
+        self.assertEqual(dev["eligible_groups"], 1)
+        self.assertEqual(dev["eligible_fraction"], 0.25)
+
+    def test_source_sensitivity_fraction_uses_raw_unique_denominator(self):
+        from dwr.tasks.config_v2 import load_config_v2
+        config = load_config_v2("configs/tasks/constraint_v2.json").resolved
+        rows = []
+        for index in range(4):
+            # This aggregation-only fixture places one sensitive and three insensitive
+            # unique rows into the registered source-train denominator.
+            if index == 0:
+                task = sensitive_source_task()
+            else:
+                task = ConstraintTask("constraint-task-v1", 3, ("v0", "v1", "v2"),
+                    tuple(Constraint(RelationKind.EQ, pair) for pair in
+                          (("v0", "v1"), ("v0", "v2"), ("v1", "v2"))),
+                    (GivenAssignment("v0", 0),))
+            record = make_record(task, "source", index)
+            info = audit_v2.v1.validate_record(record, config)
+            interaction = audit_interactions(task, "source")
+            rows.append({**record, **info, "split": "source_train", "interaction": interaction,
+                         "primary_eligible": False})
+        failures = []
+        result = audit_v2._source_summary(rows, config, failures, feasibility=True)
+        self.assertEqual(result["source_groups_in_denominator"], 4)
+        self.assertEqual(result["sensitive_groups"], 1)
+        self.assertEqual(result["sensitivity_fraction"], 0.25)
+
+    def test_full_metrics_uses_raw_unique_denominators_and_reports_rejected_only_signatures(self):
+        # This fixture exercises the pure aggregation interface; it does not certify G2.
+        task = mixed_task()
+        base = make_record(task, "final", 0)
+        info = audit_v2.v1.validate_record(base, {
+            "audit_gate": {"min_accepted_groups_per_partition": 100,
+                "min_structure_signatures_per_partition": 12,
+                "min_distinct_given_counts_per_partition": 2,
+                "min_solution_value_fraction_each_partition": 0.1,
+                "source_train_min_structure_signatures": 12,
+                "min_source_constraint_sensitive_fraction": 0.25,
+                "min_source_sensitive_examples_per_signature": 1,
+                "min_primary_eligible_groups_per_mixed_profile": 100,
+                "min_primary_eligible_structure_signatures_per_mixed_profile": 12,
+                "min_primary_eligible_examples_per_heldout_signature": 1,
+                "min_primary_eligible_fraction_per_mixed_partition": 0.25,
+                "development_target_min_groups": {"development_validation": 80,
+                                                    "development_diagnostic_test": 20},
+                "common_support": {"min_groups_per_cell_per_cohort": 10,
+                                   "min_group_fraction_per_cohort_in_common_cells": 0.8},
+                "source_id_groups_min": {"train": 100, "validation": 20, "test": 20}},
+            "composition_partition": {"development_target_split": {
+                "min_validation_groups_per_profile": 20,
+                "min_diagnostic_test_groups_per_profile": 5}}})
+        interaction = audit_interactions(task, "final")
+        row = {**base, **info, "interaction": interaction,
+               "primary_eligible": interaction["sensitive"]}
+        config = {"audit_gate": {"min_accepted_groups_per_partition": 100,
+                "min_structure_signatures_per_partition": 12,
+                "min_distinct_given_counts_per_partition": 2,
+                "min_solution_value_fraction_each_partition": 0.1,
+                "source_train_min_structure_signatures": 12,
+                "min_source_constraint_sensitive_fraction": 0.25,
+                "min_source_sensitive_examples_per_signature": 1,
+                "min_primary_eligible_groups_per_mixed_profile": 100,
+                "min_primary_eligible_structure_signatures_per_mixed_profile": 12,
+                "min_primary_eligible_examples_per_heldout_signature": 1,
+                "min_primary_eligible_fraction_per_mixed_partition": 0.25,
+                "development_target_min_groups": {"development_validation": 80,
+                                                    "development_diagnostic_test": 20},
+                "common_support": {"min_groups_per_cell_per_cohort": 10,
+                                   "min_group_fraction_per_cohort_in_common_cells": 0.8},
+                "source_id_groups_min": {"train": 100, "validation": 20, "test": 20}},
+            "composition_partition": {"development_target_split": {
+                "min_validation_groups_per_profile": 20,
+                "min_diagnostic_test_groups_per_profile": 5}}}
+        result = audit_v2._full_metrics([row], config)
+        profile = "/".join(base["profile"])
+        self.assertEqual(result["partitions"]["final"]["profiles"][profile]["unique_pre_eligibility"], 1)
+        self.assertEqual(result["partitions"]["final"]["profiles"][profile]["eligible"], 1)
+        self.assertFalse(result["structural_pass"])
+        self.assertIn("final_min_groups", result["floor_failures"])
+
+    def test_full_support_uses_registered_five_cohort_names(self):
+        from dwr.tasks.config_v2 import load_config_v2
+        config = load_config_v2("configs/tasks/constraint_v2.json").resolved
+        source_task = ConstraintTask("constraint-task-v1", 3, ("v0", "v1", "v2"),
+            tuple(Constraint(RelationKind.EQ, pair) for pair in
+                  (("v0", "v1"), ("v0", "v2"), ("v1", "v2"))),
+            (GivenAssignment("v0", 0),))
+        source_record = make_record(source_task, "source", 0)
+        source_info = audit_v2.v1.validate_record(source_record, config)
+        source_interaction = audit_interactions(source_task, "source")
+        source_row = {**source_record, **source_info, "interaction": source_interaction,
+                      "primary_eligible": False}
+        final_task = mixed_task()
+        final_record = make_record(final_task, "final", 0)
+        final_info = audit_v2.v1.validate_record(final_record, config)
+        final_interaction = audit_interactions(final_task, "final")
+        final_row = {**final_record, **final_info, "interaction": final_interaction,
+                     "primary_eligible": final_interaction["sensitive"]}
+        dev_rows = [dict(final_row, partition="development", split="development_validation",
+                         profile=list(profile), primary_eligible=True)
+                    for profile in audit_v2.v1.PROFILES["development"]]
+        result = audit_v2._full_metrics([source_row, *dev_rows, final_row], config)
+        self.assertEqual(tuple(result["five_cohort_common_support"]["cohorts"]), audit_v2.v1.COHORTS)
+
+    def test_cli_refuses_preexisting_audit_artifacts(self):
+        from dwr.tasks.audit_cli_v2 import main
+        with tempfile.TemporaryDirectory() as directory:
+            data = Path(directory)
+            marker = data / "audit_report.json"
+            marker.write_text("preserve\n", encoding="utf-8")
+            with redirect_stdout(StringIO()):
+                rc = main(["--config", "missing.json", "--mode", "feasibility", "--data", str(data)])
+            self.assertEqual(rc, 1)
+            self.assertEqual(marker.read_text(encoding="utf-8"), "preserve\n")
+            self.assertFalse((data / "audit_manifest.json").exists())
+
+    def test_final_manifest_write_failure_invalidates_pass_gate_and_exit(self):
+        from dwr.tasks import audit_cli_v2
+        from dwr.tasks.run_support import ResourceGuard, atomic_json, stable_json
+        with tempfile.TemporaryDirectory() as directory:
+            data = Path(directory)
+            report = {"status": "complete", "g2_status": "PASS_FEASIBILITY"}
+            source = {"commit": "a" * 40, "dirty": False,
+                      "dirty_diff_sha256": "b" * 64, "checkout_root": directory}
+            gate = {"audit_version": audit_v2.AUDIT_VERSION, "status": "complete",
+                    "mode": "feasibility", "g2_status": "PASS_FEASIBILITY",
+                    "config_sha256": "c" * 64, "source": source,
+                    "generation_manifest_sha256": "d" * 64, "generation_artifacts": {}}
+            manifest = {"status": "complete"}
+            (data / "audit_manifest.json").write_text("{}\n", encoding="utf-8")
+            (data / "audit_report.json").write_text(stable_json(report) + "\n", encoding="utf-8")
+            (data / "audit_gate.json").write_text(stable_json(gate) + "\n", encoding="utf-8")
+            (data / "preflight_report.json").write_text("{}\n", encoding="utf-8")
+            failed_once = {"value": False}
+
+            def fail_initial_terminal_write(path, value):
+                if Path(path).name == "audit_manifest.json" and not failed_once["value"]:
+                    failed_once["value"] = True
+                    raise OSError("synthetic terminal manifest write failure")
+                return atomic_json(path, value)
+
+            guard = ResourceGuard(60, 1024, memory_reader=lambda: 1)
+            with patch.object(audit_cli_v2, "atomic_json", side_effect=fail_initial_terminal_write):
+                error = audit_cli_v2._finalize_manifest(data, manifest, report, gate, guard,
+                    {"generation_elapsed_seconds": 1.0, "generation_cpu_seconds": 1.0,
+                     "peak_resident_bytes": None}, time.process_time(), None, [], charge_guard=True)
+            self.assertIsNotNone(error)
+            self.assertEqual(error["phase"], "audit_finalization")
+            self.assertEqual(report["status"], "incomplete")
+            self.assertEqual(gate["g2_status"], "not_assessed")
+            self.assertFalse((data / "preflight_report.json").exists())
+            self.assertEqual(audit_cli_v2._exit_code(report), 1)
+
+    def test_complete_no_go_analysis_exits_nonzero(self):
+        from dwr.tasks.audit_cli_v2 import _exit_code
+        self.assertEqual(_exit_code({"status": "complete", "g2_status": "NO_GO"}), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()
