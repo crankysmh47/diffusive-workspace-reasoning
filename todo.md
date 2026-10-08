@@ -11,7 +11,7 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 
 The controller's fresh CPU suite at the frozen v3 source commit reported 209 passed in 9.720 seconds. This is implementation evidence, not corpus suitability, model validation, or independent reproduction. Preserve the attempt; do not retune or rerun this proposal.
 
-On 2026-10-09, focused post-review integration checks passed for full-manifest v3 consumed linkage, strict combined wall/memory budget consumption, shared capacity-cell extraction, incomplete-full final reporting, the emitted CLI-to-consumer handoff, and affected v2 compatibility. The controller's full suite then passed 214 tests in 9.547 seconds at fix source `6dda933`; the scoped rereview remains pending. These checks do not change the frozen run or G2 status. See [the correction record](docs/audit_reporting_correction.md) and [v3 suitability report](docs/task_suitability_v3.md).
+On 2026-10-09, focused post-review integration checks passed for full-manifest v3 consumed linkage, strict combined wall/memory budget consumption, shared capacity-cell extraction, incomplete-full final reporting, the emitted CLI-to-consumer handoff, and affected v2 compatibility. The controller's full suite passed 214 tests in 9.547 seconds at fix source `6dda933`. The scoped rereview was CLEAR on 2026-10-09 for `088aedf273441ea89f377ef78e93ab6c67c341b7..e27048cc990be697cbeeccd57f0e1327e2acf4d3`; see `.superpowers/sdd/transfer-v3/final-rereview.md`. These checks do not change the frozen run or G2 status. See [the correction record](docs/audit_reporting_correction.md) and [v3 suitability report](docs/task_suitability_v3.md).
 
 ## Historical v2 gate — 2026-10-08
 
