@@ -20,7 +20,7 @@ from .config_v2 import load_config_v2
 from .generator_v2 import PARTITIONS, PROFILES, CandidateOutcome, generate_candidate
 from .manifest_v2 import _same_typed, expected_limits, validate_manifest_v2
 from .run_support import (LoadedConfig, ResourceGuard, atomic_json, sha256_file,
-                          stable_json, strict_json_loads)
+                          remaining_global_seconds, stable_json, strict_json_loads)
 from .schema import serialize_model_input, serialize_task
 
 
@@ -750,6 +750,8 @@ def validate_preflight_v3(path: Path | None, config: LoadedConfig, source: dict,
             {"commit", "dirty", "dirty_diff_sha256", "checkout_root"} or
             not _same_typed(report[key], source) or source.get("dirty") is not False):
             raise ValueError("v3 preflight source must match current clean source identity")
+    if type(report["generation_dir"]) is not str or not report["generation_dir"]:
+        raise ValueError("v3 preflight generation directory must be a nonempty path string")
     generation_dir = Path(report["generation_dir"]).resolve()
     if (generation_dir / "terminal_failure.json").exists():
         raise ValueError("v3 generation has a terminal failure sidecar")
@@ -779,9 +781,13 @@ def validate_preflight_v3(path: Path | None, config: LoadedConfig, source: dict,
             type(identity["bytes"]) is not int or identity["bytes"] < 0 or
             digest != identity["sha256"] or size != identity["bytes"]):
             raise ValueError("v3 preflight generation artifact is missing or changed")
+    if type(report["audit_artifact_path"]) is not str or not report["audit_artifact_path"]:
+        raise ValueError("v3 preflight audit artifact path must be a nonempty path string")
     audit_path = Path(report["audit_artifact_path"]).resolve()
+    if audit_path != (generation_dir / "audit_gate.json").resolve():
+        raise ValueError("v3 preflight must bind the authoritative audit_gate.json basename")
     check(); audit_hash = sha256_file(audit_path); check()
-    if audit_path.parent != generation_dir or audit_hash != report["audit_artifact_sha256"]:
+    if audit_hash != report["audit_artifact_sha256"]:
         raise ValueError("v3 preflight audit gate is missing or changed")
     check(); gate = strict_json_loads(audit_path.read_text(encoding="utf-8")); check()
     gate_fields = {"gate_version", "audit_version", "status", "mode", "g2_status",
@@ -801,6 +807,94 @@ def validate_preflight_v3(path: Path | None, config: LoadedConfig, source: dict,
         not _same_typed(gate["capacity_bound"], generation.get("source_capacity_bound")) or
         gate["capacity_bound"].get("status") != "PASS_CAPACITY_BOUND"):
         raise ValueError("v3 preflight audit gate does not bind a passing matching feasibility run")
+    bound = gate["capacity_bound"]
+    bound_fields = {"bound_version", "status", "reason", "source_prefix_replay_sha256",
+                    "top_k_cells", "minimum_source_train_mass", "source_train_group_count",
+                    "top_cells", "top_k_mass"}
+    if (type(bound) is not dict or set(bound) != bound_fields or
+        bound["bound_version"] != "dwr-task-v3-source-capacity-bound-v1" or
+        bound["status"] != "PASS_CAPACITY_BOUND" or bound["reason"] is not None or
+        type(bound["source_prefix_replay_sha256"]) is not str or len(bound["source_prefix_replay_sha256"]) != 64 or
+        any(char not in "0123456789abcdef" for char in bound["source_prefix_replay_sha256"]) or
+        type(bound["top_k_cells"]) is not int or bound["top_k_cells"] != 10 or
+        type(bound["minimum_source_train_mass"]) not in (int, float) or bound["minimum_source_train_mass"] != 0.8 or
+        type(bound["source_train_group_count"]) is not int or bound["source_train_group_count"] <= 0 or
+        type(bound["top_cells"]) is not list or not bound["top_cells"] or
+        type(bound["top_k_mass"]) not in (int, float) or not math.isfinite(bound["top_k_mass"]) or
+        bound["top_k_mass"] < bound["minimum_source_train_mass"] or bound["top_k_mass"] > 1.0):
+        raise ValueError("v3 preflight source capacity proof is malformed")
+    for cell in bound["top_cells"]:
+        if (type(cell) is not dict or set(cell) != {"cell", "count"} or
+            type(cell["cell"]) is not list or len(cell["cell"]) != 5 or
+            any(type(axis) is not int or axis < 0 for axis in cell["cell"]) or
+            type(cell["count"]) is not int or cell["count"] <= 0):
+            raise ValueError("v3 preflight capacity cells are malformed")
+    ordered_cells = sorted(bound["top_cells"], key=lambda cell: (-cell["count"], cell["cell"]))
+    top_count = sum(cell["count"] for cell in bound["top_cells"])
+    if (len(bound["top_cells"]) > bound["top_k_cells"] or bound["top_cells"] != ordered_cells or
+        top_count > bound["source_train_group_count"] or
+        not math.isclose(top_count / bound["source_train_group_count"], bound["top_k_mass"],
+                         rel_tol=0.0, abs_tol=1e-12)):
+        raise ValueError("v3 preflight source capacity histogram does not reconcile")
+    # The report, gate and run manifest are one closed passing audit identity. Validate the
+    # report itself instead of accepting a gate-only PASS with a matching file hash.
+    report_path = generation_dir / "audit_report.json"
+    check(); audit_report = strict_json_loads(report_path.read_text(encoding="utf-8")); check()
+    audit_report_fields = {
+        "audit_version", "status", "generation_complete", "generation_status", "replay",
+        "replay_pass", "integrity_pass", "generation_manifest_sha256", "generation_artifacts",
+        "generation_source", "audit_source", "config_sha256", "mode", "g2_status",
+        "proposal_status", "proposal_reason", "capacity_bound", "source_prefix_replay",
+        "four_cohort_common_support_proxy", "final_assessment", "metrics", "denominator_profiles",
+        "per_example_outcomes", "independent_unique_candidate_count", "accepted_record_count",
+        "unassessed", "resource"}
+    if type(audit_report) is not dict or set(audit_report) != audit_report_fields:
+        raise ValueError("v3 preflight audit report has unknown or missing fields")
+    replay = audit_report["replay"]
+    support = audit_report["four_cohort_common_support_proxy"]
+    report_resource = audit_report["resource"]
+    report_resource_fields = {"audit_elapsed_seconds", "combined_generation_audit_elapsed_seconds",
+        "audit_cpu_seconds", "combined_generation_audit_cpu_seconds", "peak_resident_bytes",
+        "combined_peak_resident_bytes", "remaining_global_seconds", "accounting_snapshot_boundary",
+        "authoritative_final_accounting", "accounting_is_final"}
+    resource_numeric_fields = ("audit_elapsed_seconds", "combined_generation_audit_elapsed_seconds",
+        "audit_cpu_seconds", "combined_generation_audit_cpu_seconds", "remaining_global_seconds")
+    if (type(replay) is not dict or set(replay) != {"status", "outcomes_sha256", "records_sha256"} or
+        replay.get("status") != "complete" or
+        any(type(replay.get(key)) is not str or len(replay[key]) != 64 or
+            any(char not in "0123456789abcdef" for char in replay[key])
+            for key in ("outcomes_sha256", "records_sha256")) or
+        type(support) is not dict or support.get("pass") is not True or
+        type(report_resource) is not dict or set(report_resource) != report_resource_fields or
+        any(type(report_resource.get(key)) not in (int, float) or not math.isfinite(report_resource[key]) or
+            report_resource[key] < 0 for key in resource_numeric_fields) or
+        any(type(report_resource.get(key)) is not int or report_resource[key] < 0
+            for key in ("peak_resident_bytes", "combined_peak_resident_bytes")) or
+        type(audit_report["metrics"]) is not dict or type(audit_report["denominator_profiles"]) is not dict or
+        type(audit_report["per_example_outcomes"]) is not list or audit_report["unassessed"] != [] or
+        type(audit_report["independent_unique_candidate_count"]) is not int or
+        type(audit_report["accepted_record_count"]) is not int or
+        audit_report["independent_unique_candidate_count"] < 0 or audit_report["accepted_record_count"] < 0 or
+        report_resource.get("accounting_snapshot_boundary") != "before_detailed_report_serialization" or
+        report_resource.get("authoritative_final_accounting") != "audit_manifest.json" or
+        report_resource.get("accounting_is_final") is not False or
+        not math.isclose(report_resource["remaining_global_seconds"],
+                         remaining_global_seconds(generation, limits.wall_seconds), rel_tol=0.0, abs_tol=1e-6) or
+        audit_report["metrics"].get("structural_pass") is not True or
+        type(audit_report["source_prefix_replay"]) is not dict):
+        raise ValueError("v3 preflight audit report payload is malformed")
+    if (audit_report["audit_version"] != contract.audit_version or audit_report["status"] != "complete" or
+        audit_report["generation_complete"] is not True or audit_report["generation_status"] != "complete" or
+        audit_report["replay_pass"] is not True or audit_report["integrity_pass"] is not True or
+        audit_report["mode"] != "feasibility" or audit_report["g2_status"] != "PASS_FEASIBILITY" or
+        audit_report["proposal_status"] != "PASS_FEASIBILITY" or audit_report["proposal_reason"] is not None or
+        audit_report["config_sha256"] != config.sha256 or
+        audit_report["generation_manifest_sha256"] != manifest_hash or
+        not _same_typed(audit_report["generation_artifacts"], artifacts) or
+        not _same_typed(audit_report["generation_source"], source) or
+        not _same_typed(audit_report["audit_source"], source) or
+        not _same_typed(audit_report["capacity_bound"], gate["capacity_bound"])):
+        raise ValueError("v3 preflight audit report is not a matching passing feasibility report")
     # Audit-run producer hashes are closed and current; this protects the gate consumer from
     # a hand-authored PASS produced by a different audit implementation.
     run_manifest_path = generation_dir / "audit_manifest.json"
@@ -808,8 +902,34 @@ def validate_preflight_v3(path: Path | None, config: LoadedConfig, source: dict,
     from .stream_contract import resolve_stream
     audit_fields = set(contract.audit_producer_fields)
     audit_producer = run_manifest.get("producer")
+    run_fields = {"audit_manifest_version", "status", "command", "argv", "generation_dir", "mode",
+        "cwd", "os", "python", "cpu_count", "rng", "precision", "audit_cpu_started_seconds",
+        "started_utc", "finished_utc", "producer", "error", "finalization_errors", "config_path",
+        "config_sha256", "generation_manifest_sha256", "generation_artifacts", "generation_source",
+        "audit_source", "remaining_global_seconds_at_start", "audit_elapsed_seconds",
+        "combined_generation_audit_elapsed_seconds", "audit_cpu_seconds",
+        "combined_generation_audit_cpu_seconds", "peak_resident_bytes", "combined_peak_resident_bytes",
+        "accounting_end_boundary", "accounting_note", "exit_code", "artifacts"}
+    if type(run_manifest) is not dict or set(run_manifest) != run_fields:
+        raise ValueError("v3 preflight audit run manifest has unknown or missing fields")
+    argv = run_manifest["argv"]
+    expected_command = [sys.executable, "-m", "dwr.tasks.audit_cli_v3", *argv] if type(argv) is list else None
+    command_args_valid = (type(argv) is list and len(argv) == 6 and
+        all(type(arg) is str for arg in argv) and argv[0] == "--config" and
+        argv[2:5] == ["--mode", "feasibility", "--data"])
+    if command_args_valid:
+        command_args_valid = (Path(argv[1]).resolve() == config.path.resolve() and
+                              Path(argv[5]).resolve() == generation_dir)
     if (run_manifest.get("audit_manifest_version") != contract.audit_run_manifest_version or
-        run_manifest.get("status") != "complete" or run_manifest.get("exit_code") != 0 or
+        run_manifest.get("status") != "complete" or type(run_manifest.get("exit_code")) is not int or
+        run_manifest.get("exit_code") != 0 or run_manifest.get("error") is not None or
+        run_manifest.get("finalization_errors") != [] or
+        run_manifest.get("command") != expected_command or type(argv) is not list or
+        any(type(arg) is not str for arg in argv) or
+        run_manifest.get("generation_dir") != str(generation_dir) or
+        run_manifest.get("mode") != "feasibility" or
+        run_manifest.get("config_path") != str(config.path.resolve()) or
+        not command_args_valid or
         run_manifest.get("config_sha256") != config.sha256 or
         run_manifest.get("generation_manifest_sha256") != manifest_hash or
         not _same_typed(run_manifest.get("generation_artifacts"), artifacts) or
@@ -818,16 +938,47 @@ def validate_preflight_v3(path: Path | None, config: LoadedConfig, source: dict,
         type(audit_producer) is not dict or set(audit_producer) != audit_fields or
         audit_producer != _audit_producer_identity()):
         raise ValueError("v3 preflight audit producer identity mismatch")
+    if source.get("dirty") is not False:
+        raise ValueError("v3 preflight source must be clean")
+    numeric_fields = ("audit_cpu_started_seconds", "remaining_global_seconds_at_start", "audit_elapsed_seconds",
+        "combined_generation_audit_elapsed_seconds", "audit_cpu_seconds", "combined_generation_audit_cpu_seconds")
+    if (any(type(run_manifest.get(key)) not in (int, float) or not math.isfinite(run_manifest[key]) or run_manifest[key] < 0
+            for key in numeric_fields) or
+        type(run_manifest.get("cpu_count")) is not int or run_manifest["cpu_count"] <= 0 or
+        any(type(run_manifest.get(key)) is not str or not run_manifest[key]
+            for key in ("cwd", "os", "python", "rng", "precision", "started_utc", "finished_utc", "accounting_note")) or
+        any(type(run_manifest.get(key)) is not int for key in ("peak_resident_bytes", "combined_peak_resident_bytes")) or
+        any(run_manifest[key] < 0 for key in ("peak_resident_bytes", "combined_peak_resident_bytes")) or
+        run_manifest.get("accounting_end_boundary") != "post_first_terminal_manifest_write_resource_check"):
+        raise ValueError("v3 preflight audit run accounting fields are malformed")
+    expected_remaining = remaining_global_seconds(generation, limits.wall_seconds)
+    if (not math.isclose(run_manifest["remaining_global_seconds_at_start"], expected_remaining,
+                         rel_tol=0.0, abs_tol=1e-6) or
+        not math.isclose(run_manifest["combined_generation_audit_elapsed_seconds"],
+            generation["generation_elapsed_seconds"] + run_manifest["audit_elapsed_seconds"],
+            rel_tol=0.0, abs_tol=1e-5) or
+        not math.isclose(run_manifest["combined_generation_audit_cpu_seconds"],
+            generation["generation_cpu_seconds"] + run_manifest["audit_cpu_seconds"],
+            rel_tol=0.0, abs_tol=1e-5) or
+        run_manifest["combined_peak_resident_bytes"] != max(generation["peak_resident_bytes"],
+                                                             run_manifest["peak_resident_bytes"])):
+        raise ValueError("v3 preflight audit accounting does not bind generation and audit costs")
     run_artifacts = run_manifest.get("artifacts")
-    if (type(run_artifacts) is not dict or
-        not {"audit_report.json", "audit_gate.json"} <= set(run_artifacts)):
-        raise ValueError("v3 preflight audit run manifest lacks terminal artifacts")
-    for name in ("audit_report.json", "audit_gate.json"):
+    if type(run_artifacts) is not dict or set(run_artifacts) != {
+        "audit_report.json", "audit_gate.json", "preflight_report.json"}:
+        raise ValueError("v3 preflight audit run manifest lacks the closed terminal artifact map")
+    if (not _same_typed(run_artifacts["audit_gate.json"],
+                        {"sha256": audit_hash, "bytes": audit_path.stat().st_size}) or
+        not _same_typed(run_artifacts["audit_report.json"],
+                        {"sha256": sha256_file(report_path), "bytes": report_path.stat().st_size})):
+        raise ValueError("v3 preflight run manifest and wrapper audit identities differ")
+    for name in ("audit_report.json", "audit_gate.json", "preflight_report.json"):
         check(); artifact_path = generation_dir / name
         digest = sha256_file(artifact_path); check()
         size = artifact_path.stat().st_size; check()
         identity = run_artifacts[name]
         if (type(identity) is not dict or set(identity) != {"sha256", "bytes"} or
+            type(identity.get("sha256")) is not str or type(identity.get("bytes")) is not int or
             identity.get("sha256") != digest or identity.get("bytes") != size):
             raise ValueError("v3 preflight audit manifest artifact identity mismatch")
     check(); wrapper_hash = sha256_file(path); check()

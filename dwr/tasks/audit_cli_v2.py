@@ -75,12 +75,21 @@ def _mark_incomplete(data_dir: Path, report: dict, gate: dict | None,
     report["g2_status"] = "not_assessed"
     report["error"] = primary_error
     report["finalization_errors"] = list(finalization_errors)
+    is_v3 = manifest.get("audit_manifest_version") == "dwr-task-v3-audit-run-v1"
+    if is_v3:
+        report["proposal_status"] = "NOT_ASSESSED"
+        report["proposal_reason"] = None
     if gate is not None:
         gate["status"] = "incomplete"
         gate["g2_status"] = "not_assessed"
+        if is_v3:
+            gate["proposal_status"] = "NOT_ASSESSED"
+            gate["proposal_reason"] = None
     manifest["status"] = "incomplete"
     manifest["error"] = primary_error
     manifest["finalization_errors"] = list(finalization_errors)
+    if is_v3:
+        manifest["exit_code"] = 1
     manifest["finished_utc"] = _utc()
     try:
         retained = None
@@ -101,6 +110,9 @@ def _mark_incomplete(data_dir: Path, report: dict, gate: dict | None,
                    "generation_source": report.get("generation_source"),
                    "audit_source": report.get("audit_source"),
                    "retained_detail_report": retained}
+        if is_v3:
+            summary.update({"audit_version": "dwr-task-v3-audit-v1",
+                            "proposal_status": "NOT_ASSESSED", "proposal_reason": None})
         if type(summary["resource"]) is dict:
             summary["resource"]["authoritative_final_accounting"] = "audit_manifest.json"
             summary["resource"]["accounting_is_final"] = False
@@ -126,6 +138,11 @@ def _finalize_manifest(data_dir: Path, manifest: dict, report: dict, gate: dict 
                        cpu_started: float, primary_error: dict | None,
                        finalization_errors: list[dict], *, charge_guard: bool) -> dict | None:
     generation = raw_generation or {}
+    if (primary_error is not None and
+            manifest.get("audit_manifest_version") == "dwr-task-v3-audit-run-v1"):
+        # Preserve a provisional detailed report before replacing it with a typed,
+        # fail-closed terminal summary. This also invalidates any provisional PASS.
+        _mark_incomplete(data_dir, report, gate, manifest, primary_error, finalization_errors)
     def snapshot() -> None:
         elapsed = guard.elapsed
         audit_cpu = max(0.0, time.process_time() - cpu_started)
@@ -151,6 +168,8 @@ def _finalize_manifest(data_dir: Path, manifest: dict, report: dict, gate: dict 
                 "combined_generation_audit_cpu_seconds": manifest["combined_generation_audit_cpu_seconds"],
                 "peak_resident_bytes": manifest["peak_resident_bytes"],
                 "combined_peak_resident_bytes": manifest["combined_peak_resident_bytes"]})
+        if manifest.get("audit_manifest_version") == "dwr-task-v3-audit-run-v1":
+            manifest["exit_code"] = 1 if primary_error is not None or report.get("status") != "complete" else 0
     try:
         if type(report.get("resource")) is dict:
             report["resource"]["accounting_snapshot_boundary"] = "before_detailed_report_serialization"
@@ -383,19 +402,41 @@ def run_closed_versioned_v3(argv: list[str] | None = None) -> int:
     manifest_path, report_path, gate_path, preflight_path = paths[:4]
     guard = ResourceGuard(600.0, 1024)
     cpu_started = time.process_time()
+    started_utc = _utc()
     manifest = {"audit_manifest_version": contract.audit_run_manifest_version,
-                "status": "running", "command": [sys.executable, "-m",
-                "dwr.tasks.audit_cli_v3", *argv], "argv": argv,
-                "generation_dir": str(data_dir), "mode": args.mode,
+                "status": "running", "command": [sys.executable, "-m", "dwr.tasks.audit_cli_v3", *argv],
+                "argv": argv, "generation_dir": str(data_dir), "mode": args.mode,
                 "cwd": str(Path.cwd()), "os": platform.platform(), "python": sys.version,
                 "cpu_count": os.cpu_count(), "rng": "none; deterministic audit",
                 "precision": "not applicable; integer and CPU audit",
-                "audit_cpu_started_seconds": cpu_started,
-                "started_utc": _utc(), "finished_utc": None, "producer": None,
-                "error": None, "finalization_errors": []}
-    report = gate = generation = config = source = None
+                "audit_cpu_started_seconds": cpu_started, "started_utc": started_utc,
+                "finished_utc": None, "producer": None, "error": None,
+                "finalization_errors": [], "config_path": str(args.config.resolve()),
+                "config_sha256": None, "generation_manifest_sha256": None,
+                "generation_artifacts": None, "generation_source": None, "audit_source": None,
+                "remaining_global_seconds_at_start": None, "audit_elapsed_seconds": None,
+                "combined_generation_audit_elapsed_seconds": None, "audit_cpu_seconds": None,
+                "combined_generation_audit_cpu_seconds": None, "peak_resident_bytes": None,
+                "combined_peak_resident_bytes": None, "accounting_end_boundary": None,
+                "accounting_note": "one bounded final metadata flush follows and is excluded",
+                "exit_code": 1, "artifacts": {}}
+    primary_error = None
+    finalization_errors: list[dict] = []
+    generation = config = source = None
+    gate = None
+    report = {"audit_version": contract.audit_version, "status": "incomplete",
+              "mode": args.mode, "g2_status": "not_assessed", "proposal_status": "NOT_ASSESSED",
+              "proposal_reason": None, "error": {"type": "AuditNotStarted",
+              "message": "audit replay has not started", "phase": "setup"},
+              "finalization_errors": [], "config_sha256": None,
+              "generation_manifest_sha256": None, "generation_source": None,
+              "audit_source": None, "resource": {}}
+    attempt_recorded = False
+    phase = "setup"
     try:
         _exclusive_json(manifest_path, manifest)
+        attempt_recorded = True
+        atomic_json(report_path, report)
         guard.check()
         config = load_config_v3(args.config)
         guard.check()
@@ -409,45 +450,52 @@ def run_closed_versioned_v3(argv: list[str] | None = None) -> int:
         validate_manifest_v3(generation, config_sha256=config.sha256, config=config.resolved,
                              mode=args.mode, limits=limits,
                              expected_producer=_producer_identity("dwr-generator-v3"))
-        guard.wall_seconds = min(guard.wall_seconds,
-                                 remaining_global_seconds(generation, limits.wall_seconds))
+        remaining = remaining_global_seconds(generation, limits.wall_seconds)
+        # Inherit the shared generator/audit budget exactly once, at CLI startup.
+        guard.wall_seconds = min(guard.wall_seconds, remaining)
         guard.memory_bytes = limits.memory_mib * 1024 * 1024
         guard.check()
         audit_producer = _audit_producer_identity()
-        manifest.update({"config_path": str(config.path), "config_sha256": config.sha256,
+        manifest.update({"config_path": str(config.path.resolve()), "config_sha256": config.sha256,
                          "generation_manifest_sha256": sha256_file(data_dir / "manifest.json"),
                          "generation_artifacts": generation["artifacts"],
                          "generation_source": generation["source"], "audit_source": source,
                          "producer": audit_producer,
-                         "remaining_global_seconds_at_start": guard.wall_seconds})
+                         "remaining_global_seconds_at_start": remaining})
         atomic_json(manifest_path, manifest)
+        phase = "audit_replay"
         report = run_audit_v3(data_dir, config, source, args.mode, guard=guard, allow_partial=True)
         gate = report.pop("gate")
         guard.check()
         report["resource"] = {"audit_elapsed_seconds": round(guard.elapsed, 6),
-            "combined_generation_audit_elapsed_seconds": round(
-                float(generation["generation_elapsed_seconds"]) + guard.elapsed, 6),
-            "peak_resident_bytes": guard.peak_bytes}
+            "combined_generation_audit_elapsed_seconds": round(float(generation["generation_elapsed_seconds"]) + guard.elapsed, 6),
+            "audit_cpu_seconds": round(max(0.0, time.process_time() - cpu_started), 6),
+            "combined_generation_audit_cpu_seconds": round(float(generation.get("generation_cpu_seconds", 0.0)) +
+                max(0.0, time.process_time() - cpu_started), 6),
+            "peak_resident_bytes": guard.peak_bytes,
+            "combined_peak_resident_bytes": max([n for n in (guard.peak_bytes,
+                generation.get("peak_resident_bytes")) if type(n) is int] or [None]),
+            "remaining_global_seconds": remaining,
+            "accounting_snapshot_boundary": "before_detailed_report_serialization",
+            "authoritative_final_accounting": "audit_manifest.json", "accounting_is_final": False}
+        phase = "audit_finalization"
+        status = report.get("status")
+        if status != "complete":
+            raise ValueError("v3 audit did not reach a terminal complete replay")
+        # Serialize the report and gate once so their identities can be bound by the
+        # optional wrapper. The shared finalizer repeats these writes under the live guard.
         atomic_json(report_path, report)
         guard.check()
         atomic_json(gate_path, gate)
         guard.check()
-        manifest.update({"status": "complete" if report["status"] == "complete" else "incomplete",
-            "finished_utc": _utc(), "audit_elapsed_seconds": round(guard.elapsed, 6),
-            "audit_cpu_seconds": round(max(0.0, time.process_time() - cpu_started), 6),
-            "combined_generation_audit_elapsed_seconds": round(
-                float(generation["generation_elapsed_seconds"]) + guard.elapsed, 6),
-            "peak_resident_bytes": guard.peak_bytes,
-            "accounting_end_boundary": "post_first_terminal_gate_resource_check",
-            "exit_code": 0 if report["status"] == "complete" else 1,
-            "artifacts": {}})
-        for artifact_path in (report_path, gate_path):
-            guard.check(); digest = sha256_file(artifact_path); guard.check()
-            size = artifact_path.stat().st_size; guard.check()
-            manifest["artifacts"][artifact_path.name] = {"sha256": digest, "bytes": size}
-        guard.check()
-        atomic_json(manifest_path, manifest)
-        guard.check()
+        report_hash = sha256_file(report_path); guard.check()
+        report_size = report_path.stat().st_size; guard.check()
+        gate_hash = sha256_file(gate_path); guard.check()
+        gate_size = gate_path.stat().st_size; guard.check()
+        manifest.update({"status": "complete", "error": None, "finalization_errors": [],
+            "exit_code": 0, "artifacts": {
+                "audit_report.json": {"sha256": report_hash, "bytes": report_size},
+                "audit_gate.json": {"sha256": gate_hash, "bytes": gate_size}}})
         if (args.mode == "feasibility" and report["g2_status"] == "PASS_FEASIBILITY" and
                 report["proposal_status"] == "PASS_FEASIBILITY" and report["status"] == "complete"):
             wrapper = {"report_version": contract.preflight_version, "status": "PASS_FEASIBILITY",
@@ -456,89 +504,34 @@ def run_closed_versioned_v3(argv: list[str] | None = None) -> int:
                 "generation_manifest_sha256": report["generation_manifest_sha256"],
                 "generation_artifacts": generation["artifacts"],
                 "audit_artifact_path": str(gate_path.resolve()),
-                "audit_artifact_sha256": None, "audit_source": source}
-            guard.check(); wrapper["audit_artifact_sha256"] = sha256_file(gate_path); guard.check()
-            atomic_json(preflight_path, wrapper); guard.check()
-            guard.check(); preflight_hash = sha256_file(preflight_path); guard.check()
+                "audit_artifact_sha256": gate_hash, "audit_source": source}
+            guard.check(); atomic_json(preflight_path, wrapper); guard.check()
+            preflight_hash = sha256_file(preflight_path); guard.check()
             preflight_size = preflight_path.stat().st_size; guard.check()
             manifest["artifacts"][preflight_path.name] = {"sha256": preflight_hash,
                                                            "bytes": preflight_size}
-            atomic_json(manifest_path, manifest)
-            guard.check()
-        return manifest["exit_code"]
+        primary_error = _finalize_manifest(data_dir, manifest, report, gate, guard, generation,
+                                           cpu_started, None, finalization_errors,
+                                           charge_guard=remaining > 0)
     except BaseException as exc:
-        error = {"type": type(exc).__name__, "message": str(exc), "phase": "audit"}
-        if preflight_path.exists():
-            invalidated = data_dir / "preflight_report.invalidated.json"
-            try:
-                if invalidated.exists():
-                    raise FileExistsError("invalidated preflight evidence already exists")
-                preflight_path.replace(invalidated)
-            except BaseException as invalidation_exc:
-                manifest["finalization_errors"].append({"type": type(invalidation_exc).__name__,
-                                                        "message": str(invalidation_exc),
-                                                        "phase": "preflight_invalidation"})
-        if report is not None:
-            retained = None
-            previous_status = report.get("status")
-            previous_g2 = report.get("g2_status")
-            if report_path.exists():
-                provisional = data_dir / "audit_report.provisional.json"
-                try:
-                    if provisional.exists():
-                        raise FileExistsError("provisional audit report already exists")
-                    detail_hash = sha256_file(report_path)
-                    report_path.replace(provisional)
-                    retained = {"path": provisional.name, "sha256": detail_hash,
-                                "status": previous_status, "g2_status": previous_g2}
-                except BaseException as retain_exc:
-                    manifest["finalization_errors"].append({"type": type(retain_exc).__name__,
-                                                            "message": str(retain_exc),
-                                                            "phase": "report_retention"})
-            summary = {"audit_version": contract.audit_version, "status": "incomplete",
-                       "g2_status": "not_assessed", "proposal_status": "NOT_ASSESSED",
-                       "proposal_reason": None, "mode": args.mode, "error": error,
-                       "config_sha256": None if config is None else config.sha256,
-                       "generation_manifest_sha256": manifest.get("generation_manifest_sha256"),
-                       "generation_source": None if generation is None else generation.get("source"),
-                       "audit_source": source, "retained_detail_report": retained}
-            report.clear(); report.update(summary)
-            try: atomic_json(report_path, report)
-            except BaseException as report_exc:
-                manifest["finalization_errors"].append({"type": type(report_exc).__name__,
-                                                        "message": str(report_exc),
-                                                        "phase": "report_downgrade"})
-        if gate is not None:
-            gate.update({"status": "incomplete", "g2_status": "not_assessed",
-                         "proposal_status": "NOT_ASSESSED", "proposal_reason": None})
-            try: atomic_json(gate_path, gate)
-            except BaseException: pass
-        manifest.update({"status": "incomplete", "finished_utc": _utc(),
-                         "audit_elapsed_seconds": round(guard.elapsed, 6),
-                         "audit_cpu_seconds": round(max(0.0, time.process_time() - cpu_started), 6),
-                         "error": error, "exit_code": 1})
-        manifest.pop("artifacts", None)
-        if report_path.exists():
-            try:
-                manifest.setdefault("artifacts", {})[report_path.name] = {
-                    "sha256": sha256_file(report_path), "bytes": report_path.stat().st_size}
-            except BaseException:
-                pass
-        if (data_dir / "audit_report.provisional.json").exists():
-            try:
-                provisional = data_dir / "audit_report.provisional.json"
-                manifest.setdefault("artifacts", {})[provisional.name] = {
-                    "sha256": sha256_file(provisional), "bytes": provisional.stat().st_size}
-            except BaseException:
-                pass
-        if gate_path.exists() and gate is not None:
-            try:
-                manifest.setdefault("artifacts", {})[gate_path.name] = {
-                    "sha256": sha256_file(gate_path), "bytes": gate_path.stat().st_size}
-            except BaseException:
-                pass
-        try: atomic_json(manifest_path, manifest)
-        except BaseException:
-            _write_terminal_failure(data_dir, error, [], manifest)
-        print(f"v3 audit failed: {stable_json(error)}", file=sys.stderr)
+        primary_error = {"type": type(exc).__name__, "message": str(exc), "phase": phase}
+        if phase == "audit_finalization":
+            finalization_errors.append({"type": type(exc).__name__, "message": str(exc), "phase": phase})
+        report["status"] = "incomplete"
+        report["g2_status"] = "not_assessed"
+        report["proposal_status"] = "NOT_ASSESSED"
+        report["proposal_reason"] = None
+        report["error"] = primary_error
+        manifest["error"] = primary_error
+        manifest["status"] = "incomplete"
+        if attempt_recorded:
+            primary_error = _finalize_manifest(data_dir, manifest, report, gate, guard, generation,
+                cpu_started, primary_error, finalization_errors, charge_guard=True)
+        else:
+            _write_terminal_failure(data_dir, primary_error, finalization_errors, manifest)
+    if primary_error is not None:
+        print(f"v3 audit failed: {stable_json(primary_error)}", file=sys.stderr)
+        for item in finalization_errors:
+            print(f"v3 audit finalization failed: {stable_json(item)}", file=sys.stderr)
         return 1
+    return 0

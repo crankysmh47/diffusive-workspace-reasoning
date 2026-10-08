@@ -214,7 +214,22 @@ def _source_summary(rows: list[dict], config: dict, failures: list[str], *, feas
             "source_train_primitive_coverage": coverage, "source_composition_absence": composition}
 
 
-def _feasibility_metrics(rows: list[dict], config: dict, guard=None) -> dict:
+def _feasibility_support_proxy(rows: list[dict], *, eligible_targets: bool = False) -> dict:
+    """Build feasibility cohorts while preserving the registered v2 default behavior."""
+    if type(eligible_targets) is not bool:
+        raise TypeError("eligible_targets must be a boolean")
+    cohorts = {FEASIBILITY_COHORTS[0]: [r for r in rows
+                if r["partition"] == "source" and r["split"] == "source_train" and
+                r["interaction"]["sensitive"]]}
+    for profile, name in PROFILE_COHORT.items():
+        cohorts[name] = [r for r in rows if r["partition"] == "development" and
+                         r["split"] == "development_validation" and tuple(r["profile"]) == profile and
+                         (not eligible_targets or r["primary_eligible"])]
+    return v1.common_support(cohorts, 10, 0.8, cohort_names=FEASIBILITY_COHORTS)
+
+
+def _feasibility_metrics(rows: list[dict], config: dict, guard=None, *,
+                         eligible_support_targets: bool = False) -> dict:
     failures: list[str] = []
     decision_rows = [r for r in rows if (r["partition"] == "source" and r["split"] == "source_train") or
                      (r["partition"] == "development" and r["split"] == "development_validation")]
@@ -237,9 +252,7 @@ def _feasibility_metrics(rows: list[dict], config: dict, guard=None) -> dict:
     fraction = eligible_total / total if total else 0.0
     _floor(failures, eligible_total >= config["audit_gate"]["development_target_min_groups"]["development_validation"], "development_validation_groups")
     _floor(failures, fraction >= config["audit_gate"]["min_primary_eligible_fraction_per_mixed_partition"], "development_validation_raw_eligible_fraction")
-    cohorts = {FEASIBILITY_COHORTS[0]: [r for r in decision_rows if r["partition"] == "source" and r["interaction"]["sensitive"]],
-               **{name: [r for r in dev if tuple(r["profile"]) == profile] for profile, name in PROFILE_COHORT.items()}}
-    support = v1.common_support(cohorts, 10, 0.8, cohort_names=FEASIBILITY_COHORTS)
+    support = _feasibility_support_proxy(decision_rows, eligible_targets=eligible_support_targets)
     _floor(failures, support["pass"], "four_cohort_common_support_proxy")
     return {"source_train": source, "development_validation": {"groups": total,
             "eligible_groups": eligible_total, "eligible_fraction": fraction, "profiles": per_profile},
@@ -484,6 +497,22 @@ def _audit_producer_identity() -> dict:
     return result
 
 
+def _feasibility_visible_projection(replay: dict, records: list[dict], rows: list[dict], mode: str):
+    """Keep feasibility report aggregates opaque outside source TRAIN and DEV VAL."""
+    if mode == "full":
+        visible_rows = rows
+        visible_records = records
+        visible_replay = replay
+    else:
+        visible_rows = [r for r in rows if
+            (r["partition"] == "source" and r["split"] == "source_train") or
+            (r["partition"] == "development" and r["split"] == "development_validation")]
+        visible_keys = {(r["partition"], r["candidate_index"]) for r in visible_rows}
+        visible_records = [r for r in records if (r["partition"], r["candidate_index"]) in visible_keys]
+        visible_replay = {key: replay[key] for key in ("status", "outcomes_sha256", "records_sha256")}
+    return visible_replay, visible_rows, visible_records
+
+
 def run_audit_v3(data_dir: Path, config, source: dict, mode: str, *,
                  guard: ResourceGuard | None = None, allow_partial: bool = True) -> dict:
     """Independently replay and audit the closed v3 stream using shared v2 metrics."""
@@ -581,7 +610,8 @@ def run_audit_v3(data_dir: Path, config, source: dict, mode: str, *,
     metrics = None
     proxy = None
     if generation_complete:
-        metrics = (_feasibility_metrics(rows, config.resolved, guard) if mode == "feasibility"
+        metrics = (_feasibility_metrics(rows, config.resolved, guard,
+                                        eligible_support_targets=True) if mode == "feasibility"
                    else _full_metrics(rows, config.resolved, guard))
         if mode == "feasibility":
             proxy = metrics["four_cohort_common_support_proxy"]
@@ -599,16 +629,15 @@ def run_audit_v3(data_dir: Path, config, source: dict, mode: str, *,
         g2, proposal, reason = "not_assessed", "NO_GO" if generation.get("early_stop") else "NOT_ASSESSED", (
             "source_support_capacity_bound" if generation.get("early_stop") else None)
         if rows:
-            partial_metrics = (_feasibility_metrics(rows, config.resolved, guard) if mode == "feasibility"
+            partial_metrics = (_feasibility_metrics(rows, config.resolved, guard,
+                                                    eligible_support_targets=True) if mode == "feasibility"
                                else _full_metrics(rows, config.resolved, guard))
             partial_metrics["observed_prefix_floor_shortfalls"] = partial_metrics.pop("floor_failures")
             partial_metrics["unassessed_reason"] = "generation prefix is incomplete; unattempted targets are not floor failures"
             partial_metrics["floor_failures"] = []
             partial_metrics["structural_pass"] = False
             metrics = partial_metrics
-    visible = rows if mode == "full" else [r for r in rows if
-              (r["partition"] == "source" and r["split"] == "source_train") or
-              (r["partition"] == "development" and r["split"] == "development_validation")]
+    visible_replay, visible, visible_records = _feasibility_visible_projection(replay, records, rows, mode)
     gate = {"gate_version": contract.audit_gate_version, "audit_version": contract.audit_version,
             "status": "complete" if audit_complete else "incomplete", "mode": mode,
             "g2_status": g2, "proposal_status": proposal, "proposal_reason": reason,
@@ -618,7 +647,7 @@ def run_audit_v3(data_dir: Path, config, source: dict, mode: str, *,
             "source_prefix": generation.get("source_prefix"), "capacity_bound": capacity}
     return {"audit_version": contract.audit_version, "status": "complete" if audit_complete else "incomplete",
             "generation_complete": generation_complete, "generation_status": generation["status"],
-            "replay": replay, "replay_pass": True, "integrity_pass": True,
+            "replay": visible_replay, "replay_pass": True, "integrity_pass": True,
             "generation_manifest_sha256": gate["generation_manifest_sha256"],
             "generation_artifacts": generation["artifacts"], "generation_source": generation["source"],
             "audit_source": source, "config_sha256": config.sha256, "mode": mode,
@@ -633,5 +662,5 @@ def run_audit_v3(data_dir: Path, config, source: dict, mode: str, *,
                 "eligible": r["interaction"]["sensitive"] if r["partition"] == "source" else r["primary_eligible"],
                 "interaction": r["interaction"]} for r in visible],
             "independent_unique_candidate_count": len(visible),
-            "accepted_record_count": len(records), "gate": gate,
+            "accepted_record_count": len(visible_records), "gate": gate,
             "unassessed": [] if generation_complete else ["unattempted generation targets", "G2"]}
