@@ -18,7 +18,7 @@ class PreflightV3Tests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.config = load_config_v3(ROOT / "configs/tasks/constraint_v3.json")
-        cls.limits = DatasetLimits({"eq": 1, "neq": 1, "add_mod": 1}, {}, {}, 2, 600, 1024)
+        cls.limits = DatasetLimits({"eq": 1, "neq": 1, "add_mod": 1}, {}, {}, 3, 600, 1024)
 
     def test_v2_and_unknown_preflight_versions_are_rejected(self):
         source = {"commit": "fixture", "dirty": False, "dirty_diff_sha256": "0" * 64,
@@ -239,8 +239,73 @@ class PreflightV3Tests(unittest.TestCase):
         run_manifest["generation_manifest_sha256"] = generation_hash
         run_manifest["generation_artifacts"] = copy.deepcopy(generation["artifacts"])
 
+    def _rewrite_context_and_replay(self, wrapper, report, gate, run_manifest, generation_dir,
+                                    context_changes):
+        context_path = generation_dir / "source_prefix_context.json"
+        context = json.loads(context_path.read_text(encoding="utf-8"))
+        context.update(context_changes)
+        outcomes_path = generation_dir / "outcomes.jsonl"
+        records_path = generation_dir / "records.jsonl"
+        outcomes = outcomes_path.read_bytes()
+        records = records_path.read_bytes()
+        if context.get("source_attempts", 0) > outcomes.count(b"\n"):
+            outcomes += b'{"synthetic":4}\n'
+            outcomes_path.write_bytes(outcomes)
+        context["source_outcome_prefix_bytes"] = len(outcomes)
+        context["source_outcome_prefix_sha256"] = hashlib.sha256(outcomes).hexdigest()
+        context["source_record_prefix_bytes"] = len(records)
+        context["source_record_prefix_sha256"] = hashlib.sha256(records).hexdigest()
+        context_bytes = (stable_json(context) + "\n").encode("utf-8")
+        context_path.write_bytes(context_bytes)
+        context_sha = hashlib.sha256(context_bytes).hexdigest()
+        replay = json.loads((generation_dir / "source_prefix_replay.json").read_text(encoding="utf-8"))
+        replay.update({"context_sha256": context_sha,
+            "source_attempts": context["source_attempts"],
+            "source_accepted_record_count": context["source_accepted_record_count"],
+            "source_quota_counts": copy.deepcopy(context["source_quota_counts"]),
+            "source_outcome_prefix_bytes": context["source_outcome_prefix_bytes"],
+            "source_outcome_prefix_sha256": context["source_outcome_prefix_sha256"],
+            "source_record_prefix_bytes": context["source_record_prefix_bytes"],
+            "source_record_prefix_sha256": context["source_record_prefix_sha256"]})
+        replay_bytes = (stable_json(replay) + "\n").encode("utf-8")
+        (generation_dir / "source_prefix_replay.json").write_bytes(replay_bytes)
+        report["source_prefix_replay"] = copy.deepcopy(replay)
+        generation_path = generation_dir / "manifest.json"
+        generation = json.loads(generation_path.read_text(encoding="utf-8"))
+        for name, body in (("outcomes.jsonl", outcomes),
+                           ("source_prefix_context.json", context_bytes),
+                           ("source_prefix_replay.json", replay_bytes)):
+            generation["artifacts"][name] = {"sha256": hashlib.sha256(body).hexdigest(), "bytes": len(body)}
+        generation["source_prefix"]["context_sha256"] = generation["artifacts"]["source_prefix_context.json"]["sha256"]
+        generation["source_prefix"]["replay_sha256"] = generation["artifacts"]["source_prefix_replay.json"]["sha256"]
+        generation["source_capacity_bound"]["source_prefix_replay_sha256"] = generation["source_prefix"]["replay_sha256"]
+        capacity_bytes = (stable_json(generation["source_capacity_bound"]) + "\n").encode("utf-8")
+        (generation_dir / "source_capacity_bound.json").write_bytes(capacity_bytes)
+        generation["artifacts"]["source_capacity_bound.json"] = {
+            "sha256": hashlib.sha256(capacity_bytes).hexdigest(), "bytes": len(capacity_bytes)}
+        generation_path.write_text(stable_json(generation), encoding="utf-8")
+        generation_hash = sha256_file(generation_path)
+        wrapper["generation_manifest_sha256"] = generation_hash
+        wrapper["generation_artifacts"] = copy.deepcopy(generation["artifacts"])
+        report["generation_manifest_sha256"] = generation_hash
+        report["generation_artifacts"] = copy.deepcopy(generation["artifacts"])
+        report["capacity_bound"] = copy.deepcopy(generation["source_capacity_bound"])
+        report["replay"]["outcomes_sha256"] = generation["artifacts"]["outcomes.jsonl"]["sha256"]
+        gate["generation_manifest_sha256"] = generation_hash
+        gate["generation_artifacts"] = copy.deepcopy(generation["artifacts"])
+        gate["capacity_bound"] = copy.deepcopy(generation["source_capacity_bound"])
+        gate["source_prefix"] = copy.deepcopy(generation["source_prefix"])
+        run_manifest["generation_manifest_sha256"] = generation_hash
+        run_manifest["generation_artifacts"] = copy.deepcopy(generation["artifacts"])
+
     def test_closed_synthetic_v3_handoff_accepts_and_mutations_reject(self):
         mutations = {
+            "mutually rehashed unregistered quota distribution": lambda w, r, g, m, d:
+                self._rewrite_context_and_replay(w, r, g, m, d, {
+                    "source_quota_targets": {"eq": 0, "neq": 0, "add_mod": 3},
+                    "source_quota_counts": {"eq": 0, "neq": 0, "add_mod": 3}}),
+            "mutually rehashed source attempt over cap": lambda w, r, g, m, d:
+                self._rewrite_context_and_replay(w, r, g, m, d, {"source_attempts": 4}),
             "unbound replay outcomes hash": lambda w, r, g, m, d: r["replay"].update(outcomes_sha256="e" * 64),
             "unbound replay records hash": lambda w, r, g, m, d: r["replay"].update(records_sha256="f" * 64),
             "prefix replay version substitution": lambda w, r, g, m, d: r["source_prefix_replay"].update(

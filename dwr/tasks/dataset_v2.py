@@ -871,6 +871,7 @@ def validate_preflight_v3(path: Path | None, config: LoadedConfig, source: dict,
         type(prefix_context["source_quota_closed"]) is not bool or
         prefix_context["source_quota_closed"] is not True or
         type(prefix_context["source_attempts"]) is not int or prefix_context["source_attempts"] <= 0 or
+        prefix_context["source_attempts"] > limits.attempts_per_partition or
         type(prefix_context["source_accepted_record_count"]) is not int or
         prefix_context["source_accepted_record_count"] < 0 or
         type(prefix_context["development_attempts"]) is not int or prefix_context["development_attempts"] != 0 or
@@ -885,6 +886,12 @@ def validate_preflight_v3(path: Path | None, config: LoadedConfig, source: dict,
     if (not _same_typed(prefix_context["source_quota_targets"], prefix_context["source_quota_counts"]) or
         sum(prefix_context["source_quota_counts"].values()) != prefix_context["source_accepted_record_count"]):
         raise ValueError("v3 preflight source-prefix quota closure does not reconcile")
+    registered_source_quotas = {name: limits.source_by_profile.get(name) for name in quota_names}
+    if (any(type(count) is not int or count < 0 for count in registered_source_quotas.values()) or
+        not _same_typed(prefix_context["source_quota_targets"], registered_source_quotas) or
+        not _same_typed(prefix_context["source_quota_counts"], registered_source_quotas) or
+        prefix_context["source_accepted_record_count"] != sum(registered_source_quotas.values())):
+        raise ValueError("v3 preflight source-prefix quotas differ from registered source closure")
     prefix_numeric = ("source_outcome_prefix_bytes", "source_record_prefix_bytes")
     prefix_hashes = ("source_outcome_prefix_sha256", "source_record_prefix_sha256")
     if (any(type(prefix_context[name]) is not int or prefix_context[name] < 0 for name in prefix_numeric) or
