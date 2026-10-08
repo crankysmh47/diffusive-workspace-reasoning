@@ -28,4 +28,4 @@ This task ran no project tests, corpus generation, audit, model, or training com
 
 This is local agent-run evidence. G2, the full five-cohort support comparison, final-target yield, target mismatch, model behavior, archival backup, and independent reproduction remain unverified. The source-only prefix does not support conclusions about those quantities. No changed-rule retry was made.
 
-Commit: recorded with the durable-state update in the worktree history.
+Durable-state commit: `41fc48eb2037fdc147bd1b49d3f452793686d686` (`docs: record v2 feasibility attempt outcome`).
