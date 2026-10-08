@@ -1,10 +1,12 @@
 # Execution state: transfer v3
 
-Updated: 2026-10-08. Branch: `research/transfer-cpu-v1`. Worktree: `C:\sem5\diffusive-workspace-reasoning\.worktrees\transfer-cpu-v1`.
+Updated: 2026-10-09. Branch: `research/transfer-cpu-v1`. Worktree: `C:\sem5\diffusive-workspace-reasoning\.worktrees\transfer-cpu-v1`.
 
 ## Current state
 
 The current v3 generation proposal was implemented and checked at clean source commit `57c953f2f01841be3391e4027e7c8514f59f14e9`. Its one registered feasibility attempt closed the source quota and stopped at the replay-validated source-train capacity bound. The independent audit completed with integrity and replay passing; G2 is `not_assessed`. Development and final generation were not attempted. No full run, model, or training occurred. See the [v3 suitability report](task_suitability_v3.md) and [compact evidence manifest](../configs/splits/constraint-v3-feasibility-nogo.json).
+
+On 2026-10-09, a bounded post-review code correction closed the full-manifest v3 consumed-preflight contract, enforced the registered combined wall and memory ceilings at preflight consumption, reused the shared pure capacity-cell extractor, and left final assessment unassessed for incomplete full runs. The focused v3/v2 compatibility checks passed 100 tests in 8.005 seconds, including the actual synthetic CLI-to-consumer handoff; the root final branch suite is pending. This post-study code identity is separate from the immutable attempt source above and does not alter its manifests, artifact hashes, scientific NO-GO, or G2 status. Exact evidence is in the [correction record](audit_reporting_correction.md) and [v3 suitability report](task_suitability_v3.md).
 
 At that source commit, the controller's fresh CPU suite passed 209 tests in 9.720 seconds. This is CPU implementation evidence, not corpus suitability, model validation, or independent reproduction. The source commit's code and the current documentation commit are separate identities; the run manifest binds the attempt to the former.
 
@@ -30,6 +32,8 @@ The terminal ruling is to preserve this NO-GO and stop the v3 proposal. Do not r
 | Treat a replay-closed empty source-train cohort as capacity NO-GO with mass zero. | Applies the exact 100-group feasibility proof fail-closed; only `PASS_CAPACITY_BOUND` may proceed to development, with sampling and floors unchanged. |
 | Untrack the three accidentally committed scratch files with a cleanup commit while preserving their local files and history. | Restores the no-scratch-in-Git rule; adds a small cleanup commit without production changes. |
 | Combine Task 5 evidence review with the strongest whole-v3-branch review after the registered run. | Gives one reviewer the complete code and evidence state; documentation completion waits for that combined review. |
+| Use one bounded post-review fix wave for the full v3 linkage, authoritative preflight budgets, shared cell extraction, and incomplete-full reporting. | Closes the reviewer-identified handoff/reporting defects without changing scientific populations or the frozen NO-GO; cost is a new code identity and fresh focused checks. |
+| Retain expected failure-injection stderr and defer canonical CLI argument-order normalization. | Existing exit/count evidence supports the successful assertions and registered commands remain consumable; cost is noisier logs and support for the documented argument order only. |
 
 The v3 implementation/review chronology and evidence are retained in the ignored `.superpowers/sdd/transfer-v3/progress.md`; the table above carries every explicit v3 ruling into tracked documentation.
 

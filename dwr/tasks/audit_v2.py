@@ -447,10 +447,10 @@ def _audit_source_capacity(records: list[dict], replay_sha256: str,
             continue
         task = parse_task_json(stable_json(record["task"]))
         size = len(record["model_input"].encode("utf-8"))
-        prompt_bin = 0 if size <= 511 else 1 if size <= 639 else 2 if size <= 767 else 3 if size <= 1023 else 4
-        nodes = record["solver_stats"]["first_solution_nodes"]
-        node_bin = 0 if nodes == 1 else 1 if nodes <= 3 else 2 if nodes <= 7 else 3 if nodes <= 15 else 4 if nodes <= 31 else 5 if nodes <= 63 else 6
-        cell = (len(task.variables), len(task.givens), len(task.constraints), prompt_bin, node_bin)
+        prepared_record = dict(record)
+        prepared_record["task"] = task
+        prepared_record["model_input_bytes"] = size
+        cell = v1._cell(prepared_record)
         counts[cell] += 1
         total += 1
     ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:10]
@@ -654,7 +654,7 @@ def run_audit_v3(data_dir: Path, config, source: dict, mode: str, *,
             "g2_status": g2, "proposal_status": proposal, "proposal_reason": reason,
             "capacity_bound": capacity, "source_prefix_replay": prefix_replay,
             "four_cohort_common_support_proxy": proxy,
-            "final_assessment": "not_assessed" if mode == "feasibility" else "assessed",
+            "final_assessment": "assessed" if mode == "full" and generation_complete else "not_assessed",
             "metrics": metrics, "denominator_profiles": _counts(visible, guard),
             "per_example_outcomes": [{"partition": r["partition"], "candidate_index": r["candidate_index"],
                 "split": r["split"], "profile": r["profile"], "content_id": r["content_id"],

@@ -82,6 +82,67 @@ class DatasetV3Tests(unittest.TestCase):
                 run_dataset_v3(self.config, out, "full", ["test"], limits=limits)
             self.assertFalse(out.exists())
 
+    def test_full_manifest_accepts_only_closed_v3_consumed_preflight_linkage(self):
+        from copy import deepcopy
+        from dwr.tasks.dataset_v2 import _new_manifest
+        from dwr.tasks.manifest_v2 import validate_manifest_v3
+        from dwr.tasks.stream_contract import resolve_stream
+
+        limits = DatasetLimits({}, {}, {}, 1, 30, 1024)
+        source = {"commit": "0" * 40, "dirty": False, "dirty_diff_sha256": "0" * 64,
+                  "checkout_root": str(ROOT)}
+        identity = {"sha256": "a" * 64, "bytes": 0}
+        names = ("outcomes.jsonl", "records.jsonl", "source_capacity_bound.json",
+                 "source_prefix_context.json", "source_prefix_replay.json")
+        consumed = {"linkage_version": resolve_stream("dwr-generator-v3").consumed_preflight_version,
+                    "wrapper_path": "fixture/preflight_report.json", "wrapper_sha256": "b" * 64,
+                    "config_sha256": self.config.sha256, "source": deepcopy(source),
+                    "generation_manifest_sha256": "c" * 64,
+                    "generation_artifacts": {name: dict(identity) for name in names},
+                    "audit_artifact_path": "fixture/audit_gate.json", "audit_artifact_sha256": "d" * 64}
+        manifest = _new_manifest(self.config, Path("synthetic-full"), "full", ["fixture"], source,
+                                 limits, consumed, "2026-10-09T00:00:00Z", generator_id="dwr-generator-v3")
+        manifest.update(status="complete", exit_code=0, error=None,
+                        finished_utc="2026-10-09T00:00:01Z", terminal_status_utc="2026-10-09T00:00:01Z",
+                        first_work_started_utc="2026-10-09T00:00:00Z",
+                        finalization_started_utc="2026-10-09T00:00:01Z",
+                        generation_elapsed_seconds=1.0, generation_cpu_seconds=1.0,
+                        finalization_elapsed_seconds=0.0, peak_resident_bytes=1,
+                        artifacts={name: dict(identity) for name in ("outcomes.jsonl", "records.jsonl")})
+        for part in ("source", "development", "final"):
+            manifest["partitions"][part] = {"status": "complete", "attempts": 0,
+                                             "accepted": 0, "not_attempted": False}
+
+        validate_manifest_v3(manifest, config_sha256=self.config.sha256,
+                             config=self.config.resolved, mode="full", limits=limits,
+                             require_complete=True)
+        invalid_cases = []
+        wrong_version = deepcopy(manifest)
+        wrong_version["consumed_preflight"]["linkage_version"] = "dwr-task-v2-consumed-preflight-v1"
+        wrong_version["consumed_preflight"]["generation_artifacts"] = {
+            name: dict(identity) for name in ("outcomes.jsonl", "records.jsonl")}
+        invalid_cases.append(("v2-shaped", wrong_version))
+        missing = deepcopy(manifest)
+        del missing["consumed_preflight"]["generation_artifacts"]["source_prefix_replay.json"]
+        invalid_cases.append(("missing artifact", missing))
+        extra = deepcopy(manifest)
+        extra["consumed_preflight"]["generation_artifacts"]["unexpected.json"] = dict(identity)
+        invalid_cases.append(("extra artifact", extra))
+        bad_source = deepcopy(manifest)
+        bad_source["consumed_preflight"]["source"]["commit"] = "1" * 40
+        invalid_cases.append(("source mismatch", bad_source))
+        bad_config = deepcopy(manifest)
+        bad_config["consumed_preflight"]["config_sha256"] = "e" * 64
+        invalid_cases.append(("config mismatch", bad_config))
+        malformed = deepcopy(manifest)
+        malformed["consumed_preflight"]["generation_artifacts"][names[0]]["sha256"] = "bad"
+        invalid_cases.append(("malformed identity", malformed))
+        for label, candidate in invalid_cases:
+            with self.subTest(label=label), self.assertRaises(ValueError):
+                validate_manifest_v3(candidate, config_sha256=self.config.sha256,
+                                     config=self.config.resolved, mode="full", limits=limits,
+                                     require_complete=True)
+
     def test_v3_cli_does_not_accept_v2_config(self):
         with tempfile.TemporaryDirectory() as temp:
             out = Path(temp) / "run"

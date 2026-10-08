@@ -65,6 +65,39 @@ class PreflightV3Tests(unittest.TestCase):
             with self.assertRaises(TimeoutError):
                 validate_preflight_v3(path, self.config, source, limits=self.limits, guard=guard)
 
+    def test_preflight_rejects_combined_wall_overrun_and_equal_cap(self):
+        source = {"commit": "fixture", "dirty": False, "dirty_diff_sha256": "0" * 64,
+                  "checkout_root": str(ROOT)}
+        cases = (("overrun", 601.0), ("equal cap", 600.0))
+        for label, combined in cases:
+            def mutate(_wrapper, _report, _gate, run_manifest, _generation_dir, value=combined):
+                run_manifest["audit_elapsed_seconds"] = value - 5.0
+                run_manifest["combined_generation_audit_elapsed_seconds"] = value
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as temp:
+                _source, wrapper = self._accepted_handoff(Path(temp), mutate)
+                with patch("dwr.tasks.manifest_v2.validate_manifest_v3"):
+                    with self.assertRaisesRegex(ValueError, "budget"):
+                        validate_preflight_v3(wrapper, self.config, source, limits=self.limits)
+
+    def test_preflight_memory_cap_is_inclusive_and_rejects_one_byte_over(self):
+        source = {"commit": "fixture", "dirty": False, "dirty_diff_sha256": "0" * 64,
+                  "checkout_root": str(ROOT)}
+        cap = self.limits.memory_mib * 1024 * 1024
+        for label, peak, accepted in (("equal cap", cap, True), ("one byte over", cap + 1, False)):
+            def mutate(_wrapper, _report, _gate, run_manifest, _generation_dir, value=peak):
+                run_manifest["peak_resident_bytes"] = value
+                run_manifest["combined_peak_resident_bytes"] = value
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as temp:
+                _source, wrapper = self._accepted_handoff(Path(temp), mutate)
+                with patch("dwr.tasks.manifest_v2.validate_manifest_v3"):
+                    if accepted:
+                        result = validate_preflight_v3(wrapper, self.config, source, limits=self.limits)
+                        self.assertEqual(result["linkage_version"],
+                                         "dwr-task-v3-consumed-preflight-v1")
+                    else:
+                        with self.assertRaisesRegex(ValueError, "budget"):
+                            validate_preflight_v3(wrapper, self.config, source, limits=self.limits)
+
     def _accepted_handoff(self, root, mutate=None):
         from dwr.tasks import dataset_v2
         from dwr.tasks.audit_v2 import _audit_producer_identity

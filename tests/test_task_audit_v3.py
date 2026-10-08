@@ -89,6 +89,81 @@ class AuditV3Tests(unittest.TestCase):
             with self.assertRaises((ValueError, FileNotFoundError)):
                 run_audit_v3(Path(temp), self.config, {}, "feasibility")
 
+    def test_independent_capacity_histogram_uses_shared_cell_boundaries(self):
+        from dwr.tasks import audit
+        from dwr.tasks.audit_v2 import _audit_source_capacity
+        from dwr.tasks.dataset_v2 import accepted_record, _split_and_ids
+        from dwr.tasks.generator_v3 import generate_candidate_v3
+
+        outcome = generate_candidate_v3(20261007, "source", 1)
+        self.assertTrue(outcome.oracle_unique and outcome.eligible)
+        split, identities = _split_and_ids(outcome)
+        record = accepted_record(outcome, "source_train", identities,
+                                 expected_generator_id="dwr-generator-v3")
+        sizes = (511, 512, 639, 640, 767, 768, 1023, 1024)
+        nodes = (1, 2, 4, 8, 16, 32, 64)
+        prompt_bins = {511: 0, 512: 1, 639: 1, 640: 2, 767: 2, 768: 3, 1023: 3, 1024: 4}
+        node_bins = {1: 0, 2: 1, 4: 2, 8: 3, 16: 4, 32: 5, 64: 6}
+        records = []
+        expected_cells = []
+        for size in sizes:
+            for node_count in nodes:
+                item = dict(record, model_input="x" * size,
+                            solver_stats=dict(record["solver_stats"], first_solution_nodes=node_count))
+                item["model_input_bytes"] = len(item["model_input"].encode("utf-8"))
+                records.append(item)
+                cell = audit._cell(item)
+                self.assertEqual(cell[3:], (prompt_bins[size], node_bins[node_count]))
+                expected_cells.append(cell)
+        observed = []
+        actual_cell = audit._cell
+        def capture(prepared):
+            observed.append(prepared["model_input_bytes"])
+            return actual_cell(prepared)
+        with patch.object(audit, "_cell", side_effect=capture):
+            result = _audit_source_capacity(records, "a" * 64)
+        self.assertEqual(observed, [len(item["model_input"].encode("utf-8")) for item in records])
+        self.assertEqual(result["source_train_group_count"], len(records))
+        from collections import Counter
+        expected_counts = Counter(expected_cells)
+        ordered = sorted(expected_counts.items(), key=lambda item: (-item[1], item[0]))[:10]
+        self.assertEqual(result["top_cells"], [
+            {"cell": list(cell), "count": count} for cell, count in ordered
+        ])
+
+    def test_incomplete_full_report_keeps_final_assessment_not_assessed(self):
+        import json
+        from dwr.tasks.dataset_v2 import DatasetLimits, run_dataset_v3
+        from dwr.tasks.run_support import ResourceGuard
+
+        limits = DatasetLimits({"eq": 1, "neq": 0, "add_mod": 0}, {}, {}, 0, 30, 1024)
+        source = {"commit": "fixture", "dirty": False, "dirty_diff_sha256": "0" * 64,
+                  "checkout_root": str(ROOT)}
+        identity = {"sha256": "a" * 64, "bytes": 0}
+        consumed = {"linkage_version": "dwr-task-v3-consumed-preflight-v1",
+                    "wrapper_path": "fixture/preflight_report.json", "wrapper_sha256": "b" * 64,
+                    "config_sha256": self.config.sha256, "source": dict(source),
+                    "generation_manifest_sha256": "c" * 64,
+                    "generation_artifacts": {name: dict(identity) for name in (
+                        "outcomes.jsonl", "records.jsonl", "source_capacity_bound.json",
+                        "source_prefix_context.json", "source_prefix_replay.json")},
+                    "audit_artifact_path": "fixture/audit_gate.json", "audit_artifact_sha256": "d" * 64}
+        with tempfile.TemporaryDirectory() as temp:
+            data = Path(temp) / "full"
+            with patch("dwr.tasks.dataset_v2.validate_preflight_v3", return_value=consumed):
+                exit_code = run_dataset_v3(self.config, data, "full", ["fixture"], limits=limits,
+                                           source=source, preflight_report=Path("fixture"))
+            self.assertEqual(exit_code, 1)
+            from dwr.tasks.manifest_v2 import expected_limits
+            saved = json.loads((data / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(saved["limits"], expected_limits("full", limits))
+            with patch("dwr.tasks.dataset_v2.registered_limits", return_value=limits):
+                report = run_audit_v3(data, self.config, source, "full",
+                                      guard=ResourceGuard(30, 1024, memory_reader=lambda: 0))
+        self.assertFalse(report["generation_complete"])
+        self.assertEqual(report["unassessed"], ["unattempted generation targets", "G2"])
+        self.assertEqual(report["final_assessment"], "not_assessed")
+
     def test_prefix_replay_operational_failure_writes_durable_not_assessed_report(self):
         from dwr.tasks.audit_cli_v3 import main as audit_main
         from dwr.tasks.stream_contract import _STREAMS

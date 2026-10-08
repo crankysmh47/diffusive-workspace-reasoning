@@ -238,6 +238,30 @@ def validate_manifest_v3(manifest: dict, *, config_sha256: str, config: dict,
     if mode == "full":
         if bound != {"status": "NOT_APPLICABLE", "reason": "full_mode_uses_registered_five_cohort_gate"} or prefix is not None or manifest["early_stop"] is not None:
             raise ValueError("full v3 run must leave source capacity bound not applicable")
+        consumed = manifest.get("consumed_preflight")
+        consumed_fields = {"linkage_version", "wrapper_path", "wrapper_sha256", "config_sha256", "source",
+                           "generation_manifest_sha256", "generation_artifacts", "audit_artifact_path",
+                           "audit_artifact_sha256"}
+        consumed_artifacts = {"outcomes.jsonl", "records.jsonl", "source_capacity_bound.json",
+                              "source_prefix_context.json", "source_prefix_replay.json"}
+        if type(consumed) is not dict or set(consumed) != consumed_fields:
+            raise ValueError("full v3 manifest must retain a closed consumed preflight linkage")
+        for key in ("wrapper_sha256", "config_sha256", "generation_manifest_sha256", "audit_artifact_sha256"):
+            if type(consumed[key]) is not str or not re.fullmatch(r"[0-9a-f]{64}", consumed[key]):
+                raise ValueError("v3 consumed preflight hash is malformed")
+        if (consumed["linkage_version"] != "dwr-task-v3-consumed-preflight-v1" or
+            consumed["config_sha256"] != config_sha256 or consumed["source"] != manifest.get("source") or
+            type(consumed["source"]) is not dict or consumed["source"].get("dirty") is not False or
+            type(consumed["wrapper_path"]) is not str or not consumed["wrapper_path"] or
+            type(consumed["audit_artifact_path"]) is not str or not consumed["audit_artifact_path"] or
+            type(consumed["generation_artifacts"]) is not dict or
+            set(consumed["generation_artifacts"]) != consumed_artifacts):
+            raise ValueError("v3 consumed preflight linkage identity is invalid")
+        for identity in consumed["generation_artifacts"].values():
+            if (type(identity) is not dict or set(identity) != {"sha256", "bytes"} or
+                type(identity["sha256"]) is not str or not re.fullmatch(r"[0-9a-f]{64}", identity["sha256"]) or
+                type(identity["bytes"]) is not int or identity["bytes"] < 0):
+                raise ValueError("v3 consumed preflight artifact identity is malformed")
         allowed_artifacts = {"outcomes.jsonl", "records.jsonl"}
     else:
         bound_fields = {"bound_version", "status", "reason", "source_prefix_replay_sha256",
@@ -357,6 +381,15 @@ def validate_manifest_v3(manifest: dict, *, config_sha256: str, config: dict,
     if type(legacy_artifacts) is dict:
         legacy["artifacts"] = {name: value for name, value in legacy_artifacts.items()
                                if name in {"outcomes.jsonl", "records.jsonl"}}
+    if mode == "full":
+        # The full v3 linkage above is validated and retained unchanged in the
+        # public manifest. Project only a private copy to the v2 run validator's
+        # legacy two-stream contract.
+        legacy["consumed_preflight"] = deepcopy(manifest["consumed_preflight"])
+        legacy["consumed_preflight"]["linkage_version"] = "dwr-task-v2-consumed-preflight-v1"
+        legacy["consumed_preflight"]["generation_artifacts"] = {
+            name: identity for name, identity in legacy["consumed_preflight"]["generation_artifacts"].items()
+            if name in {"outcomes.jsonl", "records.jsonl"}}
     if legacy.get("error") is not None:
         legacy["error"] = {key: value for key, value in legacy["error"].items()
                            if key != "reason"}

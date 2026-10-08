@@ -1080,6 +1080,9 @@ def validate_preflight_v3(path: Path | None, config: LoadedConfig, source: dict,
         run_manifest["combined_peak_resident_bytes"] != max(generation["peak_resident_bytes"],
                                                              run_manifest["peak_resident_bytes"])):
         raise ValueError("v3 preflight audit accounting does not bind generation and audit costs")
+    if (run_manifest["combined_generation_audit_elapsed_seconds"] >= limits.wall_seconds or
+        run_manifest["combined_peak_resident_bytes"] > limits.memory_mib * 1024 * 1024):
+        raise ValueError("v3 preflight audit accounting exceeds the registered resource budget")
     run_artifacts = run_manifest.get("artifacts")
     if type(run_artifacts) is not dict or set(run_artifacts) != {
         "audit_report.json", "audit_gate.json", "preflight_report.json"}:

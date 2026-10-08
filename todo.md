@@ -11,6 +11,8 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 
 The controller's fresh CPU suite at the frozen v3 source commit reported 209 passed in 9.720 seconds. This is implementation evidence, not corpus suitability, model validation, or independent reproduction. Preserve the attempt; do not retune or rerun this proposal.
 
+On 2026-10-09, focused post-review integration checks also passed for full-manifest v3 consumed linkage, strict combined wall/memory budget consumption, shared capacity-cell extraction, incomplete-full final reporting, the emitted CLI-to-consumer handoff, and affected v2 compatibility. The root controller's final branch suite is pending; these checks do not change the frozen run or G2 status. See [the correction record](docs/audit_reporting_correction.md) and [v3 suitability report](docs/task_suitability_v3.md).
+
 ## Historical v2 gate — 2026-10-08
 
 - [x] Implement and review the pinned v2 generator, bounded feasibility/full orchestration, and independent audit. CPU implementation checks pass; see the [v2 execution plan](docs/task_v2_execution_plan.md).
