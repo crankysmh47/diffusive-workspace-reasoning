@@ -361,3 +361,184 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+def run_closed_versioned_v3(argv: list[str] | None = None) -> int:
+    """Shared closed-version CLI boundary used by the thin v3 module entry point."""
+    from .audit_v2 import _audit_producer_identity, run_audit_v3
+    from .config_v3 import load_config_v3
+    from .stream_contract import require_matching_config, resolve_stream
+
+    argv = list(sys.argv[1:] if argv is None else argv)
+    args = _parser().parse_args(argv)
+    contract = resolve_stream("dwr-generator-v3")
+    data_dir = args.data.resolve()
+    paths = [data_dir / name for name in ("audit_manifest.json", "audit_report.json",
+             "audit_gate.json", "preflight_report.json", "audit_report.json.tmp",
+             "audit_gate.json.tmp", "audit_report.provisional.json",
+             "preflight_report.invalidated.json", "terminal_failure.json")]
+    if not data_dir.is_dir() or any(path.exists() for path in paths):
+        print("v3 audit directory is missing or already contains audit evidence", file=sys.stderr)
+        return 1
+    manifest_path, report_path, gate_path, preflight_path = paths[:4]
+    guard = ResourceGuard(600.0, 1024)
+    cpu_started = time.process_time()
+    manifest = {"audit_manifest_version": contract.audit_run_manifest_version,
+                "status": "running", "command": [sys.executable, "-m",
+                "dwr.tasks.audit_cli_v3", *argv], "argv": argv,
+                "generation_dir": str(data_dir), "mode": args.mode,
+                "cwd": str(Path.cwd()), "os": platform.platform(), "python": sys.version,
+                "cpu_count": os.cpu_count(), "rng": "none; deterministic audit",
+                "precision": "not applicable; integer and CPU audit",
+                "audit_cpu_started_seconds": cpu_started,
+                "started_utc": _utc(), "finished_utc": None, "producer": None,
+                "error": None, "finalization_errors": []}
+    report = gate = generation = config = source = None
+    try:
+        _exclusive_json(manifest_path, manifest)
+        guard.check()
+        config = load_config_v3(args.config)
+        guard.check()
+        require_matching_config(contract, config.resolved)
+        source = source_identity()
+        guard.check()
+        generation = strict_json_loads((data_dir / "manifest.json").read_text(encoding="utf-8"))
+        guard.check()
+        limits = registered_limits(config.resolved, args.mode)
+        from .manifest_v2 import validate_manifest_v3
+        validate_manifest_v3(generation, config_sha256=config.sha256, config=config.resolved,
+                             mode=args.mode, limits=limits,
+                             expected_producer=_producer_identity("dwr-generator-v3"))
+        guard.wall_seconds = min(guard.wall_seconds,
+                                 remaining_global_seconds(generation, limits.wall_seconds))
+        guard.memory_bytes = limits.memory_mib * 1024 * 1024
+        guard.check()
+        audit_producer = _audit_producer_identity()
+        manifest.update({"config_path": str(config.path), "config_sha256": config.sha256,
+                         "generation_manifest_sha256": sha256_file(data_dir / "manifest.json"),
+                         "generation_artifacts": generation["artifacts"],
+                         "generation_source": generation["source"], "audit_source": source,
+                         "producer": audit_producer,
+                         "remaining_global_seconds_at_start": guard.wall_seconds})
+        atomic_json(manifest_path, manifest)
+        report = run_audit_v3(data_dir, config, source, args.mode, guard=guard, allow_partial=True)
+        gate = report.pop("gate")
+        guard.check()
+        report["resource"] = {"audit_elapsed_seconds": round(guard.elapsed, 6),
+            "combined_generation_audit_elapsed_seconds": round(
+                float(generation["generation_elapsed_seconds"]) + guard.elapsed, 6),
+            "peak_resident_bytes": guard.peak_bytes}
+        atomic_json(report_path, report)
+        guard.check()
+        atomic_json(gate_path, gate)
+        guard.check()
+        manifest.update({"status": "complete" if report["status"] == "complete" else "incomplete",
+            "finished_utc": _utc(), "audit_elapsed_seconds": round(guard.elapsed, 6),
+            "audit_cpu_seconds": round(max(0.0, time.process_time() - cpu_started), 6),
+            "combined_generation_audit_elapsed_seconds": round(
+                float(generation["generation_elapsed_seconds"]) + guard.elapsed, 6),
+            "peak_resident_bytes": guard.peak_bytes,
+            "accounting_end_boundary": "post_first_terminal_gate_resource_check",
+            "exit_code": 0 if report["status"] == "complete" else 1,
+            "artifacts": {}})
+        for artifact_path in (report_path, gate_path):
+            guard.check(); digest = sha256_file(artifact_path); guard.check()
+            size = artifact_path.stat().st_size; guard.check()
+            manifest["artifacts"][artifact_path.name] = {"sha256": digest, "bytes": size}
+        guard.check()
+        atomic_json(manifest_path, manifest)
+        guard.check()
+        if (args.mode == "feasibility" and report["g2_status"] == "PASS_FEASIBILITY" and
+                report["proposal_status"] == "PASS_FEASIBILITY" and report["status"] == "complete"):
+            wrapper = {"report_version": contract.preflight_version, "status": "PASS_FEASIBILITY",
+                "mode": "feasibility", "config_sha256": config.sha256,
+                "source": generation["source"], "generation_dir": str(data_dir),
+                "generation_manifest_sha256": report["generation_manifest_sha256"],
+                "generation_artifacts": generation["artifacts"],
+                "audit_artifact_path": str(gate_path.resolve()),
+                "audit_artifact_sha256": None, "audit_source": source}
+            guard.check(); wrapper["audit_artifact_sha256"] = sha256_file(gate_path); guard.check()
+            atomic_json(preflight_path, wrapper); guard.check()
+            guard.check(); preflight_hash = sha256_file(preflight_path); guard.check()
+            preflight_size = preflight_path.stat().st_size; guard.check()
+            manifest["artifacts"][preflight_path.name] = {"sha256": preflight_hash,
+                                                           "bytes": preflight_size}
+            atomic_json(manifest_path, manifest)
+            guard.check()
+        return manifest["exit_code"]
+    except BaseException as exc:
+        error = {"type": type(exc).__name__, "message": str(exc), "phase": "audit"}
+        if preflight_path.exists():
+            invalidated = data_dir / "preflight_report.invalidated.json"
+            try:
+                if invalidated.exists():
+                    raise FileExistsError("invalidated preflight evidence already exists")
+                preflight_path.replace(invalidated)
+            except BaseException as invalidation_exc:
+                manifest["finalization_errors"].append({"type": type(invalidation_exc).__name__,
+                                                        "message": str(invalidation_exc),
+                                                        "phase": "preflight_invalidation"})
+        if report is not None:
+            retained = None
+            previous_status = report.get("status")
+            previous_g2 = report.get("g2_status")
+            if report_path.exists():
+                provisional = data_dir / "audit_report.provisional.json"
+                try:
+                    if provisional.exists():
+                        raise FileExistsError("provisional audit report already exists")
+                    detail_hash = sha256_file(report_path)
+                    report_path.replace(provisional)
+                    retained = {"path": provisional.name, "sha256": detail_hash,
+                                "status": previous_status, "g2_status": previous_g2}
+                except BaseException as retain_exc:
+                    manifest["finalization_errors"].append({"type": type(retain_exc).__name__,
+                                                            "message": str(retain_exc),
+                                                            "phase": "report_retention"})
+            summary = {"audit_version": contract.audit_version, "status": "incomplete",
+                       "g2_status": "not_assessed", "proposal_status": "NOT_ASSESSED",
+                       "proposal_reason": None, "mode": args.mode, "error": error,
+                       "config_sha256": None if config is None else config.sha256,
+                       "generation_manifest_sha256": manifest.get("generation_manifest_sha256"),
+                       "generation_source": None if generation is None else generation.get("source"),
+                       "audit_source": source, "retained_detail_report": retained}
+            report.clear(); report.update(summary)
+            try: atomic_json(report_path, report)
+            except BaseException as report_exc:
+                manifest["finalization_errors"].append({"type": type(report_exc).__name__,
+                                                        "message": str(report_exc),
+                                                        "phase": "report_downgrade"})
+        if gate is not None:
+            gate.update({"status": "incomplete", "g2_status": "not_assessed",
+                         "proposal_status": "NOT_ASSESSED", "proposal_reason": None})
+            try: atomic_json(gate_path, gate)
+            except BaseException: pass
+        manifest.update({"status": "incomplete", "finished_utc": _utc(),
+                         "audit_elapsed_seconds": round(guard.elapsed, 6),
+                         "audit_cpu_seconds": round(max(0.0, time.process_time() - cpu_started), 6),
+                         "error": error, "exit_code": 1})
+        manifest.pop("artifacts", None)
+        if report_path.exists():
+            try:
+                manifest.setdefault("artifacts", {})[report_path.name] = {
+                    "sha256": sha256_file(report_path), "bytes": report_path.stat().st_size}
+            except BaseException:
+                pass
+        if (data_dir / "audit_report.provisional.json").exists():
+            try:
+                provisional = data_dir / "audit_report.provisional.json"
+                manifest.setdefault("artifacts", {})[provisional.name] = {
+                    "sha256": sha256_file(provisional), "bytes": provisional.stat().st_size}
+            except BaseException:
+                pass
+        if gate_path.exists() and gate is not None:
+            try:
+                manifest.setdefault("artifacts", {})[gate_path.name] = {
+                    "sha256": sha256_file(gate_path), "bytes": gate_path.stat().st_size}
+            except BaseException:
+                pass
+        try: atomic_json(manifest_path, manifest)
+        except BaseException:
+            _write_terminal_failure(data_dir, error, [], manifest)
+        print(f"v3 audit failed: {stable_json(error)}", file=sys.stderr)
+        return 1

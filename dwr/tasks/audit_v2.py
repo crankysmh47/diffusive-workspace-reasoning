@@ -385,3 +385,253 @@ def run_audit_v2(data_dir: Path, config, source: dict, mode: str, *,
             "per_example_outcomes": per_example,
             "independent_unique_candidate_count": len(visible_rows),
             "accepted_record_count": len(visible_records)}
+
+
+def _validate_v3_artifacts(outcomes: list[dict], records: list[dict], config: dict,
+                           guard: ResourceGuard | None = None) -> list[dict]:
+    """Validate v3's closed identity envelope, then use the unchanged v1 projection."""
+    from .audit import RECORD_KEYS
+    from .stream_contract import resolve_stream
+    contract = resolve_stream("dwr-generator-v3")
+    outcome_keys = {"outcome_version", "generator_id", "partition", "candidate_index", "n",
+                    "profile", "terminal_reason", "oracle_unique", "eligible", "private_evidence",
+                    "split", "denominator_counted", "identities", "task", "witness", "solution",
+                    "solver_stats"}
+    for row in outcomes:
+        _check(guard)
+        if type(row) is not dict or set(row) != outcome_keys:
+            raise ValueError("v3 outcome has unknown or missing fields")
+        if row["outcome_version"] != contract.outcome_version or row["generator_id"] != contract.generator_id:
+            raise ValueError("v3 outcome identity does not match selected stream")
+    expected_record_keys = set(RECORD_KEYS) | {"record_version", "generator_id"}
+    for record in records:
+        _check(guard)
+        if (type(record) is not dict or set(record) != expected_record_keys or
+                record.get("record_version") != contract.accepted_record_version or
+                record.get("generator_id") != contract.generator_id):
+            raise ValueError("v3 accepted record has invalid version or fields")
+    projected_outcomes = [{key: value for key, value in row.items()
+                           if key not in {"outcome_version", "generator_id"}} for row in outcomes]
+    # Preserve the legacy validator's exact schema, eligibility recomputation and first-seen
+    # duplicate/denominator behavior. The only v3 record fields are removed explicitly.
+    projected_records = [{key: value for key, value in row.items()
+                          if key not in {"record_version", "generator_id"}} for row in records]
+    return _validate_v2_artifacts(projected_outcomes, projected_records, config, guard)
+
+
+def _audit_source_capacity(records: list[dict], replay_sha256: str,
+                           guard: ResourceGuard | None = None) -> dict:
+    """Recompute the capacity histogram independently of the generation helper."""
+    import math
+    import re
+    if type(replay_sha256) is not str or not re.fullmatch(r"[0-9a-f]{64}", replay_sha256):
+        raise ValueError("source prefix replay identity is malformed")
+    counts = Counter()
+    total = 0
+    for record in records:
+        _check(guard)
+        if record.get("partition") != "source" or record.get("split") != "source_train":
+            continue
+        task = parse_task_json(stable_json(record["task"]))
+        size = len(record["model_input"].encode("utf-8"))
+        prompt_bin = 0 if size <= 511 else 1 if size <= 639 else 2 if size <= 767 else 3 if size <= 1023 else 4
+        nodes = record["solver_stats"]["first_solution_nodes"]
+        node_bin = 0 if nodes == 1 else 1 if nodes <= 3 else 2 if nodes <= 7 else 3 if nodes <= 15 else 4 if nodes <= 31 else 5 if nodes <= 63 else 6
+        cell = (len(task.variables), len(task.givens), len(task.constraints), prompt_bin, node_bin)
+        counts[cell] += 1
+        total += 1
+    ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:10]
+    mass = sum(count for _, count in ordered) / total if total else 0.0
+    if not math.isfinite(mass) or not 0.0 <= mass <= 1.0:
+        raise ValueError("independent source capacity mass is invalid")
+    return {"bound_version": "dwr-task-v3-source-capacity-bound-v1",
+            "status": "NO_GO" if mass < 0.8 else "PASS_CAPACITY_BOUND",
+            "reason": "source_support_capacity_bound" if mass < 0.8 else None,
+            "source_prefix_replay_sha256": replay_sha256,
+            "top_k_cells": 10, "minimum_source_train_mass": 0.8,
+            "source_train_group_count": total,
+            "top_cells": [{"cell": list(cell), "count": count} for cell, count in ordered],
+            "top_k_mass": mass}
+
+
+def _audit_producer_identity() -> dict:
+    """Hash every independent v3 audit dependency named by the stream contract."""
+    from .stream_contract import resolve_stream
+    root = Path(__file__).resolve().parents[2]
+    task_dir = Path(__file__).resolve().parent
+    paths = {
+        "audit_py_sha256": task_dir / "audit.py",
+        "audit_v2_sha256": task_dir / "audit_v2.py",
+        "audit_cli_v2_sha256": task_dir / "audit_cli_v2.py",
+        "audit_cli_v3_sha256": task_dir / "audit_cli_v3.py",
+        "generator_v2_sha256": task_dir / "generator_v2.py",
+        "generator_v3_sha256": task_dir / "generator_v3.py",
+        "dataset_v2_sha256": task_dir / "dataset_v2.py",
+        "replay_v2_sha256": task_dir / "replay_v2.py",
+        "manifest_v2_sha256": task_dir / "manifest_v2.py",
+        "config_v3_sha256": root / "configs/tasks/constraint_v3.json",
+        "stream_contract_sha256": task_dir / "stream_contract.py",
+        "canonical_sha256": task_dir / "canonical.py",
+        "oracle_sha256": task_dir / "oracle.py",
+        "schema_sha256": task_dir / "schema.py",
+        "solver_sha256": task_dir / "solver.py",
+        "run_support_sha256": task_dir / "run_support.py",
+    }
+    contract = resolve_stream("dwr-generator-v3")
+    result = {name: sha256_file(path) for name, path in paths.items()}
+    if set(result) != set(contract.audit_producer_fields):
+        raise ValueError("v3 audit producer fields differ from closed stream contract")
+    return result
+
+
+def run_audit_v3(data_dir: Path, config, source: dict, mode: str, *,
+                 guard: ResourceGuard | None = None, allow_partial: bool = True) -> dict:
+    """Independently replay and audit the closed v3 stream using shared v2 metrics."""
+    from .dataset_v2 import registered_limits
+    from .manifest_v2 import validate_manifest_v3
+    from .replay_v2 import replay_files_v3, replay_source_prefix_v3
+    from .stream_contract import require_matching_config, resolve_stream
+
+    contract = resolve_stream("dwr-generator-v3")
+    require_matching_config(contract, config.resolved)
+    caller_supplied_guard = guard is not None
+    if mode not in ("feasibility", "full"):
+        raise ValueError("mode must be feasibility or full")
+    data_dir = Path(data_dir).resolve()
+    if (data_dir / "terminal_failure.json").exists():
+        raise ValueError("generation has a terminal_failure.json sidecar; audit refused")
+    manifest_path = data_dir / "manifest.json"
+    limits = registered_limits(config.resolved, mode)
+    if guard is None:
+        guard = ResourceGuard(limits.wall_seconds, limits.memory_mib)
+    _check(guard)
+    generation = strict_json_loads(manifest_path.read_text(encoding="utf-8"))
+    _check(guard)
+    producer = _producer_identity("dwr-generator-v3")
+    validate_manifest_v3(generation, config_sha256=config.sha256, config=config.resolved,
+                         mode=mode, limits=limits, expected_producer=producer)
+    if source != generation.get("source"):
+        raise ValueError("audit source identity differs from generation source")
+    # The CLI sets the inherited budget at startup. Direct callers get the same setup here;
+    # prefix reconstruction and terminal replay never subtract generation time again.
+    if not caller_supplied_guard:
+        guard.wall_seconds = min(guard.wall_seconds,
+                                 remaining_global_seconds(generation, limits.wall_seconds))
+    _check(guard)
+    prefix_replay = None
+    capacity = {"status": "NOT_APPLICABLE", "reason": "full_mode_uses_registered_five_cohort_gate"}
+    if mode == "feasibility":
+        prefix_link = generation.get("source_prefix")
+        if prefix_link is not None:
+            context_path = data_dir / prefix_link["context_file"]
+            replay_path = data_dir / prefix_link["replay_file"]
+            _check(guard)
+            context = strict_json_loads(context_path.read_text(encoding="utf-8"))
+            _check(guard)
+            context_sha = sha256_file(context_path)
+            _check(guard)
+            if context_sha != prefix_link["context_sha256"]:
+                raise ValueError("source prefix context hash differs from generation manifest")
+            prefix_replay = replay_source_prefix_v3(
+                data_dir / "outcomes.jsonl", data_dir / "records.jsonl", context, context_sha,
+                config, source, producer, limits=limits, guard=guard)
+            _check(guard)
+            stored_replay = strict_json_loads(replay_path.read_text(encoding="utf-8"))
+            _check(guard)
+            replay_sha = sha256_file(replay_path)
+            _check(guard)
+            if prefix_replay != stored_replay or replay_sha != prefix_link["replay_sha256"]:
+                raise ValueError("independent source-prefix replay differs from the linked report")
+            _check(guard)
+        elif generation.get("source_capacity_bound", {}).get("status") not in ("NOT_ASSESSED",):
+            raise ValueError("feasibility bound claims an unlinked source closure")
+    replay = replay_files_v3(data_dir / "outcomes.jsonl", data_dir / "records.jsonl", config,
+                             mode, generation, limits=limits, guard=guard,
+                             allow_partial=allow_partial)
+    _check(guard)
+    outcomes = _read_jsonl(data_dir / "outcomes.jsonl", guard)
+    records = _read_jsonl(data_dir / "records.jsonl", guard)
+    rows = _validate_v3_artifacts(outcomes, records, config.resolved, guard)
+    generation_complete = generation["status"] == "complete" and replay["status"] == "complete"
+    audit_complete = True  # Reaching this point means integrity and deterministic replay completed.
+    if mode == "feasibility":
+        bound_file = strict_json_loads((data_dir / "source_capacity_bound.json").read_text(encoding="utf-8"))
+        if prefix_replay is not None:
+            replay_sha = generation["source_prefix"]["replay_sha256"]
+            independent = _audit_source_capacity(records, replay_sha, guard)
+            # Incomplete or early-stop datasets may only audit the closed source prefix.
+            if not generation_complete:
+                prefix_count = generation.get("partitions", {}).get("development", {}).get("attempts", 0)
+                if generation.get("early_stop") is not None and prefix_count != 0:
+                    raise ValueError("early capacity stop contains target attempts")
+            if bound_file != generation.get("source_capacity_bound"):
+                raise ValueError("capacity report file differs from generation manifest")
+            if bound_file.get("status") in ("PASS_CAPACITY_BOUND", "NO_GO"):
+                if independent != bound_file:
+                    raise ValueError("independent source capacity recomputation disagrees with producer report")
+                capacity = independent
+            else:
+                # A recorded operational failure withdraws the producer's provisional bound;
+                # audit must retain that state even when it could now recompute the histogram.
+                capacity = bound_file
+        else:
+            capacity = bound_file
+            if capacity.get("status") not in ("NOT_ASSESSED",):
+                raise ValueError("unclosed source prefix cannot establish capacity")
+    metrics = None
+    proxy = None
+    if generation_complete:
+        metrics = (_feasibility_metrics(rows, config.resolved, guard) if mode == "feasibility"
+                   else _full_metrics(rows, config.resolved, guard))
+        if mode == "feasibility":
+            proxy = metrics["four_cohort_common_support_proxy"]
+        if mode == "feasibility" and capacity.get("status") == "NO_GO":
+            g2, proposal, reason = "not_assessed", "NO_GO", "source_support_capacity_bound"
+        else:
+            passed = metrics["structural_pass"] and source.get("dirty") is False
+            if mode == "feasibility":
+                g2 = "PASS_FEASIBILITY" if passed else "NO_GO"
+                proposal, reason = ("PASS_FEASIBILITY", None) if passed else ("NO_GO", "measured_feasibility_floors")
+            else:
+                g2 = "PASS_G2" if passed else "NO_GO"
+                proposal, reason = ("PASS_G2", None) if passed else ("NO_GO", "measured_full_g2_floors")
+    else:
+        g2, proposal, reason = "not_assessed", "NO_GO" if generation.get("early_stop") else "NOT_ASSESSED", (
+            "source_support_capacity_bound" if generation.get("early_stop") else None)
+        if rows:
+            partial_metrics = (_feasibility_metrics(rows, config.resolved, guard) if mode == "feasibility"
+                               else _full_metrics(rows, config.resolved, guard))
+            partial_metrics["observed_prefix_floor_shortfalls"] = partial_metrics.pop("floor_failures")
+            partial_metrics["unassessed_reason"] = "generation prefix is incomplete; unattempted targets are not floor failures"
+            partial_metrics["floor_failures"] = []
+            partial_metrics["structural_pass"] = False
+            metrics = partial_metrics
+    visible = rows if mode == "full" else [r for r in rows if
+              (r["partition"] == "source" and r["split"] == "source_train") or
+              (r["partition"] == "development" and r["split"] == "development_validation")]
+    gate = {"gate_version": contract.audit_gate_version, "audit_version": contract.audit_version,
+            "status": "complete" if audit_complete else "incomplete", "mode": mode,
+            "g2_status": g2, "proposal_status": proposal, "proposal_reason": reason,
+            "config_sha256": config.sha256, "source": source,
+            "generation_manifest_sha256": sha256_file(manifest_path),
+            "generation_artifacts": generation["artifacts"],
+            "source_prefix": generation.get("source_prefix"), "capacity_bound": capacity}
+    return {"audit_version": contract.audit_version, "status": "complete" if audit_complete else "incomplete",
+            "generation_complete": generation_complete, "generation_status": generation["status"],
+            "replay": replay, "replay_pass": True, "integrity_pass": True,
+            "generation_manifest_sha256": gate["generation_manifest_sha256"],
+            "generation_artifacts": generation["artifacts"], "generation_source": generation["source"],
+            "audit_source": source, "config_sha256": config.sha256, "mode": mode,
+            "g2_status": g2, "proposal_status": proposal, "proposal_reason": reason,
+            "capacity_bound": capacity, "source_prefix_replay": prefix_replay,
+            "four_cohort_common_support_proxy": proxy,
+            "final_assessment": "not_assessed" if mode == "feasibility" else "assessed",
+            "metrics": metrics, "denominator_profiles": _counts(visible, guard),
+            "per_example_outcomes": [{"partition": r["partition"], "candidate_index": r["candidate_index"],
+                "split": r["split"], "profile": r["profile"], "content_id": r["content_id"],
+                "structure_signature": r["signature"],
+                "eligible": r["interaction"]["sensitive"] if r["partition"] == "source" else r["primary_eligible"],
+                "interaction": r["interaction"]} for r in visible],
+            "independent_unique_candidate_count": len(visible),
+            "accepted_record_count": len(records), "gate": gate,
+            "unassessed": [] if generation_complete else ["unattempted generation targets", "G2"]}

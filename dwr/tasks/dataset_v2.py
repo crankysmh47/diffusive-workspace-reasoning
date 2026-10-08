@@ -317,8 +317,6 @@ def _run_dataset(config: LoadedConfig, outdir: Path, mode: str, argv: list[str],
     from .stream_contract import require_matching_config, resolve_stream
     contract = resolve_stream(generator_id)
     require_matching_config(contract, config.resolved)
-    if generator_id == "dwr-generator-v3" and mode == "full":
-        raise ValueError("v3 full-mode preflight consumption is not available until the independent v3 audit task")
     if cpu_origin is None:
         cpu_origin = time.process_time()
     elif (isinstance(cpu_origin, bool) or not isinstance(cpu_origin, (int, float)) or
@@ -336,7 +334,8 @@ def _run_dataset(config: LoadedConfig, outdir: Path, mode: str, argv: list[str],
     source = source if source is not None else source_identity()
     consumed_preflight = None
     if mode == "full":
-        consumed_preflight = validate_preflight(
+        preflight_validator = validate_preflight_v3 if generator_id == "dwr-generator-v3" else validate_preflight
+        consumed_preflight = preflight_validator(
             preflight_report, config, source,
             limits=preflight_limits or registered_limits(config.resolved, "feasibility"), guard=guard)
     outdir.parent.mkdir(parents=True, exist_ok=True)
@@ -716,6 +715,133 @@ def validate_preflight(path: Path | None, config: LoadedConfig, source: dict, *,
             "generation_artifacts": artifacts,
             "audit_artifact_path": str(audit_path),
             "audit_artifact_sha256": report["audit_artifact_sha256"]}
+
+
+def validate_preflight_v3(path: Path | None, config: LoadedConfig, source: dict, *,
+                          limits: DatasetLimits | None = None,
+                          guard: ResourceGuard | None = None) -> dict:
+    """Consume only an independently audited, exactly linked v3 feasibility PASS."""
+    from .stream_contract import require_matching_config, resolve_stream
+    from .manifest_v2 import validate_manifest_v3
+    contract = resolve_stream("dwr-generator-v3")
+    require_matching_config(contract, config.resolved)
+    if path is None:
+        raise ValueError("full mode requires --preflight-report")
+    limits = limits or registered_limits(config.resolved, "feasibility")
+    def check():
+        if guard is not None:
+            guard.check()
+    check()
+    path = Path(path).resolve()
+    report = strict_json_loads(path.read_text(encoding="utf-8"))
+    check()
+    required = {"report_version", "status", "mode", "config_sha256", "source",
+                "generation_dir", "generation_manifest_sha256", "generation_artifacts",
+                "audit_artifact_path", "audit_artifact_sha256", "audit_source"}
+    if type(report) is not dict or set(report) != required:
+        raise ValueError("v3 preflight report has unknown or missing fields")
+    if (report["report_version"] != contract.preflight_version or
+        report["status"] != "PASS_FEASIBILITY" or report["mode"] != "feasibility"):
+        raise ValueError("v3 preflight report is not PASS_FEASIBILITY")
+    if report["config_sha256"] != config.sha256:
+        raise ValueError("v3 preflight configuration identity mismatch")
+    for key in ("source", "audit_source"):
+        if (type(report[key]) is not dict or set(report[key]) !=
+            {"commit", "dirty", "dirty_diff_sha256", "checkout_root"} or
+            not _same_typed(report[key], source) or source.get("dirty") is not False):
+            raise ValueError("v3 preflight source must match current clean source identity")
+    generation_dir = Path(report["generation_dir"]).resolve()
+    if (generation_dir / "terminal_failure.json").exists():
+        raise ValueError("v3 generation has a terminal failure sidecar")
+    manifest_path = generation_dir / "manifest.json"
+    check(); manifest_hash = sha256_file(manifest_path); check()
+    if manifest_hash != report["generation_manifest_sha256"]:
+        raise ValueError("v3 preflight generation manifest identity mismatch")
+    check(); generation = strict_json_loads(manifest_path.read_text(encoding="utf-8")); check()
+    expected_producer = _producer_identity("dwr-generator-v3")
+    validate_manifest_v3(generation, config_sha256=config.sha256, config=config.resolved,
+                         mode="feasibility", limits=limits,
+                         expected_producer=expected_producer, require_complete=True)
+    if generation.get("source") != source:
+        raise ValueError("v3 preflight generation source identity is invalid")
+    artifacts = generation.get("artifacts")
+    required_artifacts = {"outcomes.jsonl", "records.jsonl", "source_capacity_bound.json",
+                          "source_prefix_context.json", "source_prefix_replay.json"}
+    if (type(artifacts) is not dict or set(artifacts) != required_artifacts or
+        not _same_typed(report["generation_artifacts"], artifacts)):
+        raise ValueError("v3 preflight generation artifacts do not match the complete source gate")
+    for name, identity in artifacts.items():
+        check(); file_path = generation_dir / name
+        digest = sha256_file(file_path); check()
+        size = file_path.stat().st_size; check()
+        if (type(identity) is not dict or set(identity) != {"sha256", "bytes"} or
+            type(identity["sha256"]) is not str or len(identity["sha256"]) != 64 or
+            type(identity["bytes"]) is not int or identity["bytes"] < 0 or
+            digest != identity["sha256"] or size != identity["bytes"]):
+            raise ValueError("v3 preflight generation artifact is missing or changed")
+    audit_path = Path(report["audit_artifact_path"]).resolve()
+    check(); audit_hash = sha256_file(audit_path); check()
+    if audit_path.parent != generation_dir or audit_hash != report["audit_artifact_sha256"]:
+        raise ValueError("v3 preflight audit gate is missing or changed")
+    check(); gate = strict_json_loads(audit_path.read_text(encoding="utf-8")); check()
+    gate_fields = {"gate_version", "audit_version", "status", "mode", "g2_status",
+                   "proposal_status", "proposal_reason", "config_sha256", "source",
+                   "generation_manifest_sha256", "generation_artifacts", "source_prefix",
+                   "capacity_bound"}
+    if type(gate) is not dict or set(gate) != gate_fields:
+        raise ValueError("v3 preflight audit gate has unknown or missing fields")
+    if (gate["gate_version"] != contract.audit_gate_version or
+        gate["audit_version"] != contract.audit_version or gate["status"] != "complete" or
+        gate["mode"] != "feasibility" or gate["g2_status"] != "PASS_FEASIBILITY" or
+        gate["proposal_status"] != "PASS_FEASIBILITY" or gate["proposal_reason"] is not None or
+        gate["config_sha256"] != config.sha256 or not _same_typed(gate["source"], source) or
+        gate["generation_manifest_sha256"] != manifest_hash or
+        not _same_typed(gate["generation_artifacts"], artifacts) or
+        not _same_typed(gate["source_prefix"], generation.get("source_prefix")) or
+        not _same_typed(gate["capacity_bound"], generation.get("source_capacity_bound")) or
+        gate["capacity_bound"].get("status") != "PASS_CAPACITY_BOUND"):
+        raise ValueError("v3 preflight audit gate does not bind a passing matching feasibility run")
+    # Audit-run producer hashes are closed and current; this protects the gate consumer from
+    # a hand-authored PASS produced by a different audit implementation.
+    run_manifest_path = generation_dir / "audit_manifest.json"
+    check(); run_manifest = strict_json_loads(run_manifest_path.read_text(encoding="utf-8")); check()
+    from .stream_contract import resolve_stream
+    audit_fields = set(contract.audit_producer_fields)
+    audit_producer = run_manifest.get("producer")
+    if (run_manifest.get("audit_manifest_version") != contract.audit_run_manifest_version or
+        run_manifest.get("status") != "complete" or run_manifest.get("exit_code") != 0 or
+        run_manifest.get("config_sha256") != config.sha256 or
+        run_manifest.get("generation_manifest_sha256") != manifest_hash or
+        not _same_typed(run_manifest.get("generation_artifacts"), artifacts) or
+        not _same_typed(run_manifest.get("generation_source"), source) or
+        not _same_typed(run_manifest.get("audit_source"), source) or
+        type(audit_producer) is not dict or set(audit_producer) != audit_fields or
+        audit_producer != _audit_producer_identity()):
+        raise ValueError("v3 preflight audit producer identity mismatch")
+    run_artifacts = run_manifest.get("artifacts")
+    if (type(run_artifacts) is not dict or
+        not {"audit_report.json", "audit_gate.json"} <= set(run_artifacts)):
+        raise ValueError("v3 preflight audit run manifest lacks terminal artifacts")
+    for name in ("audit_report.json", "audit_gate.json"):
+        check(); artifact_path = generation_dir / name
+        digest = sha256_file(artifact_path); check()
+        size = artifact_path.stat().st_size; check()
+        identity = run_artifacts[name]
+        if (type(identity) is not dict or set(identity) != {"sha256", "bytes"} or
+            identity.get("sha256") != digest or identity.get("bytes") != size):
+            raise ValueError("v3 preflight audit manifest artifact identity mismatch")
+    check(); wrapper_hash = sha256_file(path); check()
+    return {"linkage_version": contract.consumed_preflight_version,
+            "wrapper_path": str(path), "wrapper_sha256": wrapper_hash,
+            "config_sha256": config.sha256, "source": source,
+            "generation_manifest_sha256": manifest_hash, "generation_artifacts": artifacts,
+            "audit_artifact_path": str(audit_path), "audit_artifact_sha256": audit_hash}
+
+
+def _audit_producer_identity() -> dict:
+    """Current v3 audit producer hashes, imported lazily to avoid startup cycles."""
+    from .audit_v2 import _audit_producer_identity as identity
+    return identity()
 
 
 def _closed_file_prefix(path: Path, guard: ResourceGuard) -> tuple[int, str, int, dict[str, int]]:

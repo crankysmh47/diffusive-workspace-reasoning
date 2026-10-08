@@ -78,7 +78,7 @@ class DatasetV3Tests(unittest.TestCase):
         limits = DatasetLimits({"eq": 0, "neq": 0, "add_mod": 0}, {}, {}, 1, 30, 1024)
         with tempfile.TemporaryDirectory() as temp:
             out = Path(temp) / "full"
-            with self.assertRaisesRegex(ValueError, "preflight consumption is not available"):
+            with self.assertRaisesRegex(ValueError, "requires --preflight-report"):
                 run_dataset_v3(self.config, out, "full", ["test"], limits=limits)
             self.assertFalse(out.exists())
 
