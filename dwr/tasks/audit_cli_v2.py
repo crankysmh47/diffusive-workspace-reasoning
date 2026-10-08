@@ -31,6 +31,7 @@ def _parser() -> argparse.ArgumentParser:
 
 def _known_artifacts(data_dir: Path) -> tuple[Path, ...]:
     names = ("audit_manifest.json", "audit_report.json", "audit_gate.json",
+             "audit_report.provisional.json",
              "preflight_report.json", "preflight_report.invalidated.json",
              "audit_manifest.json.tmp", "audit_report.json.tmp",
              "audit_gate.json.tmp", "preflight_report.json.tmp")
@@ -64,7 +65,12 @@ def _write_terminal_failure(data_dir: Path, primary_error: dict,
 
 def _mark_incomplete(data_dir: Path, report: dict, gate: dict | None,
                      manifest: dict, primary_error: dict,
-                     finalization_errors: list[dict], *, write_report: bool = True) -> None:
+                     finalization_errors: list[dict]) -> None:
+    report_path = data_dir / "audit_report.json"
+    previous_status = report.get("status")
+    previous_g2_status = report.get("g2_status")
+    # Make the in-memory decision fail closed before hashing or renaming any
+    # potentially problematic filesystem evidence.
     report["status"] = "incomplete"
     report["g2_status"] = "not_assessed"
     report["error"] = primary_error
@@ -77,8 +83,30 @@ def _mark_incomplete(data_dir: Path, report: dict, gate: dict | None,
     manifest["finalization_errors"] = list(finalization_errors)
     manifest["finished_utc"] = _utc()
     try:
-        if write_report:
-            atomic_json(data_dir / "audit_report.json", report)
+        retained = None
+        if report_path.exists():
+            detail_path = data_dir / "audit_report.provisional.json"
+            if detail_path.exists():
+                raise FileExistsError("provisional detailed audit report already exists")
+            detail_hash = sha256_file(report_path)
+            report_path.replace(detail_path)
+            retained = {"path": detail_path.name, "sha256": detail_hash,
+                        "status": previous_status, "g2_status": previous_g2_status}
+        summary = {"status": "incomplete", "g2_status": "not_assessed",
+                   "mode": report.get("mode"), "error": primary_error,
+                   "finalization_errors": list(finalization_errors),
+                   "resource": dict(report.get("resource", {})) if type(report.get("resource")) is dict else {},
+                   "config_sha256": report.get("config_sha256"),
+                   "generation_manifest_sha256": report.get("generation_manifest_sha256"),
+                   "generation_source": report.get("generation_source"),
+                   "audit_source": report.get("audit_source"),
+                   "retained_detail_report": retained}
+        if type(summary["resource"]) is dict:
+            summary["resource"]["authoritative_final_accounting"] = "audit_manifest.json"
+            summary["resource"]["accounting_is_final"] = False
+        report.clear()
+        report.update(summary)
+        atomic_json(report_path, report)
         if gate is not None:
             atomic_json(data_dir / "audit_gate.json", gate)
         preflight = data_dir / "preflight_report.json"
@@ -112,7 +140,9 @@ def _finalize_manifest(data_dir: Path, manifest: dict, report: dict, gate: dict 
         manifest["combined_peak_resident_bytes"] = max(
             [n for n in (guard.peak_bytes, generation.get("peak_resident_bytes")) if type(n) is int] or [None])
         manifest["accounting_end_boundary"] = "post_first_terminal_manifest_write_resource_check"
-        manifest["accounting_note"] = "one bounded final metadata flush follows the terminal resource check"
+        manifest["accounting_note"] = (
+            "audit_manifest.json is the authoritative charged snapshot at the terminal resource check; "
+            "one bounded final metadata flush follows and is excluded")
         if type(report.get("resource")) is dict:
             report["resource"].update({
                 "audit_elapsed_seconds": manifest["audit_elapsed_seconds"],
@@ -121,11 +151,13 @@ def _finalize_manifest(data_dir: Path, manifest: dict, report: dict, gate: dict 
                 "combined_generation_audit_cpu_seconds": manifest["combined_generation_audit_cpu_seconds"],
                 "peak_resident_bytes": manifest["peak_resident_bytes"],
                 "combined_peak_resident_bytes": manifest["combined_peak_resident_bytes"]})
-    detailed_report_written = False
     try:
+        if type(report.get("resource")) is dict:
+            report["resource"]["accounting_snapshot_boundary"] = "before_detailed_report_serialization"
+            report["resource"]["authoritative_final_accounting"] = "audit_manifest.json"
+            report["resource"]["accounting_is_final"] = False
         # Detailed per-example output can be large; its serialization and I/O remain charged.
         atomic_json(data_dir / "audit_report.json", report)
-        detailed_report_written = True
         if gate is not None:
             atomic_json(data_dir / "audit_gate.json", gate)
         snapshot()
@@ -140,8 +172,7 @@ def _finalize_manifest(data_dir: Path, manifest: dict, report: dict, gate: dict 
         if primary_error is None:
             primary_error = {"type": type(exc).__name__, "message": str(exc), "phase": "audit_finalization"}
         snapshot()
-        _mark_incomplete(data_dir, report, gate, manifest, primary_error, finalization_errors,
-                         write_report=not detailed_report_written)
+        _mark_incomplete(data_dir, report, gate, manifest, primary_error, finalization_errors)
     return primary_error
 
 

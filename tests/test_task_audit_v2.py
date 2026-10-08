@@ -367,6 +367,127 @@ class AuditV2Tests(unittest.TestCase):
         self.assertEqual(gate["g2_status"], "not_assessed")
         self.assertEqual(audit_cli_v2._exit_code(report), 1)
 
+    def test_persisted_late_failures_replace_false_pass_with_bounded_summary(self):
+        from dwr.tasks import audit_cli_v2
+        from dwr.tasks.run_support import ResourceGuard, atomic_json, sha256_file, strict_json_loads
+
+        def exercise(*, delayed_report=False, fail_terminal_tail=False):
+            now = [0.0]
+            guard = ResourceGuard(0.5 if delayed_report else 60.0, 1024,
+                                  clock=lambda: now[0], memory_reader=lambda: 1)
+            report = {"status": "complete", "g2_status": "PASS_FEASIBILITY",
+                      "mode": "feasibility", "metrics": {"fixture": "retained"},
+                      "per_example_outcomes": [{"candidate": 3}],
+                      "resource": {"audit_elapsed_seconds": 0.0}}
+            gate = {"audit_version": audit_v2.AUDIT_VERSION, "status": "complete",
+                    "mode": "feasibility", "g2_status": "PASS_FEASIBILITY",
+                    "config_sha256": "c" * 64, "source": {},
+                    "generation_manifest_sha256": "d" * 64, "generation_artifacts": {}}
+            manifest = {"status": "complete"}
+            with tempfile.TemporaryDirectory() as directory:
+                data = Path(directory)
+                wrapper = data / "preflight_report.json"
+                wrapper.write_text("{}\n", encoding="utf-8")
+                calls = {"manifest": 0}
+
+                def writer(path, value):
+                    path = Path(path)
+                    if path.name == "audit_manifest.json":
+                        calls["manifest"] += 1
+                        if fail_terminal_tail and calls["manifest"] == 2:
+                            raise OSError("injected terminal metadata flush failure")
+                    atomic_json(path, value)
+                    if delayed_report and path.name == "audit_report.json":
+                        now[0] += 1.0
+
+                with patch.object(audit_cli_v2, "atomic_json", side_effect=writer):
+                    error = audit_cli_v2._finalize_manifest(data, manifest, report, gate, guard,
+                        {"generation_elapsed_seconds": 599.5 if delayed_report else 0.0,
+                         "generation_cpu_seconds": 0.0, "peak_resident_bytes": 1},
+                        time.process_time(), None, [], charge_guard=True)
+
+                self.assertIsNotNone(error)
+                summary = strict_json_loads((data / "audit_report.json").read_text(encoding="utf-8"))
+                detail_path = data / "audit_report.provisional.json"
+                detail = strict_json_loads(detail_path.read_text(encoding="utf-8"))
+                saved_gate = strict_json_loads((data / "audit_gate.json").read_text(encoding="utf-8"))
+                saved_manifest = strict_json_loads((data / "audit_manifest.json").read_text(encoding="utf-8"))
+                self.assertEqual(summary["status"], "incomplete")
+                self.assertEqual(summary["g2_status"], "not_assessed")
+                self.assertTrue(summary["error"])
+                self.assertEqual(summary["retained_detail_report"]["path"], detail_path.name)
+                self.assertEqual(summary["retained_detail_report"]["sha256"], sha256_file(detail_path))
+                self.assertEqual(detail["per_example_outcomes"], [{"candidate": 3}])
+                self.assertEqual(detail["metrics"], {"fixture": "retained"})
+                self.assertEqual(saved_gate["status"], "incomplete")
+                self.assertEqual(saved_gate["g2_status"], "not_assessed")
+                self.assertEqual(saved_manifest["status"], "incomplete")
+                self.assertEqual(saved_manifest["error"], error)
+                if delayed_report:
+                    self.assertGreaterEqual(saved_manifest["combined_generation_audit_elapsed_seconds"], 600.5)
+                if fail_terminal_tail:
+                    self.assertTrue(saved_manifest["finalization_errors"])
+                self.assertFalse(wrapper.exists())
+                self.assertTrue((data / "preflight_report.invalidated.json").exists())
+                self.assertEqual(audit_cli_v2._exit_code(summary), 1)
+
+        exercise(delayed_report=True)
+        exercise(fail_terminal_tail=True)
+
+    def test_success_report_marks_manifest_as_authoritative_final_accounting(self):
+        from dwr.tasks import audit_cli_v2
+        from dwr.tasks.run_support import ResourceGuard, strict_json_loads
+        report = {"status": "complete", "g2_status": "PASS_FEASIBILITY",
+                  "resource": {"audit_elapsed_seconds": 0.0}}
+        gate = {"audit_version": audit_v2.AUDIT_VERSION, "status": "complete",
+                "mode": "feasibility", "g2_status": "PASS_FEASIBILITY",
+                "config_sha256": "c" * 64, "source": {},
+                "generation_manifest_sha256": "d" * 64, "generation_artifacts": {}}
+        with tempfile.TemporaryDirectory() as directory:
+            data = Path(directory)
+            manifest = {"status": "complete"}
+            error = audit_cli_v2._finalize_manifest(data, manifest, report, gate,
+                ResourceGuard(60, 1024, memory_reader=lambda: 1),
+                {"generation_elapsed_seconds": 1.0, "generation_cpu_seconds": 1.0,
+                 "peak_resident_bytes": 1}, time.process_time(), None, [], charge_guard=True)
+            self.assertIsNone(error)
+            saved_report = strict_json_loads((data / "audit_report.json").read_text(encoding="utf-8"))
+            saved_manifest = strict_json_loads((data / "audit_manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(saved_report["resource"]["accounting_snapshot_boundary"],
+                         "before_detailed_report_serialization")
+        self.assertEqual(saved_report["resource"]["authoritative_final_accounting"], "audit_manifest.json")
+        self.assertFalse(saved_report["resource"]["accounting_is_final"])
+        self.assertIn("authoritative charged snapshot", saved_manifest["accounting_note"])
+
+    def test_invalidation_failure_keeps_memory_and_sidecar_fail_closed(self):
+        from dwr.tasks import audit_cli_v2
+        from dwr.tasks.run_support import atomic_json, strict_json_loads
+        report = {"status": "complete", "g2_status": "PASS_FEASIBILITY",
+                  "mode": "feasibility", "per_example_outcomes": [{"candidate": 8}]}
+        gate = {"status": "complete", "g2_status": "PASS_FEASIBILITY"}
+        manifest = {"status": "complete"}
+        primary = {"type": "TimeoutError", "message": "primary budget failure", "phase": "audit_finalization"}
+        finalization_errors = []
+        with tempfile.TemporaryDirectory() as directory:
+            data = Path(directory)
+            atomic_json(data / "audit_report.json", report)
+
+            def fail_detail_rename(path, target):
+                if Path(path).name == "audit_report.json":
+                    raise OSError("injected detail retention failure")
+                return original_replace(path, target)
+
+            original_replace = Path.replace
+            with patch.object(Path, "replace", fail_detail_rename):
+                audit_cli_v2._mark_incomplete(data, report, gate, manifest, primary, finalization_errors)
+            self.assertEqual(report["status"], "incomplete")
+            self.assertEqual(report["g2_status"], "not_assessed")
+            self.assertEqual(audit_cli_v2._exit_code(report), 1)
+            sidecar = strict_json_loads((data / "terminal_failure.json").read_text(encoding="utf-8"))
+            self.assertEqual(sidecar["primary_error"], primary)
+            self.assertIn("injected detail retention failure",
+                          sidecar["finalization_errors"][0]["message"])
+
     def test_complete_no_go_analysis_exits_nonzero(self):
         from dwr.tasks.audit_cli_v2 import _exit_code
         self.assertEqual(_exit_code({"status": "complete", "g2_status": "NO_GO"}), 1)
