@@ -193,3 +193,177 @@ def validate_manifest_v2(manifest: dict, *, config_sha256: str, config: dict,
             type(identity["bytes"]) is not int or identity["bytes"] < 0):
             raise ValueError("manifest artifact identity is malformed")
     return manifest
+
+
+def validate_manifest_v3(manifest: dict, *, config_sha256: str, config: dict,
+                         mode: str, limits: Any, expected_producer: dict | None = None,
+                         require_complete: bool = False) -> dict:
+    """Validate the exact v3 terminal extension, then reuse v2 run accounting checks."""
+    from copy import deepcopy
+    from .stream_contract import resolve_stream, require_matching_config
+    contract = resolve_stream("dwr-generator-v3")
+    require_matching_config(contract, config)
+    extra = {"early_stop", "source_prefix", "source_capacity_bound"}
+    if type(manifest) is not dict or not extra <= set(manifest):
+        raise ValueError("v3 generation manifest has unknown or missing source-gate fields")
+    if (manifest.get("manifest_version") != contract.manifest_version or
+        manifest.get("seed_derivation") != contract.seed_derivation or
+        manifest.get("config_sha256") != config_sha256):
+        raise ValueError("v3 generation manifest identity mismatch")
+    producer = manifest.get("producer")
+    if (type(producer) is not dict or set(producer) != set(contract.generation_producer_fields) or
+        any(type(value) is not str or not re.fullmatch(r"[0-9a-f]{64}", value)
+            for value in producer.values())):
+        raise ValueError("v3 generation producer identity is malformed")
+    if expected_producer is not None and producer != expected_producer:
+        raise ValueError("v3 generation producer source hashes mismatch")
+    prefix = manifest["source_prefix"]
+    artifacts = manifest.get("artifacts")
+    if type(artifacts) is not dict:
+        raise ValueError("v3 generation artifact map is malformed")
+    if prefix is not None:
+        prefix_fields = {"context_file", "context_sha256", "replay_file", "replay_sha256"}
+        if (type(prefix) is not dict or set(prefix) != prefix_fields or
+            prefix["context_file"] != "source_prefix_context.json" or
+            prefix["replay_file"] != "source_prefix_replay.json" or
+            any(type(prefix[key]) is not str or not re.fullmatch(r"[0-9a-f]{64}", prefix[key])
+                for key in ("context_sha256", "replay_sha256"))):
+            raise ValueError("v3 source prefix linkage is malformed")
+        for name, digest in ((prefix["context_file"], prefix["context_sha256"]),
+                             (prefix["replay_file"], prefix["replay_sha256"])):
+            identity = artifacts.get(name) if type(artifacts) is dict else None
+            if type(identity) is not dict or identity.get("sha256") != digest:
+                raise ValueError("v3 source prefix linkage differs from terminal artifact identities")
+    bound = manifest["source_capacity_bound"]
+    if mode == "full":
+        if bound != {"status": "NOT_APPLICABLE", "reason": "full_mode_uses_registered_five_cohort_gate"} or prefix is not None or manifest["early_stop"] is not None:
+            raise ValueError("full v3 run must leave source capacity bound not applicable")
+        allowed_artifacts = {"outcomes.jsonl", "records.jsonl"}
+    else:
+        bound_fields = {"bound_version", "status", "reason", "source_prefix_replay_sha256",
+                        "top_k_cells", "minimum_source_train_mass", "source_train_group_count",
+                        "top_cells", "top_k_mass"}
+        if type(bound) is not dict or set(bound) != bound_fields or bound.get("bound_version") != "dwr-task-v3-source-capacity-bound-v1":
+            raise ValueError("v3 source capacity report has unknown or missing fields")
+        allowed = {"NOT_ASSESSED", "PASS_CAPACITY_BOUND", "NO_GO"}
+        if bound.get("status") not in allowed:
+            raise ValueError("v3 source capacity report status is invalid")
+        if (bound["top_k_cells"] != 10 or type(bound["top_k_cells"]) is not int or
+            type(bound["minimum_source_train_mass"]) not in (int, float) or
+            type(bound["minimum_source_train_mass"]) is bool or bound["minimum_source_train_mass"] != 0.8 or
+            type(bound["source_train_group_count"]) is not int or bound["source_train_group_count"] < 0 or
+            type(bound["top_cells"]) is not list):
+            raise ValueError("v3 source capacity report parameters or counts are invalid")
+        previous = None
+        top_total = 0
+        for item in bound["top_cells"]:
+            if (type(item) is not dict or set(item) != {"cell", "count"} or
+                type(item["cell"]) is not list or len(item["cell"]) != 5 or
+                any(type(value) is not int for value in item["cell"]) or
+                type(item["count"]) is not int or item["count"] <= 0):
+                raise ValueError("v3 source capacity top cell is malformed")
+            key = (-item["count"], tuple(item["cell"]))
+            if previous is not None and key < previous:
+                raise ValueError("v3 source capacity cells are not sorted")
+            previous = key
+            top_total += item["count"]
+        if len(bound["top_cells"]) > 10 or top_total > bound["source_train_group_count"]:
+            raise ValueError("v3 source capacity top-cell counts exceed their denominator")
+        mass = bound["top_k_mass"]
+        if mass is not None and (type(mass) not in (int, float) or not math.isfinite(mass) or not 0 <= mass <= 1):
+            raise ValueError("v3 source capacity mass is invalid")
+        if bound["status"] in ("PASS_CAPACITY_BOUND", "NO_GO"):
+            if prefix is None or bound["source_prefix_replay_sha256"] != prefix["replay_sha256"]:
+                raise ValueError("v3 source capacity report is not bound to a replayed prefix")
+            if mass is None or bound["source_train_group_count"] == 0:
+                raise ValueError("assessed v3 source capacity bound needs source-train mass")
+            if mass != top_total / bound["source_train_group_count"]:
+                raise ValueError("v3 source capacity mass differs from top-cell counts")
+            if bound["status"] == "PASS_CAPACITY_BOUND" and (mass < 0.8 or bound["reason"] is not None):
+                raise ValueError("v3 capacity pass does not meet its registered threshold")
+            if bound["status"] == "NO_GO" and (mass >= 0.8 or bound["reason"] != "source_support_capacity_bound"):
+                raise ValueError("v3 capacity no-go does not match its registered threshold")
+        elif bound["source_prefix_replay_sha256"] is not None:
+            raise ValueError("unassessed source bound cannot claim a replay identity")
+        elif bound["top_k_mass"] is not None or bound["source_train_group_count"] != 0 or bound["top_cells"]:
+            raise ValueError("unassessed source bound cannot report measured source support")
+        elif bound["reason"] not in ("source_partition_incomplete", "operational_error"):
+            raise ValueError("unassessed source bound needs an incomplete or operational reason")
+        early = manifest["early_stop"]
+        if bound["status"] == "NO_GO":
+            error = manifest.get("error")
+            partitions = manifest.get("partitions")
+            if (type(early) is not dict or set(early) != {"status", "reason", "source_capacity_bound_file", "source_capacity_bound_sha256"} or
+                early.get("status") != "NO_GO" or early.get("reason") != "source_support_capacity_bound" or
+                early.get("source_capacity_bound_file") != "source_capacity_bound.json" or
+                type(early.get("source_capacity_bound_sha256")) is not str or
+                not re.fullmatch(r"[0-9a-f]{64}", early["source_capacity_bound_sha256"]) or
+                manifest.get("status") != "incomplete" or type(error) is not dict or
+                error.get("type") != "ProposalNoGo" or error.get("phase") != "proposal_gate" or
+                error.get("reason") != "source_support_capacity_bound" or
+                error.get("message") != "source support capacity bound is below the registered feasibility requirement" or
+                manifest.get("finalization_errors") != [] or prefix is None or
+                type(partitions) is not dict or
+                type(partitions.get("source")) is not dict or partitions["source"].get("status") != "complete" or
+                type(partitions.get("development")) is not dict or partitions["development"].get("status") != "not_attempted" or
+                type(partitions.get("final")) is not dict or partitions["final"].get("status") != "not_attempted"):
+                raise ValueError("v3 capacity no-go terminal linkage is invalid")
+            bound_identity = artifacts.get("source_capacity_bound.json")
+            if type(bound_identity) is not dict or bound_identity.get("sha256") != early["source_capacity_bound_sha256"]:
+                raise ValueError("v3 capacity no-go hash does not bind the report artifact")
+        elif early is not None:
+            raise ValueError("v3 early_stop is only valid for the registered capacity no-go")
+        if manifest.get("status") == "complete" and (prefix is None or bound["status"] != "PASS_CAPACITY_BOUND"):
+            raise ValueError("complete feasibility v3 generation needs a replayed capacity pass")
+        allowed_artifacts = {"outcomes.jsonl", "records.jsonl", "source_capacity_bound.json",
+                             "source_prefix_context.json", "source_prefix_replay.json"}
+        if manifest.get("status") == "complete" and not {
+                "outcomes.jsonl", "records.jsonl", "source_capacity_bound.json",
+                "source_prefix_context.json", "source_prefix_replay.json"} <= set(artifacts):
+            raise ValueError("complete feasibility v3 generation is missing closed prefix artifacts")
+        if bound.get("status") in ("PASS_CAPACITY_BOUND", "NO_GO") and "source_capacity_bound.json" not in artifacts:
+            raise ValueError("assessed source capacity report is missing from artifacts")
+    if type(artifacts) is not dict or not set(artifacts) <= allowed_artifacts:
+        raise ValueError("v3 generation manifest artifact names are not closed")
+    if require_complete and (manifest.get("status") != "complete" or manifest.get("early_stop") is not None):
+        raise ValueError("v3 generation manifest is not complete")
+
+    # The shared validator still owns all timestamps, limits, partition prefix, and accounting rules.
+    legacy = deepcopy(manifest)
+    legacy.pop("early_stop"); legacy.pop("source_prefix"); legacy.pop("source_capacity_bound")
+    legacy["manifest_version"] = "dwr-task-run-v2"
+    legacy["seed_derivation"] = "sha256-prefix64-v2"
+    legacy["producer"] = {name: producer[name] for name in
+                          ("generator_v2_sha256", "dataset_v2_sha256", "replay_v2_sha256", "manifest_v2_sha256")}
+    legacy_expected = None if expected_producer is None else legacy["producer"]
+    legacy_artifacts = legacy.get("artifacts", {})
+    if type(legacy_artifacts) is dict:
+        legacy["artifacts"] = {name: value for name, value in legacy_artifacts.items()
+                               if name in {"outcomes.jsonl", "records.jsonl"}}
+    if legacy.get("error") is not None:
+        legacy["error"] = {key: value for key, value in legacy["error"].items()
+                           if key != "reason"}
+        if legacy["error"].get("phase") == "proposal_gate":
+            legacy["error"]["phase"] = "generation"
+    validate_manifest_v2(legacy, config_sha256=config_sha256, config=config, mode=mode,
+                         limits=limits, expected_producer=legacy_expected,
+                         require_complete=require_complete)
+    return manifest
+
+
+def validate_manifest(manifest: dict, *, config_sha256: str, config: dict,
+                      mode: str, limits: Any, expected_producer: dict | None = None,
+                      require_complete: bool = False) -> dict:
+    """Closed dispatcher for the two terminal generation-manifest versions."""
+    if type(manifest) is not dict:
+        raise ValueError("generation manifest must be an object")
+    version = manifest.get("manifest_version")
+    if version == "dwr-task-run-v2":
+        return validate_manifest_v2(manifest, config_sha256=config_sha256, config=config,
+                                    mode=mode, limits=limits, expected_producer=expected_producer,
+                                    require_complete=require_complete)
+    if version == "dwr-task-run-v3":
+        return validate_manifest_v3(manifest, config_sha256=config_sha256, config=config,
+                                    mode=mode, limits=limits, expected_producer=expected_producer,
+                                    require_complete=require_complete)
+    raise ValueError("generation manifest version is not registered")

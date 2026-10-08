@@ -98,8 +98,13 @@ def _solver_stats(outcome: CandidateOutcome) -> dict | None:
 
 
 def outcome_row(outcome: CandidateOutcome, terminal_reason: str, *, split: str | None,
-                identities: dict | None, denominator_counted: bool) -> dict:
-    row = {"outcome_version": "dwr-task-outcome-v2", "partition": outcome.partition,
+                identities: dict | None, denominator_counted: bool,
+                expected_generator_id: str = "dwr-generator-v2") -> dict:
+    from .stream_contract import resolve_stream
+    contract = resolve_stream(expected_generator_id)
+    if outcome.generator_id != contract.generator_id:
+        raise ValueError("candidate generator identity differs from selected stream")
+    row = {"outcome_version": contract.outcome_version, "partition": outcome.partition,
            "candidate_index": outcome.candidate_index, "n": outcome.n,
            "profile": list(outcome.profile), "terminal_reason": terminal_reason,
            "oracle_unique": outcome.oracle_unique, "eligible": outcome.eligible,
@@ -109,19 +114,30 @@ def outcome_row(outcome: CandidateOutcome, terminal_reason: str, *, split: str |
            "witness": None if outcome.witness is None else dict(outcome.witness.assignments),
            "solution": None if outcome.solution is None else dict(outcome.solution.assignments),
            "solver_stats": _solver_stats(outcome)}
+    if expected_generator_id == "dwr-generator-v3":
+        row["generator_id"] = contract.generator_id
     return row
 
 
-def accepted_record(outcome: CandidateOutcome, split: str, identities: dict) -> dict:
+def accepted_record(outcome: CandidateOutcome, split: str, identities: dict, *,
+                    expected_generator_id: str = "dwr-generator-v2") -> dict:
+    from .stream_contract import resolve_stream
+    contract = resolve_stream(expected_generator_id)
+    if outcome.generator_id != contract.generator_id:
+        raise ValueError("candidate generator identity differs from selected stream")
     task = outcome.task
     model_input = serialize_model_input(task)
-    return {"partition": outcome.partition, "candidate_index": outcome.candidate_index,
+    record = {"partition": outcome.partition, "candidate_index": outcome.candidate_index,
             "profile": list(outcome.profile), "task": json.loads(serialize_task(task)),
             **identities, "split": split,
             "witness": dict(outcome.witness.assignments),
             "solution": dict(outcome.solution.assignments), "solver_stats": _solver_stats(outcome),
             "model_input": model_input,
             "model_input_sha256": hashlib.sha256(model_input.encode("utf-8")).hexdigest()}
+    if contract.accepted_record_version is not None:
+        record = {"record_version": contract.accepted_record_version,
+                  "generator_id": contract.generator_id, **record}
+    return record
 
 
 def _quota_counted(mode: str, partition: str, split: str, eligible: bool) -> bool:
@@ -201,14 +217,17 @@ def _write_failure_sidecar(outdir: Path, primary_error: dict,
 
 def _new_manifest(config: LoadedConfig, outdir: Path, mode: str, argv: list[str],
                   source: dict, limits: DatasetLimits, consumed_preflight: dict | None,
-                  created_utc: str) -> dict:
-    manifest = {"manifest_version": "dwr-task-run-v2", "mode": mode, "status": "running",
+                  created_utc: str, *, generator_id: str = "dwr-generator-v2") -> dict:
+    from .stream_contract import require_matching_config, resolve_stream
+    contract = resolve_stream(generator_id)
+    require_matching_config(contract, config.resolved)
+    manifest = {"manifest_version": contract.manifest_version, "mode": mode, "status": "running",
                 "created_utc": created_utc, "command": list(argv), "cwd": str(Path.cwd()),
                 "python": sys.version, "platform": sys.platform, "config_path": str(config.path),
                 "config_sha256": config.sha256, "resolved_config": config.resolved,
-                "seed": config.resolved["seed"], "seed_derivation": "sha256-prefix64-v2",
+                "seed": config.resolved["seed"], "seed_derivation": contract.seed_derivation,
                 "output_dir": str(outdir), "source": source,
-                "limits": expected_limits(mode, limits), "producer": _producer_identity(),
+                "limits": expected_limits(mode, limits), "producer": _producer_identity(generator_id),
                 "generation_elapsed_seconds": 0.0, "generation_cpu_seconds": 0.0,
                 "partitions": {p: {"status": "not_attempted", "attempts": 0, "accepted": 0,
                                     "not_attempted": True} for p in PARTITIONS},
@@ -218,17 +237,38 @@ def _new_manifest(config: LoadedConfig, outdir: Path, mode: str, argv: list[str]
                 "accounting_end_boundary": "post_first_terminal_manifest_write_resource_check",
                 "accounting_note": "Elapsed and CPU include the first terminal manifest write and resource check; one bounded accounting flush tail is excluded.",
                 "finalization_errors": []}
+    if generator_id == "dwr-generator-v3":
+        manifest.update(early_stop=None, source_prefix=None,
+                        source_capacity_bound=_not_assessed_capacity_bound("source_partition_incomplete"))
+        if mode == "full":
+            manifest["source_capacity_bound"] = {
+                "status": "NOT_APPLICABLE",
+                "reason": "full_mode_uses_registered_five_cohort_gate"}
     if mode == "full":
         manifest["consumed_preflight"] = consumed_preflight
     return manifest
 
 
-def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str], *,
+def _not_assessed_capacity_bound(reason: str) -> dict:
+    return {"bound_version": "dwr-task-v3-source-capacity-bound-v1",
+            "status": "NOT_ASSESSED", "reason": reason,
+            "source_prefix_replay_sha256": None, "top_k_cells": 10,
+            "minimum_source_train_mass": 0.8, "source_train_group_count": 0,
+            "top_cells": [], "top_k_mass": None}
+
+
+def _run_dataset(config: LoadedConfig, outdir: Path, mode: str, argv: list[str], *,
                    limits: DatasetLimits | None = None, candidate_fn: Callable = generate_candidate,
                    guard: ResourceGuard | None = None, source: dict | None = None,
                    preflight_report: Path | None = None,
                    preflight_limits: DatasetLimits | None = None,
-                   cpu_origin: float | None = None) -> int:
+                   cpu_origin: float | None = None,
+                   generator_id: str = "dwr-generator-v2") -> int:
+    from .stream_contract import require_matching_config, resolve_stream
+    contract = resolve_stream(generator_id)
+    require_matching_config(contract, config.resolved)
+    if generator_id == "dwr-generator-v3" and mode == "full":
+        raise ValueError("v3 full-mode preflight consumption is not available until the independent v3 audit task")
     if cpu_origin is None:
         cpu_origin = time.process_time()
     elif (isinstance(cpu_origin, bool) or not isinstance(cpu_origin, (int, float)) or
@@ -255,7 +295,7 @@ def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str
     manifest = None
     try:
         manifest = _new_manifest(config, outdir, mode, argv, source, limits,
-                                 consumed_preflight, started_utc)
+                                 consumed_preflight, started_utc, generator_id=generator_id)
         atomic_json(manifest_path, manifest)
     except BaseException as exc:
         primary_error = _failure_context(exc, "setup", None, None)
@@ -264,6 +304,7 @@ def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str
         return 1
     targets = manifest["limits"]["quota_targets"]
     outcomes_path, records_path = outdir / "outcomes.jsonl", outdir / "records.jsonl"
+    capacity_no_go = False
     counts = _quota_tables(limits)
     seen: set[str] = set()
     primary_error = None
@@ -279,6 +320,9 @@ def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str
                 state = manifest["partitions"][part]
                 current_partition = part
                 current_index = None
+                if capacity_no_go:
+                    state["status"] = "not_attempted"; state["not_attempted"] = True
+                    continue
                 if part == "final" and mode == "feasibility":
                     state["status"] = "not_attempted"; state["not_attempted"] = True
                     continue
@@ -292,6 +336,8 @@ def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str
                     outcome = candidate_fn(config.resolved["seed"], part, index, full_profiles=full)
                     if outcome.partition != part or outcome.candidate_index != index:
                         raise ValueError("candidate producer returned a mismatched partition/index")
+                    if outcome.generator_id != generator_id:
+                        raise ValueError("candidate producer returned a cross-version outcome")
                     split = None; identities = None; counted = False
                     reason = outcome.rejection_reason or outcome.eligibility_reason
                     if outcome.oracle_unique:
@@ -308,13 +354,16 @@ def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str
                                     if part == "source": counts[0][outcome.profile] += 1
                                     elif part == "development": counts[1][outcome.profile] += 1
                                     else: counts[2][outcome.profile] += 1
-                                records.write(stable_json(accepted_record(outcome, split, identities)) + "\n")
+                                records.write(stable_json(accepted_record(
+                                    outcome, split, identities,
+                                    expected_generator_id=generator_id)) + "\n")
                                 if (mode == "full" or
                                     (part == "source" and split == "source_train") or
                                     (part == "development" and split == "development_validation")):
                                     state["accepted"] += 1
                     row = outcome_row(outcome, reason, split=split, identities=identities,
-                                      denominator_counted=counted)
+                                      denominator_counted=counted,
+                                      expected_generator_id=generator_id)
                     outcomes.write(stable_json(row) + "\n")
                     state["attempts"] = index + 1
                     outcomes.flush(); records.flush(); guard.check()
@@ -324,7 +373,47 @@ def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str
                     raise RuntimeError(f"attempt cap reached in {part}: accepted={state['accepted']} quota_target={targets[part]}")
                 state["status"] = "complete"
                 atomic_json(manifest_path, manifest)
+                if generator_id == "dwr-generator-v3" and mode == "feasibility" and part == "source":
+                    phase = "source_prefix_closure"
+                    current_index = None
+                    outcomes.flush(); records.flush(); guard.check()
+                    context_path = outdir / "source_prefix_context.json"
+                    replay_path = outdir / "source_prefix_replay.json"
+                    bound_path = outdir / "source_capacity_bound.json"
+                    producer = manifest["producer"]
+                    context, context_hash = capture_source_prefix_context_v3(
+                        outcomes_path, records_path, context_path, config, source, producer, limits, guard)
+                    from .replay_v2 import replay_source_prefix_v3, _prefix_rows, source_support_capacity_bound
+                    replay = replay_source_prefix_v3(outcomes_path, records_path, context, context_hash,
+                                                     config, source, producer, limits=limits, guard=guard)
+                    atomic_json(replay_path, replay); guard.check()
+                    replay_hash = sha256_file(replay_path); guard.check()
+                    manifest["source_prefix"] = {"context_file": context_path.name,
+                        "context_sha256": context_hash, "replay_file": replay_path.name,
+                        "replay_sha256": replay_hash}
+                    source_records = _prefix_rows(records_path, context["source_record_prefix_bytes"],
+                                                  context["source_record_prefix_sha256"], guard)
+                    bound = source_support_capacity_bound(
+                        (record for record in source_records if record.get("split") == "source_train"),
+                        replay_hash)
+                    atomic_json(bound_path, bound); guard.check()
+                    bound_hash = sha256_file(bound_path); guard.check()
+                    manifest["source_capacity_bound"] = bound
+                    if bound["status"] == "NO_GO":
+                        manifest["early_stop"] = {"status": "NO_GO",
+                            "reason": "source_support_capacity_bound",
+                            "source_capacity_bound_file": bound_path.name,
+                            "source_capacity_bound_sha256": bound_hash}
+                        primary_error = {"type": "ProposalNoGo",
+                            "message": "source support capacity bound is below the registered feasibility requirement",
+                            "phase": "proposal_gate", "partition": "source",
+                            "candidate_index": None, "reason": "source_support_capacity_bound"}
+                        capacity_no_go = True
+                    phase = "generation"
     except BaseException as exc:
+        if (generator_id == "dwr-generator-v3" and mode == "feasibility" and
+            current_partition == "source" and phase == "source_prefix_closure"):
+            manifest["source_capacity_bound"] = _not_assessed_capacity_bound("operational_error")
         primary_error = _failure_context(exc, phase, current_partition, current_index)
     finalization_started = guard.clock()
     manifest["generation_elapsed_seconds"] = round(max(0.0, finalization_started - guard.started), 6)
@@ -344,6 +433,24 @@ def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str
 
     artifacts = {}
     manifest["error"] = primary_error
+    if generator_id == "dwr-generator-v3" and mode == "feasibility":
+        bound_path = outdir / "source_capacity_bound.json"
+        if not bound_path.exists():
+            try:
+                atomic_json(bound_path, manifest["source_capacity_bound"])
+                guard.check()
+            except BaseException as exc:
+                record_finalization_error(exc, operation="write source capacity report")
+        if bound_path.exists():
+            for extra_path in (outdir / "source_prefix_context.json",
+                               outdir / "source_prefix_replay.json", bound_path):
+                try:
+                    if extra_path.exists():
+                        artifacts[extra_path.name] = {"sha256": sha256_file(extra_path),
+                                                      "bytes": extra_path.stat().st_size}
+                        guard.check()
+                except BaseException as exc:
+                    record_finalization_error(exc, operation=f"hash/stat {extra_path.name}")
     for artifact_path in (outcomes_path, records_path):
         try:
             if artifact_path.exists():
@@ -399,17 +506,42 @@ def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str
     return 0 if manifest["status"] == "complete" else 1
 
 
-def _producer_identity() -> dict:
-    return {"generator_v2_sha256": sha256_file(Path(__file__).with_name("generator_v2.py")),
-            "dataset_v2_sha256": sha256_file(Path(__file__)),
-            "replay_v2_sha256": sha256_file(Path(__file__).with_name("replay_v2.py")),
-            "manifest_v2_sha256": sha256_file(Path(__file__).with_name("manifest_v2.py"))}
+def _producer_identity(generator_id: str = "dwr-generator-v2") -> dict:
+    if generator_id == "dwr-generator-v2":
+        return {"generator_v2_sha256": sha256_file(Path(__file__).with_name("generator_v2.py")),
+                "dataset_v2_sha256": sha256_file(Path(__file__)),
+                "replay_v2_sha256": sha256_file(Path(__file__).with_name("replay_v2.py")),
+                "manifest_v2_sha256": sha256_file(Path(__file__).with_name("manifest_v2.py"))}
+    if generator_id != "dwr-generator-v3":
+        raise ValueError("unknown generation producer identity")
+    from .stream_contract import resolve_stream
+    resolve_stream(generator_id)
+    root = Path(__file__).resolve().parents[2]
+    paths = {
+        "generator_v2_sha256": Path(__file__).with_name("generator_v2.py"),
+        "generator_v3_sha256": Path(__file__).with_name("generator_v3.py"),
+        "config_v3_sha256": root / "configs/tasks/constraint_v3.json",
+        "dataset_v2_sha256": Path(__file__),
+        "replay_v2_sha256": Path(__file__).with_name("replay_v2.py"),
+        "manifest_v2_sha256": Path(__file__).with_name("manifest_v2.py"),
+        "stream_contract_sha256": Path(__file__).with_name("stream_contract.py"),
+        "cli_v2_sha256": Path(__file__).with_name("cli_v2.py"),
+        "cli_v3_sha256": Path(__file__).with_name("cli_v3.py"),
+        "canonical_sha256": Path(__file__).with_name("canonical.py"),
+        "oracle_sha256": Path(__file__).with_name("oracle.py"),
+        "schema_sha256": Path(__file__).with_name("schema.py"),
+        "solver_sha256": Path(__file__).with_name("solver.py"),
+        "run_support_sha256": Path(__file__).with_name("run_support.py"),
+    }
+    return {name: sha256_file(path) for name, path in paths.items()}
 
 
 def validate_preflight(path: Path | None, config: LoadedConfig, source: dict, *,
                        limits: DatasetLimits | None = None,
                        guard: ResourceGuard | None = None) -> dict:
     """Validate the closed Task 4 feasibility handoff before full-mode setup."""
+    from .stream_contract import require_matching_config, resolve_stream
+    require_matching_config(resolve_stream("dwr-generator-v2"), config.resolved)
     if path is None:
         raise ValueError("full mode requires --preflight-report")
     limits = limits or registered_limits(config.resolved, "feasibility")
@@ -493,3 +625,100 @@ def validate_preflight(path: Path | None, config: LoadedConfig, source: dict, *,
             "generation_artifacts": artifacts,
             "audit_artifact_path": str(audit_path),
             "audit_artifact_sha256": report["audit_artifact_sha256"]}
+
+
+def _closed_file_prefix(path: Path, guard: ResourceGuard) -> tuple[int, str, int, dict[str, int]]:
+    digest = hashlib.sha256()
+    byte_count = row_count = 0
+    profiles = {"eq": 0, "neq": 0, "add_mod": 0}
+    with Path(path).open("rb") as stream:
+        while True:
+            guard.check()
+            raw = stream.readline()
+            if not raw:
+                break
+            if not raw.endswith(b"\n"):
+                raise ValueError("source artifact ends with an incomplete JSONL row")
+            row = strict_json_loads(raw[:-1].decode("utf-8", errors="strict"))
+            if type(row) is not dict:
+                raise ValueError("source artifact rows must be JSON objects")
+            if row.get("partition") != "source":
+                raise ValueError("target row appeared before source closure")
+            if "terminal_reason" not in row:
+                profile = row.get("profile")
+                if type(profile) is not list or len(profile) != 1 or profile[0] not in profiles:
+                    raise ValueError("source accepted record has an invalid profile")
+                profiles[profile[0]] += 1
+            digest.update(raw); byte_count += len(raw); row_count += 1
+    return byte_count, digest.hexdigest(), row_count, profiles
+
+
+def capture_source_prefix_context_v3(outcomes_path: Path, records_path: Path,
+                                     context_path: Path, config: LoadedConfig,
+                                     source: dict, producer: dict, limits: DatasetLimits,
+                                     guard: ResourceGuard) -> tuple[dict, str]:
+    """Capture a flushed, feasibility-only complete source prefix and bind its hashes."""
+    from .stream_contract import require_matching_config, resolve_stream
+    contract = resolve_stream("dwr-generator-v3")
+    require_matching_config(contract, config.resolved)
+    if type(source) is not dict or set(source) != {"commit", "dirty", "dirty_diff_sha256", "checkout_root"}:
+        raise ValueError("source identity is malformed")
+    if type(producer) is not dict or set(producer) != set(contract.generation_producer_fields):
+        raise ValueError("v3 producer fields do not match the closed stream contract")
+    if any(type(value) is not str or len(value) != 64 or
+           any(char not in "0123456789abcdef" for char in value) for value in producer.values()):
+        raise ValueError("v3 producer hashes must be lowercase SHA-256 values")
+    guard.check()
+    if producer != _producer_identity("dwr-generator-v3"):
+        raise ValueError("v3 source prefix producer differs from current generation code")
+    guard.check()
+    targets = {name: limits.source_by_profile[name] for name in ("eq", "neq", "add_mod")}
+    if targets != {"eq": 334, "neq": 333, "add_mod": 333}:
+        raise ValueError("source closure requires the registered complete 1,000-group quotas")
+    out_bytes, out_hash, attempts, out_profiles = _closed_file_prefix(Path(outcomes_path), guard)
+    rec_bytes, rec_hash, record_count, counts = _closed_file_prefix(Path(records_path), guard)
+    if out_profiles != {"eq": 0, "neq": 0, "add_mod": 0}:
+        raise ValueError("source outcomes must not be counted as accepted records")
+    if counts != targets:
+        raise ValueError("source accepted records do not close every registered profile quota")
+    context = {"context_version": "dwr-task-v3-source-prefix-context-v1",
+               "generator_id": contract.generator_id, "config_version": contract.config_version,
+               "config_sha256": config.sha256, "source": source, "producer": producer,
+               "mode": "feasibility", "source_attempts": attempts,
+               "source_outcome_prefix_bytes": out_bytes,
+               "source_outcome_prefix_sha256": out_hash,
+               "source_accepted_record_count": record_count,
+               "source_record_prefix_bytes": rec_bytes,
+               "source_record_prefix_sha256": rec_hash,
+               "source_quota_targets": targets, "source_quota_counts": counts,
+               "source_quota_closed": True, "development_attempts": 0, "final_attempts": 0}
+    guard.check()
+    atomic_json(Path(context_path), context)
+    guard.check()
+    context_sha256 = sha256_file(Path(context_path))
+    guard.check()
+    return context, context_sha256
+
+
+def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str], *,
+                   limits: DatasetLimits | None = None, candidate_fn: Callable = generate_candidate,
+                   guard: ResourceGuard | None = None, source: dict | None = None,
+                   preflight_report: Path | None = None,
+                   preflight_limits: DatasetLimits | None = None,
+                   cpu_origin: float | None = None) -> int:
+    return _run_dataset(config, outdir, mode, argv, limits=limits, candidate_fn=candidate_fn,
+                        guard=guard, source=source, preflight_report=preflight_report,
+                        preflight_limits=preflight_limits, cpu_origin=cpu_origin,
+                        generator_id="dwr-generator-v2")
+
+
+def run_dataset_v3(config: LoadedConfig, outdir: Path, mode: str, argv: list[str], *,
+                   limits: DatasetLimits | None = None,
+                   guard: ResourceGuard | None = None, source: dict | None = None,
+                   preflight_report: Path | None = None,
+                   cpu_origin: float | None = None) -> int:
+    from .generator_v3 import generate_candidate_v3
+    return _run_dataset(config, outdir, mode, argv, limits=limits,
+                        candidate_fn=generate_candidate_v3, guard=guard, source=source,
+                        preflight_report=preflight_report, cpu_origin=cpu_origin,
+                        generator_id="dwr-generator-v3")
