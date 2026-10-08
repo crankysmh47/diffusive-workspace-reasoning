@@ -8,6 +8,8 @@ import os
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -257,6 +259,54 @@ def _not_assessed_capacity_bound(reason: str) -> dict:
             "top_cells": [], "top_k_mass": None}
 
 
+_source_closure_fixture_targets: ContextVar[dict | None] = ContextVar(
+    "dwr_source_closure_fixture_targets", default=None)
+
+
+@contextmanager
+def _source_closure_fixture(limits: DatasetLimits):
+    """Private deterministic-test seam; never changes the registered public capture quotas."""
+    targets = {name: limits.source_by_profile[name] for name in ("eq", "neq", "add_mod")}
+    if any(type(value) is not int or value < 0 for value in targets.values()) or sum(targets.values()) <= 0:
+        raise ValueError("source closure fixture needs nonnegative exact profile quotas with positive total")
+    token = _source_closure_fixture_targets.set(targets)
+    try:
+        yield
+    finally:
+        _source_closure_fixture_targets.reset(token)
+
+
+def _preserve_v3_bound_diagnostic(outdir: Path, manifest: dict,
+                                  prior_error: dict | None) -> None:
+    path = outdir / "source_capacity_bound_provisional.json"
+    if path.exists():
+        return
+    atomic_json(path, {"diagnostic_version": "dwr-task-v3-provisional-bound-v1",
+                       "source_capacity_bound": manifest["source_capacity_bound"],
+                       "early_stop": manifest["early_stop"], "prior_error": prior_error,
+                       "prior_finalization_errors": manifest.get("finalization_errors", [])})
+
+
+def _set_v3_operational_bound(outdir: Path, manifest: dict,
+                              prior_error: dict | None) -> None:
+    """Withdraw an assessed decision after operational failure and bind its replacement."""
+    bound = manifest.get("source_capacity_bound", {})
+    if (bound.get("status") in ("PASS_CAPACITY_BOUND", "NO_GO") or
+        manifest.get("early_stop") is not None or prior_error is not None):
+        _preserve_v3_bound_diagnostic(outdir, manifest, prior_error)
+    manifest["source_capacity_bound"] = _not_assessed_capacity_bound("operational_error")
+    manifest["early_stop"] = None
+    bound_path = outdir / "source_capacity_bound.json"
+    atomic_json(bound_path, manifest["source_capacity_bound"])
+    identity = {"sha256": sha256_file(bound_path), "bytes": bound_path.stat().st_size}
+    artifacts = manifest.setdefault("artifacts", {})
+    artifacts[bound_path.name] = identity
+    provisional_path = outdir / "source_capacity_bound_provisional.json"
+    if provisional_path.exists():
+        artifacts[provisional_path.name] = {
+            "sha256": sha256_file(provisional_path), "bytes": provisional_path.stat().st_size}
+
+
 def _run_dataset(config: LoadedConfig, outdir: Path, mode: str, argv: list[str], *,
                    limits: DatasetLimits | None = None, candidate_fn: Callable = generate_candidate,
                    guard: ResourceGuard | None = None, source: dict | None = None,
@@ -381,8 +431,14 @@ def _run_dataset(config: LoadedConfig, outdir: Path, mode: str, argv: list[str],
                     replay_path = outdir / "source_prefix_replay.json"
                     bound_path = outdir / "source_capacity_bound.json"
                     producer = manifest["producer"]
-                    context, context_hash = capture_source_prefix_context_v3(
-                        outcomes_path, records_path, context_path, config, source, producer, limits, guard)
+                    fixture_targets = _source_closure_fixture_targets.get()
+                    if fixture_targets is None:
+                        context, context_hash = capture_source_prefix_context_v3(
+                            outcomes_path, records_path, context_path, config, source, producer, limits, guard)
+                    else:
+                        context, context_hash = _capture_source_prefix_context_v3(
+                            outcomes_path, records_path, context_path, config, source, producer, limits, guard,
+                            expected_targets=fixture_targets)
                     from .replay_v2 import replay_source_prefix_v3, _prefix_rows, source_support_capacity_bound
                     replay = replay_source_prefix_v3(outcomes_path, records_path, context, context_hash,
                                                      config, source, producer, limits=limits, guard=guard)
@@ -413,7 +469,21 @@ def _run_dataset(config: LoadedConfig, outdir: Path, mode: str, argv: list[str],
     except BaseException as exc:
         if (generator_id == "dwr-generator-v3" and mode == "feasibility" and
             current_partition == "source" and phase == "source_prefix_closure"):
+            bound_path = outdir / "source_capacity_bound.json"
+            if bound_path.exists():
+                try:
+                    saved_bound = strict_json_loads(bound_path.read_text(encoding="utf-8"))
+                    if type(saved_bound) is dict and saved_bound.get("status") in (
+                            "PASS_CAPACITY_BOUND", "NO_GO"):
+                        manifest["source_capacity_bound"] = saved_bound
+                        _preserve_v3_bound_diagnostic(
+                            outdir, manifest, _failure_context(exc, phase, current_partition, current_index))
+                except BaseException as preserve_exc:
+                    finalization_errors.append(_failure_context(
+                        preserve_exc, "finalization", current_partition, current_index) |
+                        {"operation": "preserve provisional source capacity report"})
             manifest["source_capacity_bound"] = _not_assessed_capacity_bound("operational_error")
+            manifest["early_stop"] = None
         primary_error = _failure_context(exc, phase, current_partition, current_index)
     finalization_started = guard.clock()
     manifest["generation_elapsed_seconds"] = round(max(0.0, finalization_started - guard.started), 6)
@@ -422,9 +492,20 @@ def _run_dataset(config: LoadedConfig, outdir: Path, mode: str, argv: list[str],
         if state["status"] == "running": state["status"] = "incomplete"
 
     def record_finalization_error(exc: BaseException, *, operation: str) -> None:
+        nonlocal primary_error
         item = _failure_context(exc, "finalization", current_partition, current_index)
         item["operation"] = operation
-        if manifest["error"] is None:
+        if generator_id == "dwr-generator-v3" and mode == "feasibility":
+            prior_error = primary_error if primary_error is not None else manifest.get("error")
+            primary_error = item
+            manifest["error"] = item
+            try:
+                _set_v3_operational_bound(outdir, manifest, prior_error)
+            except BaseException as invalidate_exc:
+                finalization_errors.append(_failure_context(
+                    invalidate_exc, "finalization", current_partition, current_index) |
+                    {"operation": "invalidate source capacity decision"})
+        elif manifest["error"] is None:
             manifest["error"] = item
         else:
             finalization_errors.append(item)
@@ -441,9 +522,19 @@ def _run_dataset(config: LoadedConfig, outdir: Path, mode: str, argv: list[str],
                 guard.check()
             except BaseException as exc:
                 record_finalization_error(exc, operation="write source capacity report")
+        elif bound_path.exists():
+            try:
+                saved_bound = strict_json_loads(bound_path.read_text(encoding="utf-8"))
+                if saved_bound != manifest["source_capacity_bound"]:
+                    _preserve_v3_bound_diagnostic(outdir, manifest, primary_error)
+                    atomic_json(bound_path, manifest["source_capacity_bound"])
+                    guard.check()
+            except BaseException as exc:
+                record_finalization_error(exc, operation="reconcile source capacity report")
         if bound_path.exists():
             for extra_path in (outdir / "source_prefix_context.json",
-                               outdir / "source_prefix_replay.json", bound_path):
+                               outdir / "source_prefix_replay.json", bound_path,
+                               outdir / "source_capacity_bound_provisional.json"):
                 try:
                     if extra_path.exists():
                         artifacts[extra_path.name] = {"sha256": sha256_file(extra_path),
@@ -653,10 +744,11 @@ def _closed_file_prefix(path: Path, guard: ResourceGuard) -> tuple[int, str, int
     return byte_count, digest.hexdigest(), row_count, profiles
 
 
-def capture_source_prefix_context_v3(outcomes_path: Path, records_path: Path,
-                                     context_path: Path, config: LoadedConfig,
-                                     source: dict, producer: dict, limits: DatasetLimits,
-                                     guard: ResourceGuard) -> tuple[dict, str]:
+def _capture_source_prefix_context_v3(outcomes_path: Path, records_path: Path,
+                                      context_path: Path, config: LoadedConfig,
+                                      source: dict, producer: dict, limits: DatasetLimits,
+                                      guard: ResourceGuard, *,
+                                      expected_targets: dict[str, int]) -> tuple[dict, str]:
     """Capture a flushed, feasibility-only complete source prefix and bind its hashes."""
     from .stream_contract import require_matching_config, resolve_stream
     contract = resolve_stream("dwr-generator-v3")
@@ -673,8 +765,11 @@ def capture_source_prefix_context_v3(outcomes_path: Path, records_path: Path,
         raise ValueError("v3 source prefix producer differs from current generation code")
     guard.check()
     targets = {name: limits.source_by_profile[name] for name in ("eq", "neq", "add_mod")}
-    if targets != {"eq": 334, "neq": 333, "add_mod": 333}:
-        raise ValueError("source closure requires the registered complete 1,000-group quotas")
+    if (type(expected_targets) is not dict or set(expected_targets) != {"eq", "neq", "add_mod"} or
+        any(type(value) is not int or value < 0 for value in expected_targets.values()) or
+        sum(expected_targets.values()) <= 0 or
+        targets != expected_targets):
+        raise ValueError("source closure fixture targets need matching nonnegative quotas with positive total")
     out_bytes, out_hash, attempts, out_profiles = _closed_file_prefix(Path(outcomes_path), guard)
     rec_bytes, rec_hash, record_count, counts = _closed_file_prefix(Path(records_path), guard)
     if out_profiles != {"eq": 0, "neq": 0, "add_mod": 0}:
@@ -698,6 +793,19 @@ def capture_source_prefix_context_v3(outcomes_path: Path, records_path: Path,
     context_sha256 = sha256_file(Path(context_path))
     guard.check()
     return context, context_sha256
+
+
+def capture_source_prefix_context_v3(outcomes_path: Path, records_path: Path,
+                                     context_path: Path, config: LoadedConfig,
+                                     source: dict, producer: dict, limits: DatasetLimits,
+                                     guard: ResourceGuard) -> tuple[dict, str]:
+    """Capture the public, registered 334/333/333 source prefix only."""
+    targets = {"eq": 334, "neq": 333, "add_mod": 333}
+    if any(limits.source_by_profile[name] != targets[name] for name in targets):
+        raise ValueError("source closure requires the registered complete 1,000-group quotas")
+    return _capture_source_prefix_context_v3(
+        outcomes_path, records_path, context_path, config, source, producer, limits, guard,
+        expected_targets=targets)
 
 
 def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str], *,

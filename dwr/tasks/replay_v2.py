@@ -286,7 +286,7 @@ def replay_source_prefix_v3(outcomes_path: Path, records_path: Path, context: di
         replayed_count += 1
     replay_outcomes_v3(rows, config, "feasibility", check=compare, limits=limits,
                        expected_attempts={"source": attempts, "development": 0, "final": 0},
-                       allow_partial=False, guard=guard)
+                       allow_partial=True, guard=guard)
     try:
         next(actual_record_iter)
     except StopIteration:
@@ -330,11 +330,10 @@ def source_support_capacity_bound(records: Iterable[dict], source_prefix_replay_
         counts[tuple(_cell(normalized))] += 1
         total += 1
     top = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:top_k]
-    mass = None if total == 0 else sum(count for _, count in top) / total
+    mass = 0.0 if total == 0 else sum(count for _, count in top) / total
     return {"bound_version": "dwr-task-v3-source-capacity-bound-v1",
-            "status": "NOT_ASSESSED" if total == 0 else ("PASS_CAPACITY_BOUND" if mass >= min_fraction else "NO_GO"),
-            "reason": "source_partition_incomplete" if total == 0 else
-                      (None if mass >= min_fraction else "source_support_capacity_bound"),
+            "status": "NO_GO" if total == 0 else ("PASS_CAPACITY_BOUND" if mass >= min_fraction else "NO_GO"),
+            "reason": "source_support_capacity_bound" if total == 0 or mass < min_fraction else None,
             "source_prefix_replay_sha256": source_prefix_replay_sha256,
             "top_k_cells": top_k, "minimum_source_train_mass": float(min_fraction),
             "source_train_group_count": total,
@@ -382,7 +381,9 @@ def replay_files_v2(outcomes_path: Path, records_path: Path, config: LoadedConfi
     expected_artifact_names = {Path(outcomes_path).name, Path(records_path).name}
     if expected_generator_id == "dwr-generator-v3" and mode == "feasibility":
         expected_artifact_names.add("source_capacity_bound.json")
-        allowed_artifact_names = expected_artifact_names | {"source_prefix_context.json", "source_prefix_replay.json"}
+        allowed_artifact_names = expected_artifact_names | {
+            "source_prefix_context.json", "source_prefix_replay.json",
+            "source_capacity_bound_provisional.json"}
         if generation_manifest.get("source_prefix") is not None:
             expected_artifact_names |= {"source_prefix_context.json", "source_prefix_replay.json"}
     else:

@@ -1,0 +1,39 @@
+test_rejects_config_with_substituted_rng_domain_or_seed_label (tests.test_task_stream_contract.StreamContractTests.test_rejects_config_with_substituted_rng_domain_or_seed_label) ... ok
+test_rejects_unknown_stream_id (tests.test_task_stream_contract.StreamContractTests.test_rejects_unknown_stream_id) ... ok
+test_resolves_only_the_two_registered_streams (tests.test_task_stream_contract.StreamContractTests.test_resolves_only_the_two_registered_streams) ... ok
+test_bound_hash_failure_withdraws_decision_and_preserves_provisional (tests.test_task_dataset_v3.DatasetV3Tests.test_bound_hash_failure_withdraws_decision_and_preserves_provisional) ... ok
+test_bound_write_failure_is_terminally_operational (tests.test_task_dataset_v3.DatasetV3Tests.test_bound_write_failure_is_terminally_operational) ... ok
+test_driver_uses_same_live_guard_for_capture_and_prefix_replay (tests.test_task_dataset_v3.DatasetV3Tests.test_driver_uses_same_live_guard_for_capture_and_prefix_replay) ... ok
+test_first_ineligible_unique_owns_content_and_later_copy_is_duplicate (tests.test_task_dataset_v3.DatasetV3Tests.test_first_ineligible_unique_owns_content_and_later_copy_is_duplicate) ... ok
+test_public_source_capture_keeps_registered_quota_guard (tests.test_task_dataset_v3.DatasetV3Tests.test_public_source_capture_keeps_registered_quota_guard) ... ok
+test_real_bound_no_go_spans_more_than_ten_synthetic_verified_cells (tests.test_task_dataset_v3.DatasetV3Tests.test_real_bound_no_go_spans_more_than_ten_synthetic_verified_cells) ... ok
+test_real_empty_source_train_closure_is_no_go_without_development (tests.test_task_dataset_v3.DatasetV3Tests.test_real_empty_source_train_closure_is_no_go_without_development) ... ok
+test_real_source_closure_replay_pass_advances_to_development (tests.test_task_dataset_v3.DatasetV3Tests.test_real_source_closure_replay_pass_advances_to_development) ... ok
+test_small_incomplete_source_fixture_logs_v3_and_replays_as_partial (tests.test_task_dataset_v3.DatasetV3Tests.test_small_incomplete_source_fixture_logs_v3_and_replays_as_partial) ... ok
+test_source_cap_and_closure_operational_error_remain_distinct_and_replayable (tests.test_task_dataset_v3.DatasetV3Tests.test_source_cap_and_closure_operational_error_remain_distinct_and_replayable) ... ok
+test_source_prefix_corrupt_outcome_hash_is_rejected (tests.test_task_dataset_v3.DatasetV3Tests.test_source_prefix_corrupt_outcome_hash_is_rejected) ... ok
+test_source_prefix_replay_reconstructs_after_later_append (tests.test_task_dataset_v3.DatasetV3Tests.test_source_prefix_replay_reconstructs_after_later_append) ... ok
+test_source_prefix_replay_rejects_missing_corrupt_postquota_and_bad_context (tests.test_task_dataset_v3.DatasetV3Tests.test_source_prefix_replay_rejects_missing_corrupt_postquota_and_bad_context) ... ok
+test_terminal_manifest_write_failure_withdraws_no_go_and_keeps_diagnostic (tests.test_task_dataset_v3.DatasetV3Tests.test_terminal_manifest_write_failure_withdraws_no_go_and_keeps_diagnostic) ... ok
+test_v3_accepted_record_adds_only_registered_identity_fields (tests.test_task_dataset_v3.DatasetV3Tests.test_v3_accepted_record_adds_only_registered_identity_fields) ... ok
+test_v3_cli_does_not_accept_v2_config (tests.test_task_dataset_v3.DatasetV3Tests.test_v3_cli_does_not_accept_v2_config) ... ok
+test_v3_full_mode_fails_closed_before_creating_output (tests.test_task_dataset_v3.DatasetV3Tests.test_v3_full_mode_fails_closed_before_creating_output) ... ok
+test_v3_outcome_schema_is_explicit_and_rejects_a_v2_candidate (tests.test_task_dataset_v3.DatasetV3Tests.test_v3_outcome_schema_is_explicit_and_rejects_a_v2_candidate) ... ok
+test_v3_source_prefix_closure_is_a_valid_operational_error_phase (tests.test_task_dataset_v3.DatasetV3Tests.test_v3_source_prefix_closure_is_a_valid_operational_error_phase) ... ok
+test_capacity_bound_counts_only_source_train_and_tie_breaks_cells (tests.test_task_replay_v3.ReplayV3Tests.test_capacity_bound_counts_only_source_train_and_tie_breaks_cells) ... ok
+test_capacity_bound_pins_exact_and_above_threshold_and_empty_train (tests.test_task_replay_v3.ReplayV3Tests.test_capacity_bound_pins_exact_and_above_threshold_and_empty_train) ... ok
+test_prefix_reader_rejects_tampered_context_hash (tests.test_task_replay_v3.ReplayV3Tests.test_prefix_reader_rejects_tampered_context_hash) ... ok
+test_prefix_reader_stops_at_recorded_row_boundary_after_append (tests.test_task_replay_v3.ReplayV3Tests.test_prefix_reader_stops_at_recorded_row_boundary_after_append) ... ok
+test_v2_preflight_validator_rejects_v3_config_identity (tests.test_task_replay_v3.ReplayV3Tests.test_v2_preflight_validator_rejects_v3_config_identity) ... ok
+test_v2_replay_rejects_a_v3_outcome_row (tests.test_task_replay_v3.ReplayV3Tests.test_v2_replay_rejects_a_v3_outcome_row) ... ok
+test_v3_replay_rejects_v2_config_before_reading_rows (tests.test_task_replay_v3.ReplayV3Tests.test_v3_replay_rejects_v2_config_before_reading_rows) ... ok
+test_v3_replay_rejects_v2_outcome_identity_under_v3_config (tests.test_task_replay_v3.ReplayV3Tests.test_v3_replay_rejects_v2_outcome_identity_under_v3_config) ... ok
+
+----------------------------------------------------------------------
+Ran 30 tests in 1.830s
+
+OK
+----------------------------------------------------------------------
+Ran 67 tests in 1.536s
+
+OK

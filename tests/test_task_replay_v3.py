@@ -84,7 +84,11 @@ class ReplayV3Tests(unittest.TestCase):
         self.assertEqual(at_gate["status"], "PASS_CAPACITY_BOUND")
         self.assertGreater(above_gate["top_k_mass"], 0.8)
         self.assertEqual(above_gate["status"], "PASS_CAPACITY_BOUND")
-        self.assertEqual(evaluate([])["status"], "NOT_ASSESSED")
+        empty = evaluate([])
+        self.assertEqual(empty["status"], "NO_GO")
+        self.assertEqual(empty["source_train_group_count"], 0)
+        self.assertEqual(empty["source_prefix_replay_sha256"], "b" * 64)
+        self.assertEqual(empty["top_k_mass"], 0.0)
 
     def test_prefix_reader_stops_at_recorded_row_boundary_after_append(self):
         prefix = b'{"partition":"source","i":0}\n{"partition":"source","i":1}\n'

@@ -221,6 +221,7 @@ def validate_manifest_v3(manifest: dict, *, config_sha256: str, config: dict,
     artifacts = manifest.get("artifacts")
     if type(artifacts) is not dict:
         raise ValueError("v3 generation artifact map is malformed")
+    bound = manifest["source_capacity_bound"]
     if prefix is not None:
         prefix_fields = {"context_file", "context_sha256", "replay_file", "replay_sha256"}
         if (type(prefix) is not dict or set(prefix) != prefix_fields or
@@ -234,7 +235,6 @@ def validate_manifest_v3(manifest: dict, *, config_sha256: str, config: dict,
             identity = artifacts.get(name) if type(artifacts) is dict else None
             if type(identity) is not dict or identity.get("sha256") != digest:
                 raise ValueError("v3 source prefix linkage differs from terminal artifact identities")
-    bound = manifest["source_capacity_bound"]
     if mode == "full":
         if bound != {"status": "NOT_APPLICABLE", "reason": "full_mode_uses_registered_five_cohort_gate"} or prefix is not None or manifest["early_stop"] is not None:
             raise ValueError("full v3 run must leave source capacity bound not applicable")
@@ -248,6 +248,13 @@ def validate_manifest_v3(manifest: dict, *, config_sha256: str, config: dict,
         allowed = {"NOT_ASSESSED", "PASS_CAPACITY_BOUND", "NO_GO"}
         if bound.get("status") not in allowed:
             raise ValueError("v3 source capacity report status is invalid")
+        error_phase = (manifest.get("error") or {}).get("phase") if type(manifest.get("error")) is dict else None
+        if ((error_phase == "source_prefix_closure" and
+             (manifest.get("error") or {}).get("partition") != "source") or
+            (error_phase in ("source_prefix_closure", "finalization") and
+             (bound.get("status") != "NOT_ASSESSED" or
+              bound.get("reason") != "operational_error" or manifest.get("early_stop") is not None))):
+            raise ValueError("v3 closure/finalization error must withdraw the capacity decision")
         if (bound["top_k_cells"] != 10 or type(bound["top_k_cells"]) is not int or
             type(bound["minimum_source_train_mass"]) not in (int, float) or
             type(bound["minimum_source_train_mass"]) is bool or bound["minimum_source_train_mass"] != 0.8 or
@@ -275,9 +282,14 @@ def validate_manifest_v3(manifest: dict, *, config_sha256: str, config: dict,
         if bound["status"] in ("PASS_CAPACITY_BOUND", "NO_GO"):
             if prefix is None or bound["source_prefix_replay_sha256"] != prefix["replay_sha256"]:
                 raise ValueError("v3 source capacity report is not bound to a replayed prefix")
-            if mass is None or bound["source_train_group_count"] == 0:
+            if mass is None or (bound["source_train_group_count"] == 0 and
+                                not (bound["status"] == "NO_GO" and mass == 0.0 and
+                                     bound["top_cells"] == [] and
+                                     bound["reason"] == "source_support_capacity_bound")):
                 raise ValueError("assessed v3 source capacity bound needs source-train mass")
-            if mass != top_total / bound["source_train_group_count"]:
+            expected_mass = (0.0 if bound["source_train_group_count"] == 0 else
+                             top_total / bound["source_train_group_count"])
+            if mass != expected_mass:
                 raise ValueError("v3 source capacity mass differs from top-cell counts")
             if bound["status"] == "PASS_CAPACITY_BOUND" and (mass < 0.8 or bound["reason"] is not None):
                 raise ValueError("v3 capacity pass does not meet its registered threshold")
@@ -313,10 +325,15 @@ def validate_manifest_v3(manifest: dict, *, config_sha256: str, config: dict,
                 raise ValueError("v3 capacity no-go hash does not bind the report artifact")
         elif early is not None:
             raise ValueError("v3 early_stop is only valid for the registered capacity no-go")
+        if manifest.get("finalization_errors") and (
+                bound.get("status") != "NOT_ASSESSED" or bound.get("reason") != "operational_error" or
+                manifest.get("early_stop") is not None):
+            raise ValueError("v3 finalization errors must withdraw the capacity decision")
         if manifest.get("status") == "complete" and (prefix is None or bound["status"] != "PASS_CAPACITY_BOUND"):
             raise ValueError("complete feasibility v3 generation needs a replayed capacity pass")
         allowed_artifacts = {"outcomes.jsonl", "records.jsonl", "source_capacity_bound.json",
-                             "source_prefix_context.json", "source_prefix_replay.json"}
+                             "source_prefix_context.json", "source_prefix_replay.json",
+                             "source_capacity_bound_provisional.json"}
         if manifest.get("status") == "complete" and not {
                 "outcomes.jsonl", "records.jsonl", "source_capacity_bound.json",
                 "source_prefix_context.json", "source_prefix_replay.json"} <= set(artifacts):
@@ -344,6 +361,10 @@ def validate_manifest_v3(manifest: dict, *, config_sha256: str, config: dict,
         legacy["error"] = {key: value for key, value in legacy["error"].items()
                            if key != "reason"}
         if legacy["error"].get("phase") == "proposal_gate":
+            legacy["error"]["phase"] = "generation"
+        elif legacy["error"].get("phase") == "source_prefix_closure":
+            # Keep the v3 phase in the public typed manifest while projecting it
+            # to the shared v2 validator's compatible generation boundary.
             legacy["error"]["phase"] = "generation"
     validate_manifest_v2(legacy, config_sha256=config_sha256, config=config, mode=mode,
                          limits=limits, expected_producer=legacy_expected,
