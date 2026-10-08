@@ -195,8 +195,9 @@ def _source_summary(rows: list[dict], config: dict, failures: list[str], *, feas
     counts = Counter(r["signature"] for r in sensitive)
     _floor(failures, len(accepted_train) >= 100 if feasibility else len(accepted_selected) >= gate["min_accepted_groups_per_partition"], "source_train_min_groups" if feasibility else "source_min_groups")
     _floor(failures, len(signatures) >= gate["source_train_min_structure_signatures"], "source_train_signatures")
-    _floor(failures, all(value_fractions[str(v)] >= gate["min_solution_value_fraction_each_partition"] for v in range(3)), "source_train_solution_value_balance")
-    _floor(failures, len({len(r["task"].givens) for r in accepted_train}) >= 2, "source_train_given_count_variation")
+    if feasibility:
+        _floor(failures, all(value_fractions[str(v)] >= gate["min_solution_value_fraction_each_partition"] for v in range(3)), "source_train_solution_value_balance")
+        _floor(failures, len({len(r["task"].givens) for r in accepted_train}) >= 2, "source_train_given_count_variation")
     coverage = v1.source_train_primitive_coverage(accepted_train)
     _floor(failures, coverage["pass"], "source_train_primitive_coverage")
     composition = v1.source_train_composition_absence(accepted_train)
@@ -236,7 +237,7 @@ def _feasibility_metrics(rows: list[dict], config: dict, guard=None) -> dict:
     fraction = eligible_total / total if total else 0.0
     _floor(failures, eligible_total >= config["audit_gate"]["development_target_min_groups"]["development_validation"], "development_validation_groups")
     _floor(failures, fraction >= config["audit_gate"]["min_primary_eligible_fraction_per_mixed_partition"], "development_validation_raw_eligible_fraction")
-    cohorts = {FEASIBILITY_COHORTS[0]: [r for r in decision_rows if r["partition"] == "source"],
+    cohorts = {FEASIBILITY_COHORTS[0]: [r for r in decision_rows if r["partition"] == "source" and r["interaction"]["sensitive"]],
                **{name: [r for r in dev if tuple(r["profile"]) == profile] for profile, name in PROFILE_COHORT.items()}}
     support = v1.common_support(cohorts, 10, 0.8, cohort_names=FEASIBILITY_COHORTS)
     _floor(failures, support["pass"], "four_cohort_common_support_proxy")
@@ -313,7 +314,8 @@ def _full_metrics(rows: list[dict], config: dict, guard=None) -> dict:
     _floor(failures, composition["heldout_compositions_absent"], "heldout_composition_absent_from_source_train")
     cohorts = {name: [] for name in v1.COHORTS}
     for r in rows:
-        if r["split"] == "source_test": cohorts[v1.COHORTS[0]].append(r)
+        if r["split"] == "source_test" and r["interaction"]["sensitive"]:
+            cohorts[v1.COHORTS[0]].append(r)
         elif r["partition"] == "development" and r["split"] == "development_validation" and r["primary_eligible"]:
             cohorts[FULL_PROFILE_COHORT[tuple(r["profile"])]].append(r)
         elif r["partition"] == "final" and r["primary_eligible"]:

@@ -128,6 +128,50 @@ class AuditV2Tests(unittest.TestCase):
         self.assertEqual(result["sensitive_groups"], 1)
         self.assertEqual(result["sensitivity_fraction"], 0.25)
 
+    def test_source_common_support_cohorts_exclude_rejected_unique_rows(self):
+        from dwr.tasks.config_v2 import load_config_v2
+        config = load_config_v2("configs/tasks/constraint_v2.json").resolved
+        task = ConstraintTask("constraint-task-v1", 3, ("v0", "v1", "v2"),
+            tuple(Constraint(RelationKind.EQ, pair) for pair in
+                  (("v0", "v1"), ("v0", "v2"), ("v1", "v2"))),
+            (GivenAssignment("v0", 0),))
+        record = make_record(task, "source", 0)
+        info = audit_v2.v1.validate_record(record, config)
+        interaction = audit_interactions(task, "source")
+        self.assertFalse(interaction["sensitive"])
+        row = {**record, **info, "interaction": interaction, "primary_eligible": False}
+        feasibility = audit_v2._feasibility_metrics([dict(row, split="source_train")], config)
+        full = audit_v2._full_metrics([dict(row, split="source_test")], config)
+        self.assertEqual(feasibility["four_cohort_common_support_proxy"]["cohorts"]["source_train"]["count"], 0)
+        self.assertEqual(full["five_cohort_common_support"]["cohorts"][audit_v2.v1.COHORTS[0]]["count"], 0)
+        self.assertEqual(feasibility["source_train"]["source_groups_in_denominator"], 1)
+
+    def test_full_source_does_not_apply_feasibility_only_train_value_or_clue_floors(self):
+        from dwr.tasks.config_v2 import load_config_v2
+        config = load_config_v2("configs/tasks/constraint_v2.json").resolved
+        rows = []
+        for split, value, given_count, count in (
+                ("source_train", 0, 1, 100), ("source_validation", 1, 2, 20),
+                ("source_test", 2, 2, 20)):
+            variables = ("v0", "v1", "v2", "v3")
+            task = ConstraintTask("constraint-task-v1", 3, variables,
+                tuple(Constraint(RelationKind.EQ, (variables[i], variables[i + 1]))
+                      for i in range(given_count - 1, 3)),
+                tuple(GivenAssignment(variables[i], value) for i in range(given_count)))
+            record = make_record(task, "source", 0)
+            info = audit_v2.v1.validate_record(record, config)
+            interaction = audit_interactions(task, "source")
+            self.assertTrue(interaction["sensitive"])
+            rows.extend({**record, **info, "split": split, "interaction": interaction,
+                         "primary_eligible": False} for _ in range(count))
+        full_failures = audit_v2._full_metrics(rows, config)["floor_failures"]
+        self.assertNotIn("source_train_solution_value_balance", full_failures)
+        self.assertNotIn("source_train_given_count_variation", full_failures)
+        feasibility_failures = []
+        audit_v2._source_summary(rows, config, feasibility_failures, feasibility=True)
+        self.assertIn("source_train_solution_value_balance", feasibility_failures)
+        self.assertIn("source_train_given_count_variation", feasibility_failures)
+
     def test_full_metrics_uses_raw_unique_denominators_and_reports_rejected_only_signatures(self):
         # This fixture exercises the pure aggregation interface; it does not certify G2.
         task = mixed_task()
@@ -252,7 +296,76 @@ class AuditV2Tests(unittest.TestCase):
             self.assertEqual(report["status"], "incomplete")
             self.assertEqual(gate["g2_status"], "not_assessed")
             self.assertFalse((data / "preflight_report.json").exists())
+            self.assertTrue((data / "preflight_report.invalidated.json").exists())
             self.assertEqual(audit_cli_v2._exit_code(report), 1)
+
+    def test_setup_refusal_records_command_environment_and_original_sidecar(self):
+        import json
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from dwr.tasks.audit_cli_v2 import main
+        from dwr.tasks.run_support import strict_json_loads
+        with tempfile.TemporaryDirectory() as directory:
+            data = Path(directory)
+            original = {"status": "incomplete", "primary_error": {"message": "generation failed"}}
+            sidecar = data / "terminal_failure.json"
+            sidecar.write_text(json.dumps(original), encoding="utf-8")
+            with redirect_stdout(StringIO()):
+                rc = main(["--config", "configs/tasks/constraint_v2.json", "--mode", "feasibility", "--data", str(data)])
+            self.assertEqual(rc, 1)
+            self.assertEqual(json.loads(sidecar.read_text(encoding="utf-8")), original)
+            report = strict_json_loads((data / "audit_report.json").read_text(encoding="utf-8"))
+            manifest = strict_json_loads((data / "audit_manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["status"], "not_assessed")
+            self.assertIn("generation has a terminal_failure.json", report["error"]["message"])
+            self.assertEqual(report["generation_terminal_failure"]["content"], original)
+            self.assertIn("dwr.tasks.audit_cli_v2", manifest["command"])
+            self.assertIn("python", manifest)
+            self.assertEqual(manifest["status"], "incomplete")
+
+    def test_setup_config_error_is_durably_recorded_once(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from dwr.tasks.audit_cli_v2 import main
+        with tempfile.TemporaryDirectory() as directory:
+            data = Path(directory)
+            with redirect_stdout(StringIO()):
+                rc = main(["--config", str(data / "missing.json"), "--mode", "feasibility", "--data", str(data)])
+            self.assertEqual(rc, 1)
+            self.assertTrue((data / "audit_manifest.json").exists())
+            self.assertTrue((data / "audit_report.json").exists())
+            captured = (data / "audit_manifest.json").read_text(encoding="utf-8")
+            self.assertIn("ConfigError", captured)
+            with redirect_stdout(StringIO()):
+                retry = main(["--config", "configs/tasks/constraint_v2.json", "--mode", "feasibility", "--data", str(data)])
+            self.assertEqual(retry, 1)
+            self.assertEqual((data / "audit_manifest.json").read_text(encoding="utf-8"), captured)
+
+    def test_detailed_report_write_crossing_budget_invalidates_gate(self):
+        from dwr.tasks import audit_cli_v2
+        from dwr.tasks.run_support import ResourceGuard
+        now = [0.0]
+        guard = ResourceGuard(0.5, 1024, clock=lambda: now[0], memory_reader=lambda: 1)
+        report = {"status": "complete", "g2_status": "PASS_FEASIBILITY", "resource": {}}
+        gate = {"audit_version": audit_v2.AUDIT_VERSION, "status": "complete",
+                "mode": "feasibility", "g2_status": "PASS_FEASIBILITY",
+                "config_sha256": "c" * 64, "source": {},
+                "generation_manifest_sha256": "d" * 64, "generation_artifacts": {}}
+        manifest = {"status": "complete"}
+        writes = []
+        def writer(path, value):
+            writes.append(Path(path).name)
+            if Path(path).name == "audit_report.json":
+                now[0] += 1.0
+        with tempfile.TemporaryDirectory() as directory, patch.object(audit_cli_v2, "atomic_json", side_effect=writer):
+            error = audit_cli_v2._finalize_manifest(Path(directory), manifest, report, gate, guard,
+                {"generation_elapsed_seconds": 599.5, "generation_cpu_seconds": 0.0,
+                 "peak_resident_bytes": 1}, time.process_time(), None, [], charge_guard=True)
+        self.assertIsNotNone(error)
+        self.assertIn("audit_report.json", writes)
+        self.assertEqual(report["status"], "incomplete")
+        self.assertEqual(gate["g2_status"], "not_assessed")
+        self.assertEqual(audit_cli_v2._exit_code(report), 1)
 
     def test_complete_no_go_analysis_exits_nonzero(self):
         from dwr.tasks.audit_cli_v2 import _exit_code
