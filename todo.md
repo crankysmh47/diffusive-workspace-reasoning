@@ -1,8 +1,17 @@
 # DWR research and implementation checklist
 
-Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_v2.md), amended by the binding [v2.2 protocol](docs/research_protocol.md). This is the sole live checklist. Check an item only when its output and recorded verification exist. Planning does not count as implementing a gate.
+Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_v2.md), amended by the binding [v2.2 protocol](docs/research_protocol.md); the current registered generation proposal is [v3](docs/task_spec_v3.md). This is the sole live checklist. Check an item only when its output and recorded verification exist. Planning does not count as implementing a gate.
 
-## Current v2 gate — 2026-10-08
+## Current v3 gate — 2026-10-08
+
+- [x] Implement and review the pinned v3 generator, bounded orchestration, source-prefix replay, and independent audit. CPU implementation checks pass; see the [v3 execution plan](docs/task_v3_execution_plan.md).
+- [x] Freeze source/config identities and run the one registered feasibility attempt plus its audit. Source quotas closed; the replay-validated top-ten source-train capacity bound was 0.3977695167 against the required 0.8, so the proposal ended NO-GO. Evidence: [v3 suitability result](docs/task_suitability_v3.md) and [compact run manifest](configs/splits/constraint-v3-feasibility-nogo.json).
+- [ ] Pass G2 with a complete five-cohort audit. G2 is not assessed; development and final generation were not attempted, and no full run occurred.
+- [ ] Implement a workspace/model, select a backbone, or train. Model work remains blocked by the failed feasibility gate; training also needs a separate complete study registration.
+
+The controller's fresh CPU suite at the frozen v3 source commit reported 209 passed in 9.720 seconds. This is implementation evidence, not corpus suitability, model validation, or independent reproduction. Preserve the attempt; do not retune or rerun this proposal.
+
+## Historical v2 gate — 2026-10-08
 
 - [x] Implement and review the pinned v2 generator, bounded feasibility/full orchestration, and independent audit. CPU implementation checks pass; see the [v2 execution plan](docs/task_v2_execution_plan.md).
 - [x] Freeze source/config identities and run exactly one registered feasibility generation plus its audit. The generation reached the 30,000 source-attempt cap; audit integrity and partial replay passed. Evidence: [v2 suitability result](docs/task_suitability_v2.md) and [compact run manifest](configs/splits/constraint-v2-feasibility-nogo.json).

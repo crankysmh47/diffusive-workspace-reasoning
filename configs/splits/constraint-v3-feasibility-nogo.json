@@ -1,0 +1,207 @@
+{
+  "manifest_version": "dwr-compact-evidence-v1",
+  "study": "constraint-generation-v3 feasibility",
+  "date": "2026-10-08",
+  "outcome": "NO_GO",
+  "reason": "source_support_capacity_bound",
+  "g2_status": "not_assessed",
+  "run": {
+    "directory": "data/constraint-v3-feasibility-20261008T173012Z",
+    "source_head": "57c953f2f01841be3391e4027e7c8514f59f14e9",
+    "source_clean": true,
+    "config_path": "configs/tasks/constraint_v3.json",
+    "config_version": "constraint-generation-v3",
+    "task_schema_version": "constraint-task-v1",
+    "config_sha256": "e5d7de77fc576b56847e7a55e401cd6c318f4bc35f5aa7f843ef41d1af9ee025",
+    "seed": 20261007,
+    "seed_derivation": "sha256-prefix64-v3",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr 2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "generation_started_utc": "2026-10-08T17:30:12.682158+00:00",
+    "audit_started_utc": "2026-10-08T17:31:42.542933+00:00",
+    "finished_utc": "2026-10-08T17:34:03.746514+00:00",
+    "limits": {
+      "attempts_per_partition": 30000,
+      "generation_plus_audit_active_seconds": 600,
+      "resident_memory_mib": 1024,
+      "cpu_workers": 1
+    },
+    "commands": [
+      "C:\\Users\\Hank47\\AppData\\Local\\Programs\\Python\\Python311\\python.exe -m dwr.tasks.cli_v3 --config configs\\tasks\\constraint_v3.json --mode feasibility --out data/constraint-v3-feasibility-20261008T173012Z",
+      "C:\\Users\\Hank47\\AppData\\Local\\Programs\\Python\\Python311\\python.exe -m dwr.tasks.audit_cli_v3 --config configs\\tasks\\constraint_v3.json --mode feasibility --data data/constraint-v3-feasibility-20261008T173012Z"
+    ],
+    "exit_codes": {
+      "generation": 1,
+      "audit": 0
+    }
+  },
+  "producer_sha256": {
+    "canonical": "0b95c824200b1206af56c26e650a693acc0d05f96b74f17997540a3d783c7df7",
+    "cli_v2": "79538fdc53b28fbd5814fa7b424f5e03f3c8283ef1f0e5b4752e894ce61f6d38",
+    "cli_v3": "74afa8f0600dd4677fbfc668353e1c5eaecbd08329971ec69c03212dda1d972e",
+    "config_v3": "e5d7de77fc576b56847e7a55e401cd6c318f4bc35f5aa7f843ef41d1af9ee025",
+    "dataset_v2": "20bea048d03b0934b59f234241a809a35730ba6fbb9658fcb30284484f7a64e3",
+    "generator_v2": "b7ca157ee18dde651217063fad0d5c9d2016a038dc25a4b5bdf0fbea9fdf600c",
+    "generator_v3": "67861a0b06fe2a8cc9840c67325982f25dec270a8d64a42bf3dc89c6eb3ea8c9",
+    "manifest_v2": "eef073da97eb8eda29fbc3e0f1ee21fcc594629bb9a2a222e864b2de54b2773c",
+    "oracle": "227088aabfb979036b8bc8ab1a89a35ebd4aaa4eb5af4ee8a853fcf45c61f217",
+    "replay_v2": "555472be8e2c976b1e85bef6e1e3f883ca90dc1eb0886a970ba88477f76973f1",
+    "run_support": "d7e124b543ad0ccb2883d45e0e93ff58bd260c80c0a6d3338666eab633d56d05",
+    "schema": "112daa4949907da49b1d71aadee76a363a5b3fe4234f45f26231ef6333a34129",
+    "solver": "aef1f74a4cedec827c3123b8627605b8af57cb6d3c592cdba08b2b64ba04a9ac",
+    "stream_contract": "a71eb7c34a7586804bef59051c8fab301911ad22a120fb994cf91b34b7459c57",
+    "audit_cli_v2": "6c5f71d307ea1c24421160abd38666fa155f0ec61ef8e7056fc09b64f7a084cb",
+    "audit_cli_v3": "1970fb94fdadac705b51d8532c575e25a9246aa227c9fea274d9dd70c5451607",
+    "audit_py": "9084a0d201e8a9b2623aaae273d6d0818b86c0b11cb875d7fa33000691f47b59",
+    "audit_v2": "1f792f9222af5d52261d181e17ac9cac389aed94a504fef2e76071fa8f8068e1"
+  },
+  "source_quota": {
+    "accepted": 1000,
+    "attempts": 13262,
+    "closed": true,
+    "targets_by_profile": {
+      "eq": 334,
+      "neq": 333,
+      "add_mod": 333
+    },
+    "development_attempts": 0,
+    "development_status": "not_attempted",
+    "final_attempts": 0,
+    "final_status": "not_attempted"
+  },
+  "public_source_train_metrics": {
+    "groups": 807,
+    "signatures": 440,
+    "unique_groups_in_sensitivity_denominator": 1361,
+    "sensitive_groups": 807,
+    "sensitivity_fraction": 0.5929463629684056,
+    "solution_value_fractions": {
+      "0": 0.3342497136311569,
+      "1": 0.3328751431844215,
+      "2": 0.3328751431844215
+    },
+    "given_counts": [1, 2, 3, 4],
+    "primitive_coverage_pass": true
+  },
+  "source_capacity_bound": {
+    "status": "NO_GO",
+    "source_train_groups": 807,
+    "top_k_cells": 10,
+    "top_k_group_count": 321,
+    "top_k_mass": 0.39776951672862454,
+    "required_mass": 0.8,
+    "bound_version": "dwr-task-v3-source-capacity-bound-v1",
+    "source_prefix_replay_sha256": "22b6dd9fef016042cba96bde0fef45567d47a792cb65ae4806cfe2f149465146",
+    "interpretation": "Necessary source-only upper bound for the feasibility proxy; actual four-cohort support is unassessed."
+  },
+  "audit": {
+    "status": "complete",
+    "integrity_pass": true,
+    "replay_pass": true,
+    "replay_scope": "closed source prefix; report labels terminal run replay partial because targets were intentionally not sampled",
+    "g2_status": "not_assessed",
+    "four_cohort_common_support_proxy": null,
+    "support_assessment": null,
+    "unassessed": ["unattempted generation targets", "G2"],
+    "nested_prefix_diagnostic_status": "measured_fail",
+    "nested_prefix_diagnostic_interpretation": "empty unattempted target placeholders; not observed target yield, mismatch, or actual proxy measurement"
+  },
+  "cost": {
+    "generation_elapsed_seconds": 89.781,
+    "generation_cpu_seconds": 89.375,
+    "audit_elapsed_seconds": 141.109,
+    "audit_cpu_seconds": 140.40625,
+    "combined_elapsed_seconds": 230.89,
+    "combined_cpu_seconds": 229.78125,
+    "combined_peak_resident_bytes": 134852608,
+    "accounting_end_boundary": "post_first_terminal_manifest_write_resource_check",
+    "accounting_note": "One bounded final metadata flush is excluded; generation and audit share one active budget."
+  },
+  "controller_cpu_suite": {
+    "command": "python -m unittest discover -s tests -v",
+    "result": "209 passed in 9.720 seconds",
+    "source_head": "57c953f2f01841be3391e4027e7c8514f59f14e9"
+  },
+  "sha256_artifacts": {
+    "config": {
+      "path": "configs/tasks/constraint_v3.json",
+      "bytes": 12706,
+      "sha256": "e5d7de77fc576b56847e7a55e401cd6c318f4bc35f5aa7f843ef41d1af9ee025"
+    },
+    "generation_manifest": {
+      "path": "data/constraint-v3-feasibility-20261008T173012Z/manifest.json",
+      "bytes": 15269,
+      "sha256": "287d6f855861f9589849ac27ee2a5ab68548287e5b55133b8e9d276c1f04ffbc"
+    },
+    "audit_manifest_authoritative_resource_snapshot": {
+      "path": "data/constraint-v3-feasibility-20261008T173012Z/audit_manifest.json",
+      "bytes": 4696,
+      "sha256": "2155273c176ad48a95af02b68e1748beafcac2add278d29677f122f2a87f8ef0"
+    },
+    "audit_report": {
+      "path": "data/constraint-v3-feasibility-20261008T173012Z/audit_report.json",
+      "bytes": 750372,
+      "sha256": "9aa6763625d26ba4712dc64ad3dff259d3d0900c0e16bb0c70b3198c16ccb863"
+    },
+    "audit_gate": {
+      "path": "data/constraint-v3-feasibility-20261008T173012Z/audit_gate.json",
+      "bytes": 2210,
+      "sha256": "9cdb309f09b80a79f9c5977e6c2958b49bb160cef077244f512170efbd3658cf"
+    },
+    "source_capacity_bound": {
+      "path": "data/constraint-v3-feasibility-20261008T173012Z/source_capacity_bound.json",
+      "bytes": 659,
+      "sha256": "5af2536bbeda416e4473ea23df0e750ae7a4297272f5bdc6412f479abc05815f"
+    },
+    "source_prefix_context": {
+      "path": "data/constraint-v3-feasibility-20261008T173012Z/source_prefix_context.json",
+      "bytes": 2228,
+      "sha256": "61d96a3ad2e3414a901581a4c3b0dcab23a8dbd9b44702bd46e3c6a74285f547"
+    },
+    "source_prefix_replay": {
+      "path": "data/constraint-v3-feasibility-20261008T173012Z/source_prefix_replay.json",
+      "bytes": 2218,
+      "sha256": "22b6dd9fef016042cba96bde0fef45567d47a792cb65ae4806cfe2f149465146"
+    },
+    "outcomes_jsonl": {
+      "path": "data/constraint-v3-feasibility-20261008T173012Z/outcomes.jsonl",
+      "bytes": 10774481,
+      "sha256": "d4def50df57ae969a4edc3286cddbca455cfa1302fdc9f8187b5d4f17f309ac5"
+    },
+    "records_jsonl": {
+      "path": "data/constraint-v3-feasibility-20261008T173012Z/records.jsonl",
+      "bytes": 2324431,
+      "sha256": "fb00e9aea89aeab4c7fe0c233fc12cff6e9e94a669d6fa82af6c4cbfc8cf7c9a"
+    },
+    "controller_terminal_summary": {
+      "path": ".superpowers/sdd/transfer-v3/controller-terminal-summary.json",
+      "bytes": 4976,
+      "sha256": "334b9cc186449f94898f3c4fcc9e76ffcb5c033119bcbff1c09f3d5a2b2886c0"
+    },
+    "controller_feasibility_commands": {
+      "path": ".superpowers/sdd/transfer-v3/controller-feasibility-commands.json",
+      "bytes": 2072,
+      "sha256": "af82e0b09587df09a7d33ce5821c193b261d5d8adb278c5baf031a7196323860"
+    },
+    "controller_generation_log_empty": {
+      "path": ".superpowers/sdd/transfer-v3/controller-feasibility-generation.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "controller_audit_log_empty": {
+      "path": ".superpowers/sdd/transfer-v3/controller-feasibility-audit.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "controller_suite_command": {
+      "path": ".superpowers/sdd/transfer-v3/controller-suite-command.json",
+      "bytes": 419,
+      "sha256": "b3d40ece8562682e4216e87fca6c1f3058ba29720078f65ed8ff45f2a0830fe2"
+    },
+    "controller_suite_log": {
+      "path": ".superpowers/sdd/transfer-v3/controller-suite.txt",
+      "bytes": 36084,
+      "sha256": "ae80559ad361a2235110bedda21a7e426bbc4e0515155915900475886a723275"
+    }
+  }
+}
