@@ -172,6 +172,40 @@ class DatasetV2Tests(unittest.TestCase):
             self.assertEqual(manifest["error"]["type"], "TimeoutError")
             self.assertTrue(manifest["partitions"]["source"]["not_attempted"])
 
+    def test_returned_candidate_is_logged_before_postproposal_cap_stop(self):
+        with tempfile.TemporaryDirectory() as temp:
+            out = Path(temp) / "run"
+            now = [0.0]
+            calls = []
+            def candidates(seed, part, index, *, full_profiles=frozenset()):
+                calls.append((part, index))
+                outcome = generate_candidate(seed, part, index, full_profiles=full_profiles)
+                now[0] = 31.0  # proposal returned after the unit 30-second wall cap
+                return outcome
+            guard = ResourceGuard(30, 1024, clock=lambda: now[0], memory_reader=lambda: 0)
+            code = run_dataset_v2(
+                self.config, out, "feasibility", ["proposal-crossed-cap"],
+                limits=self.limits(source=1, attempts=3), candidate_fn=candidates, guard=guard,
+                source={"commit": "test", "dirty": True, "dirty_diff_sha256": "0" * 64,
+                        "checkout_root": str(ROOT)})
+            manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+            rows = [json.loads(line) for line in (out / "outcomes.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(code, 1)
+            self.assertEqual(calls, [("source", 0)])
+            self.assertEqual(manifest["status"], "incomplete")
+            self.assertEqual(manifest["error"]["type"], "TimeoutError")
+            self.assertIn("wall-time cap reached", manifest["error"]["message"])
+            self.assertEqual(manifest["error"]["phase"], "generation")
+            self.assertEqual(manifest["error"]["partition"], "source")
+            self.assertEqual(manifest["error"]["candidate_index"], 0)
+            self.assertEqual(manifest["partitions"]["source"]["attempts"], 1)
+            self.assertEqual(manifest["partitions"]["source"]["status"], "incomplete")
+            self.assertTrue(manifest["partitions"]["development"]["not_attempted"])
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["candidate_index"], 0)
+            self.assertEqual(rows[0]["terminal_reason"], "no_witness_feasible_constraint_set")
+            self.assertGreaterEqual(manifest["generation_elapsed_seconds"], 31.0)
+
     def test_directory_collision_and_full_mode_without_preflight_do_not_mutate(self):
         with tempfile.TemporaryDirectory() as temp:
             existing = Path(temp) / "already-there"

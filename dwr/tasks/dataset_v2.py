@@ -284,7 +284,6 @@ def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str
                     guard.check()
                     full = _full_profiles(part, mode, counts, limits)
                     outcome = candidate_fn(config.resolved["seed"], part, index, full_profiles=full)
-                    guard.check()
                     if outcome.partition != part or outcome.candidate_index != index:
                         raise ValueError("candidate producer returned a mismatched partition/index")
                     split = None; identities = None; counted = False
