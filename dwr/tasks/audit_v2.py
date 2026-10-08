@@ -251,6 +251,7 @@ def _full_metrics(rows: list[dict], config: dict, guard=None) -> dict:
     failures: list[str] = []
     gate = config["audit_gate"]
     partitions = {}
+    aggregate_source_sensitivity = None
     for part in ("source", "development", "final"):
         _check(guard)
         pr = [r for r in rows if r["partition"] == part]
@@ -274,7 +275,7 @@ def _full_metrics(rows: list[dict], config: dict, guard=None) -> dict:
         denom = sum(value_counts.values())
         value_fractions = {str(v): value_counts[v] / denom if denom else 0.0 for v in range(3)}
         eligible_count = len(accepted_rows)
-        frac = eligible_count / len(pr) if pr and part != "source" else 1.0
+        frac = eligible_count / len(pr) if pr else 0.0
         split_stats = {}
         for split in (v1.SPLITS if part != "source" else v1.SPLITS[:3]):
             split_rows = [r for r in pr if r["split"] == split]
@@ -292,7 +293,11 @@ def _full_metrics(rows: list[dict], config: dict, guard=None) -> dict:
         _floor(failures, len(partitions[part]["given_counts"]) >= gate["min_distinct_given_counts_per_partition"], f"{part}_given_count_variation")
         _floor(failures, all(value_fractions[str(v)] >= gate["min_solution_value_fraction_each_partition"] for v in range(3)), f"{part}_solution_value_balance")
         if part == "source":
-            _source_summary(rows, config, failures, feasibility=False)
+            source_summary = _source_summary(rows, config, failures, feasibility=False)
+            aggregate_source_sensitivity = {
+                "numerator": source_summary["sensitive_groups"],
+                "denominator": source_summary["source_groups_in_denominator"],
+                "fraction": source_summary["sensitivity_fraction"]}
         else:
             _floor(failures, frac >= gate["min_primary_eligible_fraction_per_mixed_partition"], f"{part}_eligible_fraction")
     source = [r for r in rows if r["partition"] == "source"]
@@ -323,7 +328,8 @@ def _full_metrics(rows: list[dict], config: dict, guard=None) -> dict:
     support = v1.common_support(cohorts, gate["common_support"]["min_groups_per_cell_per_cohort"],
                                 gate["common_support"]["min_group_fraction_per_cohort_in_common_cells"])
     _floor(failures, support["pass"], "common_support")
-    return {"partitions": partitions, "source_train_primitive_coverage": coverage,
+    return {"partitions": partitions, "aggregate_source_sensitivity": aggregate_source_sensitivity,
+            "source_train_primitive_coverage": coverage,
             "source_composition_absence": composition, "five_cohort_common_support": support,
             "floor_failures": sorted(set(failures)), "structural_pass": not failures}
 

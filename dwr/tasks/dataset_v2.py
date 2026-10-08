@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import subprocess
 import sys
@@ -215,7 +216,7 @@ def _new_manifest(config: LoadedConfig, outdir: Path, mode: str, argv: list[str]
                 "terminal_status_utc": created_utc, "artifacts": {}, "error": None,
                 "exit_code": 1, "peak_resident_bytes": None,
                 "accounting_end_boundary": "post_first_terminal_manifest_write_resource_check",
-                "accounting_note": "Elapsed includes the first terminal manifest write and resource check; one bounded accounting flush tail is excluded.",
+                "accounting_note": "Elapsed and CPU include the first terminal manifest write and resource check; one bounded accounting flush tail is excluded.",
                 "finalization_errors": []}
     if mode == "full":
         manifest["consumed_preflight"] = consumed_preflight
@@ -226,7 +227,13 @@ def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str
                    limits: DatasetLimits | None = None, candidate_fn: Callable = generate_candidate,
                    guard: ResourceGuard | None = None, source: dict | None = None,
                    preflight_report: Path | None = None,
-                   preflight_limits: DatasetLimits | None = None) -> int:
+                   preflight_limits: DatasetLimits | None = None,
+                   cpu_origin: float | None = None) -> int:
+    if cpu_origin is None:
+        cpu_origin = time.process_time()
+    elif (isinstance(cpu_origin, bool) or not isinstance(cpu_origin, (int, float)) or
+          not math.isfinite(cpu_origin) or cpu_origin < 0 or cpu_origin > time.process_time()):
+        raise ValueError("cpu_origin must be a finite process_time value from this process")
     if mode not in ("feasibility", "full"):
         raise ValueError("mode must be feasibility or full")
     limits = limits or registered_limits(config.resolved, mode)
@@ -262,7 +269,6 @@ def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str
     primary_error = None
     finalization_errors: list[dict] = []
     work_start = guard.clock()
-    cpu_start = time.process_time()
     phase = "generation"
     current_partition: str | None = None
     current_index: int | None = None
@@ -322,7 +328,6 @@ def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str
         primary_error = _failure_context(exc, phase, current_partition, current_index)
     finalization_started = guard.clock()
     manifest["generation_elapsed_seconds"] = round(max(0.0, finalization_started - guard.started), 6)
-    manifest["generation_cpu_seconds"] = round(max(0.0, time.process_time() - cpu_start), 6)
     manifest["finalization_started_utc"] = datetime.now(timezone.utc).isoformat()
     for state in manifest["partitions"].values():
         if state["status"] == "running": state["status"] = "incomplete"
@@ -360,6 +365,7 @@ def run_dataset_v2(config: LoadedConfig, outdir: Path, mode: str, argv: list[str
     terminal_failed = False
     for _ in range(2):  # one terminal write and one bounded accounting flush
         manifest["generation_elapsed_seconds"] = round(max(0.0, guard.clock() - guard.started), 6)
+        manifest["generation_cpu_seconds"] = round(max(0.0, time.process_time() - cpu_origin), 6)
         manifest["finalization_elapsed_seconds"] = round(max(0.0, guard.clock() - finalization_started), 6)
         manifest["peak_resident_bytes"] = guard.peak_bytes
         try:

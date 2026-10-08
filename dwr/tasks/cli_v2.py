@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 from .config_v2 import load_config_v2
@@ -10,6 +11,7 @@ from .dataset_v2 import run_dataset_v2
 
 
 def main(argv: list[str] | None = None) -> int:
+    cpu_origin = time.process_time()
     parser = argparse.ArgumentParser(description="Generate the registered bounded v2 task dataset")
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--mode", choices=("feasibility", "full"), required=True)
@@ -25,7 +27,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         config = load_config_v2(args.config)
         return run_dataset_v2(config, args.out, args.mode, command,
-                              preflight_report=args.preflight_report)
+                              preflight_report=args.preflight_report, cpu_origin=cpu_origin)
     except (OSError, RuntimeError, ValueError) as exc:
         print(f"v2 generation failed: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1

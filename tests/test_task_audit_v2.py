@@ -225,6 +225,33 @@ class AuditV2Tests(unittest.TestCase):
         self.assertFalse(result["structural_pass"])
         self.assertIn("final_min_groups", result["floor_failures"])
 
+    def test_full_source_eligibility_and_aggregate_sensitivity_use_unique_source_denominator(self):
+        from dwr.tasks.config_v2 import load_config_v2
+        config = load_config_v2("configs/tasks/constraint_v2.json").resolved
+        rows = []
+        for index, task in enumerate((sensitive_source_task(), ConstraintTask(
+                "constraint-task-v1", 3, ("v0", "v1", "v2"),
+                tuple(Constraint(RelationKind.EQ, pair) for pair in
+                      (("v0", "v1"), ("v0", "v2"), ("v1", "v2"))),
+                (GivenAssignment("v0", 0),)))):
+            record = make_record(task, "source", index)
+            info = audit_v2.v1.validate_record(record, config)
+            interaction = audit_interactions(task, "source")
+            rows.append({**record, **info, "split": "source_train", "interaction": interaction,
+                         "primary_eligible": False})
+
+        result = audit_v2._full_metrics(rows, config)
+        self.assertEqual(result["partitions"]["source"]["eligible_groups"], 1)
+        self.assertEqual(result["partitions"]["source"]["unique_oracle_groups"], 2)
+        self.assertEqual(result["partitions"]["source"]["eligible_fraction"], 0.5)
+        self.assertEqual(result["aggregate_source_sensitivity"], {
+            "numerator": 1, "denominator": 2, "fraction": 0.5})
+
+        empty = audit_v2._full_metrics([], config)
+        self.assertEqual(empty["partitions"]["source"]["eligible_fraction"], 0.0)
+        self.assertEqual(empty["aggregate_source_sensitivity"], {
+            "numerator": 0, "denominator": 0, "fraction": 0.0})
+
     def test_full_support_uses_registered_five_cohort_names(self):
         from dwr.tasks.config_v2 import load_config_v2
         config = load_config_v2("configs/tasks/constraint_v2.json").resolved

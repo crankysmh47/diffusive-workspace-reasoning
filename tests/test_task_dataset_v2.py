@@ -155,6 +155,40 @@ class DatasetV2Tests(unittest.TestCase):
             self.assertTrue(manifest["partitions"]["final"]["not_attempted"])
             self.assertIn("outcomes.jsonl", manifest["artifacts"])
 
+    def test_generation_cpu_accounting_includes_setup_and_terminal_artifact_work(self):
+        import dwr.tasks.dataset_v2 as dataset_v2
+
+        cpu = [10.0]
+        real_new_manifest = dataset_v2._new_manifest
+        real_atomic_json = dataset_v2.atomic_json
+        real_sha256_file = dataset_v2.sha256_file
+
+        def new_manifest(*args, **kwargs):
+            cpu[0] += 2.0
+            return real_new_manifest(*args, **kwargs)
+
+        def atomic_json(*args, **kwargs):
+            cpu[0] += 0.25
+            return real_atomic_json(*args, **kwargs)
+
+        def sha256_file(*args, **kwargs):
+            cpu[0] += 1.5
+            return real_sha256_file(*args, **kwargs)
+
+        limits = DatasetLimits({"eq": 0, "neq": 0, "add_mod": 0}, {}, {}, 1, 30, 1024)
+        with tempfile.TemporaryDirectory() as temp:
+            out = Path(temp) / "run"
+            with patch("dwr.tasks.dataset_v2.time.process_time", side_effect=lambda: cpu[0]), \
+                 patch("dwr.tasks.dataset_v2._new_manifest", side_effect=new_manifest), \
+                 patch("dwr.tasks.dataset_v2.atomic_json", side_effect=atomic_json), \
+                 patch("dwr.tasks.dataset_v2.sha256_file", side_effect=sha256_file):
+                code = run_dataset_v2(self.config, out, "feasibility", ["cpu-boundary"],
+                    limits=limits, source={"commit": "test", "dirty": True,
+                        "dirty_diff_sha256": "0" * 64, "checkout_root": str(ROOT)})
+            self.assertEqual(code, 0)
+            manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+            self.assertGreaterEqual(manifest["generation_cpu_seconds"], 10.5)
+
     def test_resource_guard_stops_before_candidate_work(self):
         with tempfile.TemporaryDirectory() as temp:
             out = Path(temp) / "run"
