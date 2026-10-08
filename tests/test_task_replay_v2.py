@@ -27,7 +27,7 @@ class ReplayV2Tests(unittest.TestCase):
 
     def make_run(self, directory):
         code = run_dataset_v2(self.config, directory, "feasibility", ["test"], limits=self.limits,
-                              source={"commit": "test", "dirty": True, "dirty_diff_sha256": "0" * 64})
+                              source={"commit": "test", "dirty": True, "dirty_diff_sha256": "0" * 64, "checkout_root": str(ROOT)})
         self.assertEqual(code, 0)
         return json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
 
@@ -75,7 +75,7 @@ class ReplayV2Tests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             out = Path(temp) / "run"
             code = run_dataset_v2(self.config, out, "feasibility", ["partial"], limits=partial_limits,
-                                  source={"commit": "test", "dirty": True, "dirty_diff_sha256": "0" * 64})
+                                  source={"commit": "test", "dirty": True, "dirty_diff_sha256": "0" * 64, "checkout_root": str(ROOT)})
             self.assertEqual(code, 1)
             manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
             result = replay_files_v2(out / "outcomes.jsonl", out / "records.jsonl", self.config,
@@ -103,7 +103,7 @@ class ReplayV2Tests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             out = Path(temp) / "run"
             run_dataset_v2(self.config, out, "feasibility", ["partial"], limits=partial_limits,
-                           source={"commit": "test", "dirty": True, "dirty_diff_sha256": "0" * 64})
+                           source={"commit": "test", "dirty": True, "dirty_diff_sha256": "0" * 64, "checkout_root": str(ROOT)})
             manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
             class StopAfterProposed(ResourceGuard):
                 checks = 0

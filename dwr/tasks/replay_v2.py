@@ -8,6 +8,7 @@ from typing import Callable, Iterable, Iterator
 from .dataset_v2 import (DatasetLimits, _full_profiles, _quota_counted, _quota_tables,
                          _split_and_ids, accepted_record, outcome_row, registered_limits)
 from .generator_v2 import PARTITIONS, PROFILES, generate_candidate
+from .manifest_v2 import validate_manifest_v2
 from .run_support import (LoadedConfig, ResourceGuard, remaining_global_seconds, sha256_file,
                           strict_json_loads, stable_json)
 
@@ -71,6 +72,7 @@ def _expected_row(seed: int, partition: str, index: int, mode: str,
 
 def replay_outcomes_v2(rows: Iterable[dict], config: LoadedConfig, mode: str = "feasibility", *,
                        check: Callable[[dict], None] | None = None,
+                       partition_check: Callable[[str, bool, int], None] | None = None,
                        limits: DatasetLimits | None = None,
                        expected_attempts: dict[str, int] | None = None,
                        allow_partial: bool = False,
@@ -92,6 +94,7 @@ def replay_outcomes_v2(rows: Iterable[dict], config: LoadedConfig, mode: str = "
                 raise ValueError("feasibility replay cannot contain final candidates")
     for partition in PARTITIONS:
         if partition == "final" and mode == "feasibility":
+            if partition_check is not None: partition_check(partition, True, 0)
             continue
         index = 0
         count = expected_attempts[partition] if expected_attempts is not None else limits.attempts_per_partition
@@ -119,8 +122,12 @@ def replay_outcomes_v2(rows: Iterable[dict], config: LoadedConfig, mode: str = "
         if expected_attempts is not None and not _complete(partition, mode, counts, limits):
             if not allow_partial:
                 raise ValueError(f"manifest prefix ends before {partition} quotas complete")
+            if any(expected_attempts[later] > 0 for later in PARTITIONS[PARTITIONS.index(partition) + 1:]):
+                raise ValueError("partial outcomes are not one global partition prefix")
         if expected_attempts is None and not _complete(partition, mode, counts, limits):
             raise ValueError(f"outcome stream ended before {partition} quotas completed")
+        if partition_check is not None:
+            partition_check(partition, _complete(partition, mode, counts, limits), index)
     try: extra = next(iterator)
     except StopIteration: extra = None
     if extra is not None:
@@ -135,11 +142,17 @@ def replay_files_v2(outcomes_path: Path, records_path: Path, config: LoadedConfi
     """Compare outcome and accepted-record streams without retaining corpus rows."""
     if type(generation_manifest) is not dict:
         raise ValueError("generation_manifest must be an object")
+    if (Path(outcomes_path).parent / "terminal_failure.json").exists():
+        raise ValueError("generation has a terminal failure sidecar")
     if (generation_manifest.get("manifest_version") != "dwr-task-run-v2" or
         generation_manifest.get("mode") != mode or
         generation_manifest.get("config_sha256") != config.sha256):
         raise ValueError("generation manifest version, mode, or config identity mismatch")
     limits = limits or registered_limits(config.resolved, mode)
+    from .dataset_v2 import _producer_identity
+    validate_manifest_v2(generation_manifest, config_sha256=config.sha256,
+                         config=config.resolved, mode=mode, limits=limits,
+                         expected_producer=_producer_identity())
     remaining = remaining_global_seconds(generation_manifest, limits.wall_seconds)
     if guard is None:
         guard = ResourceGuard(remaining, limits.memory_mib)
@@ -203,10 +216,17 @@ def replay_files_v2(outcomes_path: Path, records_path: Path, config: LoadedConfi
         if (mode == "full" or (part == "source" and split == "source_train") or
             (part == "development" and split == "development_validation")):
             visible_accepted[part] += 1
+    def partition_check(part: str, quota_complete: bool, attempts_count: int) -> None:
+        state = states[part]
+        if state["status"] == "complete" and not quota_complete:
+            raise ValueError(f"manifest marks {part} complete before its registered quotas")
+        if state["status"] == "not_attempted" and attempts_count != 0:
+            raise ValueError(f"manifest marks {part} not attempted after replayed candidates")
     rows = _jsonl(outcomes_path, guard)
     # Exhaust and compare incrementally through a generator so the production path is bounded.
     replay_outcomes_v2(rows, config, mode, check=compare, limits=limits,
                        expected_attempts=attempts,
+                       partition_check=partition_check,
                        allow_partial=allow_partial and status == "incomplete",
                        guard=guard, candidate_fn=candidate_fn)
     try: next(record_iter)
