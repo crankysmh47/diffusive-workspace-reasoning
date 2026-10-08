@@ -1,6 +1,6 @@
 # Working in DWR
 
-Read `README.md`, `todo.md`, `docs/research_protocol.md`, and relevant v2 plan sections before changing scientific behavior. The v2.2 protocol amends v2 and takes precedence. Read `docs/transfer_research_direction.md` for the active transfer/slot hypothesis; `docs/spare_research_ideas.md` is not an implementation backlog. Record deliberate departures with date, rationale, affected comparisons and evidence in `docs/` before running the changed experiment.
+Read `README.md`, `todo.md`, `docs/research_protocol.md`, and relevant v2 plan sections before changing scientific behavior. The v2.2 protocol amends v2 and takes precedence. For the active generation proposal and gate state, also read `docs/task_spec_v2.md`, `docs/task_v2_execution_plan.md`, and `docs/task_suitability_v2.md`; the one feasibility attempt ended NO-GO and G2 is not assessed. Read `docs/transfer_research_direction.md` for the active transfer/slot hypothesis; `docs/spare_research_ideas.md` is not an implementation backlog. Record deliberate departures with date, rationale, affected comparisons and evidence in `docs/` before running the changed experiment.
 
 - When implementation is requested, implement the next unchecked milestone; a planning/review request does not authorize training. Do not introduce diffusion, posterior encoders, dependency-gated optimization, or public datasets before their prerequisites.
 - Keep changes small. Use Python's standard library for generation, reference solving, manifests, and logging where practical. Add ML dependencies only when needed.

@@ -34,6 +34,8 @@
 
 ### Task 1: Bounded Windows replacement and cached resource monitoring
 
+Status: complete and review-clean. See the Windows regression and RED/GREEN logs summarized in `.superpowers/sdd/transfer-v2/task-2-report.md` (local ignored evidence).
+
 **Files:**
 - Modify: `dwr/tasks/run_support.py`
 - Modify: `tests/test_task_run_support.py`
@@ -43,14 +45,16 @@
 - Consumes: existing `atomic_json(path, value)` and `resident_bytes_windows()` interfaces.
 - Produces: at most four `Path.replace` attempts, with delays 0.01/0.02/0.04 seconds for Windows replace error codes 5/32/33; cached/module-level ctypes signatures and `PROCESS_MEMORY_COUNTERS` definition. Terminal errors retain their original type/context.
 
-- [ ] Write RED tests with injected replacement: three retryable errors then success; four errors then propagation; other Windows error code immediate; non-Windows error immediate; open/write failure immediate; delays exact. Verify the caller's resource checks bracket retries so elapsed time is charged to the monotonic guard.
-- [ ] Add a Windows regression that warms monitoring initialization, performs 252 reads including a post-GC boundary read, and confirms ctypes type/cache identities do not grow after warm-up. Do not assert an RSS target.
-- [ ] Run `python -m unittest discover -s tests -p test_task_run_support.py -v`; confirm new retry/cache tests fail before editing.
-- [ ] Implement only bounded replacement retry and cached monitoring declarations. Code 5 may represent permanent access denial, so four failures still fail; do not claim it proves a sharing lock. The existing final metadata flush accounting boundary remains unchanged.
-- [ ] Run `python -m unittest discover -s tests -p test_task_run_support.py -v` and `python -m unittest discover -s tests -p test_task_audit_review1.py -v`.
-- [ ] Gate: maximum four replace attempts; unrelated, non-Windows, and open/write errors fail immediately; repeated monitoring type/cache identities stabilize. No causal statement about v1 is added.
+- [x] Write RED tests with injected replacement: three retryable errors then success; four errors then propagation; other Windows error code immediate; non-Windows error immediate; open/write failure immediate; delays exact. Verify the caller's resource checks bracket retries so elapsed time is charged to the monotonic guard.
+- [x] Add a Windows regression that warms monitoring initialization, performs 252 reads including a post-GC boundary read, and confirms ctypes type/cache identities do not grow after warm-up. Do not assert an RSS target.
+- [x] Run `python -m unittest discover -s tests -p test_task_run_support.py -v`; confirm new retry/cache tests fail before editing.
+- [x] Implement only bounded replacement retry and cached monitoring declarations. Code 5 may represent permanent access denial, so four failures still fail; do not claim it proves a sharing lock. The existing final metadata flush accounting boundary remains unchanged.
+- [x] Run `python -m unittest discover -s tests -p test_task_run_support.py -v` and `python -m unittest discover -s tests -p test_task_audit_review1.py -v`.
+- [x] Gate: maximum four replace attempts; unrelated, non-Windows, and open/write errors fail immediately; repeated monitoring type/cache identities stabilize. No causal statement about v1 is added.
 
 ### Task 2: Pinned v2 loader and pure witness-first candidate generator
+
+Status: implementation and focused tests complete. The initial implementation has no retained functional preimplementation RED; a later constructor-boundary fix has functional RED/GREEN evidence. See `.superpowers/sdd/transfer-v2/task-3-report.md`.
 
 **Files:**
 - Create: `configs/tasks/constraint_v2.json`
@@ -64,15 +68,19 @@
 - Produces: `load_config_v2(path: Path) -> LoadedConfig`, which accepts only the exact closed v2 contract (unknown/missing/nested keys and altered registered values fail; there are no mutable scientific overrides); pure `sample_candidate_header(root_seed, partition, candidate_index)` and `generate_candidate(root_seed, partition, candidate_index) -> CandidateOutcome`. The candidate outcome includes task/IDs-ready inputs, private witness and private predicate evidence; candidate generation has no seen-set or duplicate handling.
 - Private predicate ownership: `generator_v2.py` implements `_source_sensitive(task)` and `_mixed_primary_eligibility(task)` for proposal acceptance. These must not be imported by the independent audit.
 
-- [ ] Write strict-loader tests for exact config acceptance, unknown/missing/nested keys, altered generation settings, and v1 `load_config` behavior remaining closed to v2.
-- [ ] Write generator tests for seed bytes/domain, profile schedule, n-before-quota header, witness-first tuple feasibility, no feasible vector, constraint and given draw order, deterministic replay, and solver/oracle agreement. Use `python -m unittest discover -s tests -p test_task_config_v2.py -v` and `python -m unittest discover -s tests -p test_task_generator_v2.py -v`; confirm RED first.
-- [ ] Implement the exact v2 contract and keep root seed `20261007`; do not alter v1 loader/config/generator. The pure generator returns unique-but-ineligible tasks with private predicate diagnostics rather than owning a corpus-level rejection reason.
-- [ ] Test source sensitivity with an independent equality-triangle fixture. Test mixed kind necessity and disconnected graph. Also test the implication that if a present kind has no factor touching an unknown variable, removing that kind cannot add solutions, so it necessarily fails kind necessity; do not demand an impossible fixture where this is the sole failing predicate.
-- [ ] Add prompt-byte leakage checks: adding/changing private witness, solution, or predicate metadata leaves `serialize_model_input(task)` exactly unchanged.
-- [ ] Run both named discovery commands above, then `python -m unittest discover -s tests -v`.
-- [ ] Gate: config is strictly pinned, v1 replay behavior is unchanged, candidate stream is deterministic/pure, and every accepted candidate is unique with solver/oracle agreement.
+- [x] Write strict-loader tests for exact config acceptance, unknown/missing/nested keys, altered generation settings, and v1 `load_config` behavior remaining closed to v2.
+- [x] Write generator tests for seed bytes/domain, profile schedule, n-before-quota header, witness-first tuple feasibility, no feasible vector, constraint and given draw order, deterministic replay, and solver/oracle agreement.
+- [x] Implement the exact v2 contract and keep root seed `20261007`; do not alter v1 loader/config/generator. The pure generator returns unique-but-ineligible tasks with private predicate diagnostics rather than owning a corpus-level rejection reason.
+- [x] Test source sensitivity with an independent equality-triangle fixture. Test mixed kind necessity and disconnected graph. Also test the implication that if a present kind has no factor touching an unknown variable, removing that kind cannot add solutions, so it necessarily fails kind necessity; do not demand an impossible fixture where this is the sole failing predicate.
+- [x] Add prompt-byte leakage checks: adding/changing private witness, solution, or predicate metadata leaves `serialize_model_input(task)` exactly unchanged.
+- [x] Run `python -m unittest discover -s tests -p test_task_config_v2.py -v` and `python -m unittest discover -s tests -p test_task_generator_v2.py -v`; run `python -m unittest discover -s tests -v` (91 passed at the task commit, with a later focused 16-test boundary regression).
+- [x] Gate: config is strictly pinned, v1 replay behavior is unchanged, candidate stream is deterministic/pure, and every accepted candidate is unique with solver/oracle agreement.
+
+TDD boundary: the initial config/generator test run did not retain a functional RED before implementation. Do not treat import absence as functional RED. The later constructor-boundary regression did record functional failures before its fix.
 
 ### Task 3: Versioned orchestration, run-wide deduplication, strict replay, and both modes
+
+Status: implementation and review-clean focused tests complete; Task 5's controller suite later passed 138 tests. The initial implementation's RED was import absence only; review fixes have retained functional RED/GREEN evidence. See `.superpowers/sdd/transfer-v2/task-4-report.md`.
 
 **Files:**
 - Create: `dwr/tasks/dataset_v2.py`
@@ -87,16 +95,18 @@
 - Dedup contract: one empty `seen_content_ids` set per run, shared across partitions. For every oracle-unique candidate, compute identities/split, check set, then insert the first ID before denominator counting and terminal eligibility. Thus a first ineligible unique candidate enters the set; later repeats are `duplicate_content`. Oracle-nonunique candidates and profile-quota skips do not enter the set. Replay starts empty and uses the same order/reason precedence.
 - Denominators: per partition/profile, retain counts for each first-seen unique oracle-unique candidate before eligibility. Feasibility includes source-train and development-validation only; full mode includes every registered split for its frozen structural audit. Duplicate IDs count nowhere.
 
-- [ ] Write RED tests for output-directory collision, candidate-index order, deterministic run-wide seen set, repeated ineligible-first and eligible-first content, cross-partition set scope, per-profile unique pre-eligibility denominators, and exact terminal reason precedence.
-- [ ] Write feasibility-mode tests for 1,000 source groups (334/333/333), 100 eligible development-validation groups per pair, opaque held-out rows, and no final-target sampling.
-- [ ] Write full-mode tests for 1,000/1,800/600 eligible groups, 30,000 attempt caps, all split records, exact replay, and rejection of missing/NO_GO/mismatched/dirty-source preflight identities. A matching synthetic PASS fixture may exercise dispatch; do not generate a real corpus in these tests.
-- [ ] Run `python -m unittest discover -s tests -p test_task_dataset_v2.py -v` and `python -m unittest discover -s tests -p test_task_replay_v2.py -v`; confirm RED before implementation.
-- [ ] Implement both modes and exact replay. Feasibility artifacts preserve held-out source/diagnostic rows for integrity replay but do not expose their counts, task/eligibility/solver aggregates, or strata. Full mode requires a matching PASS report, clean frozen source identity, and new output directory.
-- [ ] Assert serialized model input excludes all task identities, witness, solution, solver trace, and eligibility metadata. Write manifest before candidate work; preserve all terminal failures.
-- [ ] Run both named discovery commands and `python -m unittest discover -s tests -v`.
-- [ ] Gate: synthetic runs replay exactly; the feasibility CLI cannot sample final targets; full dispatch cannot run without a matching PASS report; duplicate behavior matches the exact stateful contract.
+- [x] Write tests for output-directory collision, candidate-index order, deterministic run-wide seen set, repeated ineligible-first and eligible-first content, cross-partition set scope, per-profile unique pre-eligibility denominators, and exact terminal reason precedence. Functional RED was captured against the reviewed implementation during review fixes; initial import-absence failures are not treated as semantic RED.
+- [x] Write feasibility-mode tests for source/development quotas, opaque held-out rows, and no final-target sampling.
+- [x] Write full-mode tests for quotas, attempt caps, all split records, exact replay, and rejection of missing/NO_GO/mismatched/dirty-source preflight identities. Synthetic dispatch fixtures only; no real corpus was generated by these tests.
+- [x] Run focused dataset/replay tests; 22 passed after the final review fix. The initial implementation's test-first evidence was import absence only.
+- [x] Implement both modes and exact replay. Feasibility artifacts preserve held-out rows for replay but omit their aggregates; full mode requires matching clean-source PASS evidence.
+- [x] Assert model-input projection excludes private task evidence. Write the manifest before candidate work and preserve terminal failures.
+- [x] Run focused tests and full suite; the controller's later fresh full suite passed 138 tests at the frozen source commit.
+- [x] Gate: synthetic runs replay exactly; feasibility cannot sample final targets; full dispatch requires PASS; duplicate handling follows the registered stateful contract.
 
 ### Task 4: Independent aggregation audit and feasibility/full reports
+
+Status: implementation, review, and tests complete. See `.superpowers/sdd/transfer-v2/task-5-report.md`; the controller's frozen-source suite later passed 138 tests.
 
 **Files:**
 - Create: `dwr/tasks/audit_v2.py`
@@ -110,18 +120,18 @@
 - Consumes: v2 outcomes/records and replay; existing `dwr.tasks.audit.audit_interactions(task, partition)` as an independent semantic check; v2 config floor values; generation manifest's `generation_elapsed_seconds`.
 - Produces: independent per-candidate cross-check plus feasibility/full aggregation. It may not import either private generator predicate. For every unique candidate, recompute interaction evidence with `audit_interactions` and fail if its result disagrees with private annotations. Retain unique pre-eligibility denominator and eligible numerator counts per mixed profile; apply the registered 0.25 fraction threshold to the combined development-validation cohort in feasibility and to each complete mixed partition in the full audit. Count unique eligible signatures for the registered 12-signature floor and the one-example-per-represented-eligible-signature floor. Report rejected-only source/mixed structure signatures separately; rejected-only signatures do not fail an eligible-signature floor. Inherit `max(0, 600 - generation_elapsed_seconds)` as the audit time allowance; generation, replay and audit together cannot exceed 600 active seconds per invocation.
 
-- [ ] Write RED tests for deliberate corruption of private sensitivity/kind-removal/connectivity annotations; independent `audit_interactions` must reject each.
-- [ ] Test exact per-profile denominator/numerator accounting with one eligible, one ineligible, and a duplicate unique task in each profile. Require duplicates excluded; test the 0.25 fraction at the combined partition threshold; source and mixed per-signature floors use accepted signature universes, while rejected-only structure coverage is a separate diagnostic.
-- [ ] Test feasibility opaque-row behavior by changing source validation/test and development diagnostic task metrics while holding IDs/replay integrity constant; `PASS/NO_GO`, all feasibility counts, and common-support proxy must not change. Test only source-train and three development-validation cohorts feed the four-cohort proxy.
-- [ ] Test source-train floors and development-validation floors at exact boundaries; test the four-cohort proxy at 10 groups/cell and 80% mass. Test full mode against all original G2 floors and the unchanged five cohorts: source ID-test all groups, three development-validation eligible cohorts, and final-test eligible cohort.
-- [ ] Extend `common_support` with the optional explicit cohort names and test its default output is unchanged for all existing five-cohort fixtures; test the four-cohort proxy against hand-counted cells.
-- [ ] Run `python -m unittest discover -s tests -p test_task_audit_v2.py -v`; confirm RED first.
-- [ ] Implement aggregation by calling existing `audit_interactions`; do not duplicate its oracle counterfactual/graph implementation. Extend `common_support` with an optional explicit ordered cohort-name tuple so the source-train four-cohort proxy and frozen five-cohort final check share the same cell/mass calculation; its omitted-argument default must remain the exact v1 five-cohort behavior. Treat the first ordered cohort as the all-groups source cohort and filter `primary_eligible` on each later cohort. Keep aggregation/reporting separate from private candidate acceptance.
-- [ ] Preserve complete-v2 G2 floors: partition and split group minima; signature minima; source-train kinds and source composition absence; value and clue variation; source 25% sensitivity over unique source groups before eligibility and one per accepted source signature; per-profile mixed 100 eligible groups and 12 eligible signatures; 25% eligible fraction per mixed partition using raw unique pre-eligibility outcomes while retaining per-profile numerators/denominators; one example per represented eligible signature; development 80/20 total and 20/5 per pair; five-cohort support with ≥10 groups/cell and ≥80% cohort mass; replay, leakage, all other strata/audit conditions, caps.
-- [ ] Run `python -m unittest discover -s tests -p test_task_audit_v2.py -v`, `python -m unittest discover -s tests -p test_task_audit.py -v`, and `python -m unittest discover -s tests -v`.
-- [ ] Gate: no feasibility choice consumes source validation/test or development diagnostic aggregates; full report distinguishes every unchanged floor and computes mixed fractions from raw unique pre-eligibility outcomes, not only accepted records.
+- [x] Write tests that corrupt private sensitivity/kind-removal/connectivity annotations and require independent `audit_interactions` to reject them. The missing-API `TypeError` was a functional RED for the four-cohort path.
+- [x] Test exact per-profile denominator/numerator accounting, duplicate exclusion, the 0.25 fraction, accepted-signature floors, and rejected-only diagnostics.
+- [x] Test feasibility opacity and restrict feasibility choices/proxy to source-train and development-validation cohorts.
+- [x] Test source/development floors, four-cohort support thresholds, and full-mode five-cohort behavior.
+- [x] Extend `common_support` with explicit ordered cohort names while retaining the v1 default output.
+- [x] Run v2 and v1 audit suites; 10 and 14 tests passed respectively. The fresh controller suite later passed 138 tests.
+- [x] Implement independent aggregation through `audit_interactions`; preserve the registered full G2 floors and separate feasibility from full-mode aggregation.
+- [x] Gate: feasibility choices omit held-out aggregates; full reports retain all registered floors and raw pre-eligibility denominators.
 
 ### Task 5: One feasibility run and conditional full corpus
+
+Status: the single registered feasibility generation and audit ran. The attempt cap caused NO-GO; stop rule applied, G2 remains unchecked, and full mode was not invoked. See [the actual result](task_suitability_v2.md).
 
 **Files:**
 - Modify only after evidence: `docs/task_suitability_v2.md`
@@ -129,11 +139,11 @@
 
 **Commands and gates:**
 
-- [ ] Freeze and commit source/config/tests; require clean `git status`. Record source/config hashes, exact command, Python/runtime, RNG, caps, output path, and start time in the resolved manifest.
-- [ ] Run exactly once: `python -m dwr.tasks.cli_v2 --config configs/tasks/constraint_v2.json --mode feasibility --out data/constraint-v2-feasibility-<unique-id>`.
-- [ ] Run exactly once: `python -m dwr.tasks.audit_cli_v2 --config configs/tasks/constraint_v2.json --mode feasibility --data data/constraint-v2-feasibility-<same-id>`. Generation plus audit share one 600-second active-time budget, one worker, and 1 GiB. Preserve outputs and record actual checks/results.
-- [ ] If any fixed applicable floor, independent replay, source-train/development-validation proxy, wall cap, or memory cap fails, record `NO_GO`, leave G2 unchecked, and stop. Do not rerun with changed settings.
-- [ ] If the report is `PASS_FEASIBILITY`, the already authorized continuous sequence proceeds using the implemented full mode and matching clean-source report identity. Run one full generation with 1,000/1,800/600 accepted eligible groups and 30,000 attempts per partition; run one full audit over source ID-test, three development-validation eligible cohorts, and final-test eligible cohort. Generation plus audit share a separate 600-second budget, one worker, and 1 GiB.
+- [x] Freeze and commit source/config/tests at clean source identity `9f08efddb60537c61a89a90325bc9c832c32ca1c`; record config hash, commands, Python/runtime, RNG, caps, output path, and start time in the manifests.
+- [x] Run exactly once: `python -m dwr.tasks.cli_v2 --config configs/tasks/constraint_v2.json --mode feasibility --out data/constraint-v2-feasibility-20261008T062621Z`. It stopped at source candidate 29,999; development/final were not attempted. The public audit reports 734 visible source-train examples, not the total source quota.
+- [x] Run exactly once: `python -m dwr.tasks.audit_cli_v2 --config configs/tasks/constraint_v2.json --mode feasibility --data data/constraint-v2-feasibility-20261008T062621Z`. Integrity passed, replay passed for the recorded prefix, and the report left G2 not assessed. Resource use was within caps.
+- [x] Record NO-GO at the fixed attempt cap, leave G2 unchecked, and stop. Do not retry with changed settings.
+- [ ] Conditional full generation and audit: not invoked because feasibility ended NO-GO.
 - [ ] Check off G2 only if the complete five-cohort audit passes and exact commands/outcomes/evidence paths are recorded. Any incomplete or failed full run is preserved; no changed-rule retry.
 
 ## Research stop

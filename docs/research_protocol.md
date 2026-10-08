@@ -1,6 +1,6 @@
 # DWR research protocol — v2.2
 
-Date: 2026-10-07. Status: research design; experiments not implemented.
+Date: 2026-10-08. Status: protocol and CPU task-generation/audit implementation; one registered v2 feasibility attempt ended NO-GO at the source attempt cap, and G2 remains unassessed. Current evidence: [v2 suitability result](task_suitability_v2.md), [execution state](execution_state.md), and [v2 execution plan](task_v2_execution_plan.md). No model or training experiment has run.
 
 This is the binding amendment to the [v2 plan](diffusive_workspace_reasoning_project_plan_v2.md). It resolves the ambiguities identified in the [research review](research_review.md). Where the original narrative differs, this protocol takes precedence; [todo.md](../todo.md) is the sole progress checklist. Changes below are deliberate scientific decisions, not experimental findings.
 

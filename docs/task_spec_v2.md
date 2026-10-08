@@ -1,6 +1,6 @@
 # Finite-domain composition task, v2 proposal
 
-Date: 2026-10-08. Status: **prospective design only**. This document does not authorize implementation, generation, audit, or training. It versions the task-generation contract after the incomplete v1 suitability attempt; [task_spec.md](task_spec.md), [constraint_v1.json](../configs/tasks/constraint_v1.json), the v1 run, and its partial evidence remain frozen.
+Date: 2026-10-08. Status: **registered v2 proposal; one feasibility attempt ended NO-GO at the source attempt cap; G2 not assessed**. The v2 generation/audit implementation and the single registered attempt are recorded in [the v2 execution plan](task_v2_execution_plan.md) and [the suitability result](task_suitability_v2.md). This document versions the task-generation contract after the incomplete v1 attempt; [task_spec.md](task_spec.md), [constraint_v1.json](../configs/tasks/constraint_v1.json), the v1 run, and its partial evidence remain frozen.
 
 ## Question and scope
 

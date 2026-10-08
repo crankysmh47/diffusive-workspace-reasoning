@@ -2,6 +2,16 @@
 
 Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_v2.md), amended by the binding [v2.2 protocol](docs/research_protocol.md). This is the sole live checklist. Check an item only when its output and recorded verification exist. Planning does not count as implementing a gate.
 
+## Current v2 gate — 2026-10-08
+
+- [x] Implement and review the pinned v2 generator, bounded feasibility/full orchestration, and independent audit. CPU implementation checks pass; see the [v2 execution plan](docs/task_v2_execution_plan.md).
+- [x] Freeze source/config identities and run exactly one registered feasibility generation plus its audit. The generation reached the 30,000 source-attempt cap; audit integrity and partial replay passed. Evidence: [v2 suitability result](docs/task_suitability_v2.md) and [compact run manifest](configs/splits/constraint-v2-feasibility-nogo.json).
+- [ ] Pass G2 with a complete five-cohort audit. G2 is not assessed; development/final generation was not attempted and no full run occurred.
+- [ ] Resolve bounded source-generation yield/quota feasibility, then prospective composition support, in a separately versioned development-only design before considering any new run.
+- [ ] Implement a workspace/model, select a backbone, or train. None is authorized by a failed feasibility gate.
+
+The controller's fresh CPU suite at the frozen source commit reported 138 passed in 2.250 seconds. This is implementation evidence, not corpus suitability, model validation, or independent reproduction. Preserve the one attempt; do not retry under altered rules.
+
 ## 0. Repository setup
 
 - [x] Preserve the supplied v2 plan in `docs/`.
@@ -100,4 +110,4 @@ Gate G7: a reproducible technical report, not guaranteed venue acceptance. Choos
 
 See [spare_research_ideas.md](docs/spare_research_ideas.md) for task-structure theory, persistent repair, learned slot allocation, flow distillation and adaptive stopping. These are not active milestones. Public datasets and larger backbones also require a new evidence-backed scope decision; preserve problem-level grouping and usage-term checks if activated.
 
-No implementation, data, model, run-infrastructure or experimental gate above is complete at this revision.
+At this revision, the v2 CPU task-generation, orchestration, replay, and audit implementation is complete and one feasibility attempt is preserved. G2 is not assessed and remains unchecked. Workspace/model implementation, backbone selection, training, fixed-size transfer, variable-slot-count experiments, reporting, archival backup, and independent reproduction remain incomplete.
