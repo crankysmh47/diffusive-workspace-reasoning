@@ -1,0 +1,169 @@
+{
+  "config_version": "dwr-constraint-development-probe-v4",
+  "generator_id": "dwr-generator-v4-probe",
+  "accepted_record_version": "dwr-v4-probe-accepted-record-v1",
+  "task_schema_version": "constraint-task-v1",
+  "root_seed": 20261007,
+  "rng": {
+    "implementation": "random.Random",
+    "seed_version": 2,
+    "derivation": "sha256-prefix64-v4",
+    "material": "dwr-generator-v4-probe-domain+0x00+root-seed-u64be+0x00+partition-ascii+0x00+candidate-index-u64be",
+    "python_versions": ["3.11", "3.12"],
+    "module_global_allowed": false,
+    "draw_schedule": "docs/task_spec_v4.md#candidate-stream-and-draw-order"
+  },
+  "grammar": {
+    "domain": [0, 1, 2],
+    "modulus": 3,
+    "n": 6,
+    "variables": "v0-through-v5",
+    "normalized_operand_order": "constraint-task-v1",
+    "kind_order": ["eq", "neq", "add_mod"],
+    "anchor_anchor_tuples_in_pools": true
+  },
+  "partitions": {
+    "source_profiles": ["eq", "neq", "add_mod"],
+    "development_profiles": ["eq/neq", "eq/add_mod", "neq/add_mod"],
+    "final_profile": "eq/neq/add_mod",
+    "profile_cell_active_order": "profile-order-then-A-B-C-D-minus-closed-v1",
+    "selection": "candidate-index-mod-active-list-length-before-rng-draws",
+    "source_split": "sha256-canonical-content-bucket-v1-80-10-10",
+    "development_split": "sha256-structure-signature-bucket-v1-80-20",
+    "final_split": "final_test",
+    "content_dedup_scope": "whole-probe-across-partitions",
+    "lineage_and_development_signature_closure": true
+  },
+  "strata": [
+    {"id": "A", "n": 6, "given_count": 2, "constraint_count": 8, "expected_prompt_byte_bin": 4, "expected_first_solution_node_bin": 2},
+    {"id": "B", "n": 6, "given_count": 3, "constraint_count": 6, "expected_prompt_byte_bin": 4, "expected_first_solution_node_bin": 2},
+    {"id": "C", "n": 6, "given_count": 3, "constraint_count": 7, "expected_prompt_byte_bin": 4, "expected_first_solution_node_bin": 2},
+    {"id": "D", "n": 6, "given_count": 3, "constraint_count": 8, "expected_prompt_byte_bin": 4, "expected_first_solution_node_bin": 2}
+  ],
+  "quotas": {
+    "source_accepted_by_profile_cell": {
+      "eq": {"A": 84, "B": 84, "C": 83, "D": 83},
+      "neq": {"A": 83, "B": 83, "C": 84, "D": 83},
+      "add_mod": {"A": 83, "B": 83, "C": 83, "D": 84}
+    },
+    "development_validation_accepted_per_profile_cell": 25,
+    "development_validation_total_per_profile": 100,
+    "final_attempts": 0,
+    "quota_counts_only": "first-seen-content,oracle-unique,scientifically-eligible,envelope-accepted,registered-split"
+  },
+  "proposal": {
+    "given_locations": "uniform-sample-without-replacement-from-v0-through-v5-then-sort",
+    "source_eq_witnesses": "lexicographic-F3-6-tuples-using-only-values-present-in-givens-and-having-at-least-c-satisfied-normalized-eq-tuples;uniform-choice",
+    "source_neq_witnesses": "lexicographic-F3-6-tuples-using-all-3-values-and-at-least-2-values-among-givens;uniform-choice",
+    "other_witnesses": "six-independent-uniform-F3-draws-in-variable-order",
+    "source_neq_pool": "witness-satisfied-normalized-neq-tuples-touching-unknowns",
+    "other_pools": "all-witness-satisfied-normalized-tuples-in-v1-order-including-anchor-anchor",
+    "count_vector": "uniform-choice-from-lexicographic-active-kind-positive-vectors-exactly-c-and-capped-by-pool;inactive-zero",
+    "tuple_draw": "uniform-without-replacement-per-kind-in-eq-neq-add_mod-order",
+    "canonical_constraint_sort": "constraint-task-v1",
+    "hidden_retries_templates_fallbacks": false
+  },
+  "independent_checks": {
+    "uniqueness": "existing-exhaustive-oracle-count-exactly-one",
+    "solver": "existing-frozen-order-solver-must-match-oracle-or-fatal",
+    "solver_variable_order": "v0-through-v5",
+    "solver_value_order": [0, 1, 2],
+    "solver_node_bin": "existing-first-solution-nodes-zero-based-bin-2-means-4-through-7",
+    "source_eligibility": "existing-single-constraint-removal-sensitivity",
+    "mixed_eligibility": "existing-each-present-kind-removal-raises-count-to-at-least-2-then-unknown-factor-connectivity-and-kind-coverage",
+    "mixed_rejection_precedence": ["mixed_kind_not_necessary", "mixed_unknown_factor_disconnected"]
+  },
+  "support_envelope": {
+    "identity": "dwr-v4-support-envelope-v1",
+    "prompt_byte_bins": [0, 511, 639, 767, 1023, "infinity"],
+    "node_bins": [[1, 1], [2, 3], [4, 7], [8, 15], [16, 31], [32, 63], [64, "infinity"]],
+    "accept_only_prompt_byte_bin": 4,
+    "accept_only_first_solution_node_bin": 2,
+    "outside_reason": "outside_registered_support_envelope",
+    "envelope_applied_after_unique_identity_denominator_and_private_eligibility": true
+  },
+  "denominators": {
+    "unique_group_definition": "first-seen-canonical-content-id-and-lineage-closure-after-independent-oracle-unique",
+    "duplicate_excluded": true,
+    "source_scientific_eligibility": "sensitive-source_train-over-all-first-seen-oracle-unique-source_train-groups",
+    "source_accepted_envelope_yield": "eligible-and-envelope-accepted-source_train-over-all-first-seen-oracle-unique-source_train-groups",
+    "development_scientific_eligibility": "eligible-development_validation-over-all-first-seen-oracle-unique-development_validation-groups-per-profile",
+    "development_accepted_envelope_yield": "eligible-and-envelope-accepted-development_validation-over-all-first-seen-oracle-unique-development_validation-groups-per-profile",
+    "opaque_splits": ["source_validation", "source_test", "development_diagnostic_test"],
+    "opaque_metrics_never_choice_inputs": true
+  },
+  "floors": {
+    "source_train_groups": 100,
+    "source_train_structure_signatures": 12,
+    "source_train_primitive_coverage": 3,
+    "source_train_solution_value_fraction_each": 0.1,
+    "source_train_distinct_given_counts": 2,
+    "source_train_sensitive_fraction": 0.25,
+    "source_train_sensitive_per_accepted_signature": 1,
+    "source_train_accepted_envelope_yield": 0.25,
+    "development_validation_groups_per_profile": 100,
+    "development_validation_profile_groups_min": 20,
+    "development_validation_eligible_signatures_per_profile": 12,
+    "development_validation_eligible_fraction_per_profile": 0.25,
+    "development_validation_eligible_envelope_yield_per_profile": 0.25,
+    "development_validation_eligible_per_represented_signature": 1,
+    "source_support_each_registered_cell_min": 10,
+    "source_support_mass_min": 0.8,
+    "four_cohort_proxy_cell_min_each_cohort": 10,
+    "four_cohort_proxy_mass_min_each_cohort": 0.8,
+    "full_g2": "unchanged-v2.2-five-cohort-floors-only-after-separate-full-pipeline-review"
+  },
+  "outcomes": {
+    "version": "dwr-v4-probe-outcome-v1",
+    "all_candidate_indices_logged": true,
+    "closed_fields": ["outcome_version", "partition", "candidate_index", "profile", "stratum", "n", "given_count", "constraint_count", "state", "reason", "task_or_null", "witness_or_null", "oracle_solution_or_null", "oracle_count_capped_or_null", "solver_stats_or_null", "content_id_or_null", "lineage_id_or_null", "structure_signature_or_null", "split_or_null", "private_eligibility_or_null", "denominator_counted", "prompt_utf8_bytes_or_null", "prompt_byte_bin_or_null", "first_solution_node_bin_or_null", "quota_cell_count_after_or_null"],
+    "states": ["rejected_proposal", "oracle_non_unique", "fatal_error", "duplicate_content", "scientifically_ineligible", "outside_registered_support_envelope", "accepted_for_quota"],
+    "scientific_reasons": ["source_insensitive", "mixed_kind_not_necessary", "mixed_unknown_factor_disconnected"],
+    "reason_order": ["proposal_rejection", "oracle_non_unique", "solver_oracle_disagreement_fatal", "duplicate_content", "first_seen_denominator_insert", "scientific_ineligibility", "outside_registered_support_envelope", "quota_accepted"],
+    "proposal_reasons": ["no_source_eq_witness", "no_neq_witness", "no_feasible_constraint_vector", "no_feasible_neq_constraint_total"],
+    "fatal_reasons": ["oracle_witness_disagreement", "solver_oracle_disagreement"],
+    "scientific_reasons": ["source_insensitive", "mixed_kind_not_necessary", "mixed_unknown_factor_disconnected"],
+    "operational_statuses": ["NOT_ASSESSED_RESOURCE_CAP", "NOT_ASSESSED_IO_OR_SERIALIZATION_ERROR", "NOT_ASSESSED_SOLVER_OR_ORACLE_ERROR", "NOT_ASSESSED_REPLAY_MISMATCH", "NOT_ASSESSED_AUDIT_MISMATCH"]
+  },
+  "producer_hash_paths": [
+    "dwr/tasks/config_probe_v4.py",
+    "dwr/tasks/generator_probe_v4.py",
+    "dwr/tasks/probe_v4.py",
+    "dwr/tasks/probe_cli_v4.py",
+    "dwr/tasks/audit_probe_v4.py",
+    "dwr/tasks/schema.py",
+    "dwr/tasks/canonical.py",
+    "dwr/tasks/generator_v2.py",
+    "dwr/tasks/solver.py",
+    "dwr/tasks/oracle.py",
+    "dwr/tasks/audit.py",
+    "dwr/tasks/run_support.py"
+  ],
+  "privacy": {
+    "model_input_excludes": ["witness", "solution", "oracle", "solver", "eligibility", "content_id", "lineage_id", "signature", "split", "stratum", "quota_state", "audit_metadata"],
+    "artifact_location": "unique-ignored-data-directory",
+    "heldout_rows": "integrity-and-replay-only; no aggregates-or-task-level-choice-inputs"
+  },
+  "runtime": {
+    "mode": "development_probe",
+    "max_candidates_per_partition": 30000,
+    "workers": 1,
+    "combined_active_wall_seconds_generation_replay_audit_finalization": 900,
+    "record_cpu_seconds": true,
+    "max_peak_rss_bytes": 1073741824,
+    "resource_exhaustion_is_operational_not_scientific_nogo": true,
+    "retry_or_budget_renewal": false
+  },
+  "terminal_contract": {
+    "success_label": "PASS_DEVELOPMENT_PROPOSAL",
+    "scientific_nogo_label": "NO_GO_PROPOSAL",
+    "operational_label": "NOT_ASSESSED",
+    "scientific_nogo_reasons": ["SOURCE_QUOTA_SHORTFALL", "DEVELOPMENT_VALIDATION_QUOTA_SHORTFALL", "SOURCE_TRAIN_FLOOR_FAILED", "SOURCE_SUPPORT_FAILED", "DEVELOPMENT_FLOOR_FAILED", "FOUR_COHORT_PROXY_FAILED"],
+    "operational_reasons": ["NOT_ASSESSED_RESOURCE_CAP", "NOT_ASSESSED_IO_OR_SERIALIZATION_ERROR", "NOT_ASSESSED_SOLVER_OR_ORACLE_ERROR", "NOT_ASSESSED_REPLAY_MISMATCH", "NOT_ASSESSED_AUDIT_MISMATCH"],
+    "g2_status_on_probe": "not_assessed",
+    "preflight_emitted": false,
+    "source_failure_blocks_development_generation": true,
+    "final_generation_forbidden": true,
+    "next_stage_requires": "probe-PASS-and-separate-reviewed-formal-v4-full-schema-consumer"
+  }
+}
