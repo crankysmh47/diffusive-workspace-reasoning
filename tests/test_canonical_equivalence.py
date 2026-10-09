@@ -34,8 +34,8 @@ class CanonicalEquivalenceTests(unittest.TestCase):
         self.assertEqual(canonical.lineage_id(task), legacy_lineage_id(task))
         self.assertEqual(canonical.source_split(canonical.content_id(task)),
                          legacy_source_split(legacy_content_id(task)))
-        self.assertEqual(canonical.development_split(canonical.content_id(task)),
-                         legacy_development_split(legacy_content_id(task)))
+        self.assertEqual(canonical.development_split(canonical.structure_signature(task)),
+                         legacy_development_split(legacy_structure_signature(task)))
 
     def test_all_three_variable_relation_subsets_and_single_givens(self):
         relations = []

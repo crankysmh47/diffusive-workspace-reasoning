@@ -409,7 +409,7 @@ def _initial_manifest(config: ProbeConfig, config_path: Path, output_dir: Path,
                          "quota_targets": quotas[part],
                          "quota_counts": {p: {c: 0 for c in _CELLS} for p in quotas[part]}}
                   for part in ("source", "development")}
-    return {"manifest_version": MANIFEST_VERSION, "probe_id": PROBE_ID,
+    return {"manifest_version": MANIFEST_VERSION, "probe_id": config.config_version,
         "status": "running", "created_utc": datetime.now(timezone.utc).isoformat(),
         "finished_utc": None, "command": command, "cwd": str(Path.cwd()), "source": source,
         "python": {"implementation": platform.python_implementation(), "version": platform.python_version(),
@@ -420,7 +420,7 @@ def _initial_manifest(config: ProbeConfig, config_path: Path, output_dir: Path,
         "rng_identity": {"generator_id": config.generator_id, "seed_derivation": "sha256-prefix64-v4",
             "seed_material": config.raw_config["rng"]["material"], "root_seed": config.root_seed},
         "producer": producer, "limits": {"max_attempts_per_partition": 30000 if fixture_policy is None else fixture_policy.max_attempts_per_partition, "workers": 1,
-            "active_wall_seconds": 900, "max_peak_rss_bytes": 1073741824}, "output_dir": str(output_dir),
+            "active_wall_seconds": config.wall_seconds, "max_peak_rss_bytes": 1073741824}, "output_dir": str(output_dir),
         "partitions": partitions,
         "artifacts": {name: {"path": name, "bytes": None, "sha256": None}
                       for name in ARTIFACTS if name != "probe_manifest.initial.json"},
@@ -462,7 +462,7 @@ def _verify_initial_binding(initial: dict, config: ProbeConfig, source: dict,
             any(set(item) != {"path", "sha256"} or not _is_sha256(item["sha256"])
                 for item in producer)):
         raise ValueError("producer identity shape or registered order mismatch")
-    if (initial["probe_id"] != PROBE_ID or
+    if (initial["probe_id"] != config.config_version or
             not _utc_timestamp(initial["created_utc"]) or initial["status"] != "running" or
             initial["finished_utc"] is not None or initial["error"] is not None or
             initial["exit_code"] is not None or initial["elapsed_wall_seconds"] is not None or
@@ -480,7 +480,7 @@ def _verify_initial_binding(initial: dict, config: ProbeConfig, source: dict,
         if set(reference) != {"path", "bytes", "sha256"} or reference["path"] != name or reference["bytes"] is not None or reference["sha256"] is not None:
             raise ValueError("initial manifest artifact declaration is malformed")
     expected_limits = {"max_attempts_per_partition": 30000 if fixture_policy is None else fixture_policy.max_attempts_per_partition, "workers": 1,
-                       "active_wall_seconds": 900, "max_peak_rss_bytes": 1073741824}
+                       "active_wall_seconds": config.wall_seconds, "max_peak_rss_bytes": 1073741824}
     if (not isinstance(initial["limits"], dict) or set(initial["limits"]) != set(expected_limits) or
             any(type(initial["limits"][key]) is not int or initial["limits"][key] != value
                 for key, value in expected_limits.items())):
@@ -1273,10 +1273,10 @@ def _verify_terminal_report(report: dict, config: ProbeConfig, source: dict,
                 for value in resource.values()) or report["g2_status"] != "not_assessed" or
             report["preflight_emitted"] is not False):
         raise ValueError("terminal report resource or gate status malformed")
-    _validate_terminal_acceptance(report, closure, replay, audit, error, fixture_policy)
+    _validate_terminal_acceptance(report, config, closure, replay, audit, error, fixture_policy)
 
 
-def _validate_terminal_acceptance(report: dict, closure: dict, replay: dict, audit: dict,
+def _validate_terminal_acceptance(report: dict, config: ProbeConfig, closure: dict, replay: dict, audit: dict,
                                   error: dict | None = None, fixture_policy=None) -> None:
     status = report["status"]
     if status in ("PASS_DEVELOPMENT_PROPOSAL", "FIXTURE_PASS"):
@@ -1342,7 +1342,7 @@ def _validate_terminal_acceptance(report: dict, closure: dict, replay: dict, aud
                     metric["envelope_yield"] < 0.25 or counts != targets):
                 raise ValueError("terminal PASS development numeric floor failed")
         resource = report["resource_snapshot"]
-        if (resource["wall_seconds"] is None or resource["wall_seconds"] >= 900 or
+        if (resource["wall_seconds"] is None or resource["wall_seconds"] >= config.wall_seconds or
                 resource["peak_rss_bytes"] is None or resource["peak_rss_bytes"] > 1073741824):
             raise ValueError("terminal PASS exceeds or lacks registered resource accounting")
     elif status == "NO_GO_PROPOSAL":
@@ -1586,7 +1586,7 @@ def _run_controller_body(config_path: Path, output_dir: Path, command: list[str]
             raise ValueError("fixture artifacts must be outside the repository")
     if output_dir.exists():
         raise FileExistsError("probe output directory already exists; resume is forbidden")
-    guard = guard or ResourceGuard(900, 1024)
+    guard = guard or ResourceGuard(config.wall_seconds, 1024)
     guard.dwr_cpu_started = time.process_time()
     guard.check()
     producer = _producer_identity(config, root)
@@ -2028,7 +2028,7 @@ def _run_controller(config_path: Path, output_dir: Path, command: list[str] | No
                     _proposal_provider=None) -> int:
     output = Path(output_dir).resolve()
     existed_before = output.exists()
-    guard = guard or ResourceGuard(900, 1024)
+    guard = guard or ResourceGuard(load_probe_config(config_path).wall_seconds, 1024)
     started_cpu = time.process_time()
     try:
         return _run_controller_body(config_path, output, command, guard=guard,

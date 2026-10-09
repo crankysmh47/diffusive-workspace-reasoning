@@ -10,7 +10,7 @@ from .probe_v4 import run_probe
 
 def main(argv: list[str] | None = None) -> int:
     effective_argv = list(sys.argv[1:] if argv is None else argv)
-    parser = argparse.ArgumentParser(description="Run one bounded DWR v4 development proposal")
+    parser = argparse.ArgumentParser(description="Run one bounded DWR development proposal with an admitted config")
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--mode", required=True, choices=("development-probe",))
     parser.add_argument("--out", required=True, type=Path)

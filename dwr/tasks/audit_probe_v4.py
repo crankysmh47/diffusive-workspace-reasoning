@@ -618,7 +618,7 @@ def audit_run(output_dir: Path, config, *, guard=None) -> dict:
     if initial.get("output_dir") != str(output_dir):
         raise ValueError("production audit output path differs from the initial manifest")
     if guard is None:
-        guard = ResourceGuard(900, 1024)
+        guard = ResourceGuard(config.wall_seconds, 1024)
     _verify_initial_binding(initial, config, current_source, current_producer, config_path)
     source_doc = strict_json_loads((output_dir / ARTIFACTS[3]).read_text(encoding="utf-8"))
     replay_doc = strict_json_loads((output_dir / ARTIFACTS[4]).read_text(encoding="utf-8"))

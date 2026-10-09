@@ -10,6 +10,11 @@ from typing import Mapping
 
 
 APPROVED_CONFIG_SHA256 = "6f86fa7d91a0b469fbd9f657eedfe7de87a6934005054059fe246878ec52f104"
+FOLLOWUP_CONFIG_SHA256 = "ccc85523929ce00c15d482df4d32c3d06e639b70ab6df7b74619203cf16a1a32"
+_CONFIG_IDENTITIES = {
+    APPROVED_CONFIG_SHA256: ("dwr-constraint-development-probe-v4-r2", 900),
+    FOLLOWUP_CONFIG_SHA256: ("dwr-constraint-development-probe-cpu-followup-v1", 1800),
+}
 
 
 def _pairs_no_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -32,6 +37,8 @@ def _profile_keys(values: list[str]) -> tuple[tuple[str, ...], ...]:
 @dataclass(frozen=True, slots=True)
 class ProbeConfig:
     config_sha256: str
+    config_version: str
+    wall_seconds: int
     root_seed: int
     generator_id: str
     source_profiles: tuple[tuple[str, ...], ...]
@@ -80,8 +87,15 @@ def load_probe_config(path: str | Path) -> ProbeConfig:
     if not isinstance(value, dict):
         raise ValueError("probe config root must be an object")
     digest = hashlib.sha256(raw_bytes).hexdigest()
-    if digest != APPROVED_CONFIG_SHA256:
-        raise ValueError("probe config bytes differ from the reviewed v4 configuration")
+    identity = _CONFIG_IDENTITIES.get(digest)
+    if identity is None:
+        raise ValueError("probe config bytes differ from an admitted v4 configuration")
+    expected_version, wall_seconds = identity
+    runtime = value.get("runtime")
+    if (value.get("config_version") != expected_version or not isinstance(runtime, dict) or
+            type(runtime.get("combined_active_wall_seconds_generation_replay_audit_finalization")) is not int or
+            runtime["combined_active_wall_seconds_generation_replay_audit_finalization"] != wall_seconds):
+        raise ValueError("probe config identity or registered wall policy mismatch")
     if type(value.get("root_seed")) is not int:
         raise TypeError("root_seed must be an integer, not bool")
 
@@ -95,6 +109,8 @@ def load_probe_config(path: str | Path) -> ProbeConfig:
     }
     return ProbeConfig(
         config_sha256=digest,
+        config_version=expected_version,
+        wall_seconds=wall_seconds,
         root_seed=value["root_seed"],
         generator_id=value["generator_id"],
         source_profiles=source_profiles,
