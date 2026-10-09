@@ -9,7 +9,7 @@ from types import MappingProxyType
 from typing import Mapping
 
 
-APPROVED_CONFIG_SHA256 = "801e283bcd772066628bd15d1d952076f072bf4f6ba0bf574b096bd42f5a9981"
+APPROVED_CONFIG_SHA256 = "6f86fa7d91a0b469fbd9f657eedfe7de87a6934005054059fe246878ec52f104"
 
 
 def _pairs_no_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:

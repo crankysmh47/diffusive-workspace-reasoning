@@ -15,6 +15,11 @@ CONFIG_PATH = Path(__file__).parents[1] / "configs" / "tasks" / "constraint_prob
 class ProbeConfigV4Tests(unittest.TestCase):
     def test_approved_fixture_loads_with_registered_quota_shapes(self) -> None:
         config = load_probe_config(CONFIG_PATH)
+        self.assertEqual(config.raw_config["config_version"],
+                         "dwr-constraint-development-probe-v4-r2")
+        self.assertEqual(config.raw_config["producer_hash_paths"][-5:], (
+            "dwr/tasks/generator.py", "dwr/tasks/dataset.py", "dwr/tasks/verifier.py",
+            "dwr/tasks/__init__.py", "dwr/__init__.py"))
         self.assertEqual(config.root_seed, 20261007)
         self.assertEqual(config.source_profiles, (("eq",), ("neq",), ("add_mod",)))
         self.assertEqual(config.development_profiles,

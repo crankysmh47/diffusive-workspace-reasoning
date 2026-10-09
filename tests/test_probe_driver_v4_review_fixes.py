@@ -13,7 +13,7 @@ from test_probe_driver_v4 import (
     CONFIG, _fixed_semantic_fixture_provider, _fixture_task,
 )
 from dwr.tasks.audit_probe_v4 import (_public_projection, _verify_source_terminal_links,
-    audit_records, validate_accepted_record)
+    audit_records, validate_accepted_record, validate_outcome)
 from dwr.tasks.canonical import content_id, lineage_id, structure_signature
 from dwr.tasks.config_probe_v4 import load_probe_config
 from dwr.tasks.generator_probe_v4 import ProposalResult
@@ -254,7 +254,8 @@ class ProbeDriverV4ReviewFixTests(unittest.TestCase):
         state = ProbeState(self.config)
         source = {"commit": "a" * 40, "dirty": False,
                   "dirty_diff_sha256": hashlib.sha256(b"").hexdigest(), "checkout_root": "fixture"}
-        closure = {"status": "NO_GO_SOURCE_CLOSURE", "source_quota_closed": False,
+        closure = {"status": "NO_GO_SOURCE_CLOSURE", "source_attempts": 0,
+                   "source_quota_closed": False,
                    "source_quota_counts": _profile_maps(self.config, "source", state)[1],
                    "train_projection": None}
         targets = {p: _profile_maps(self.config, p, state)[0] for p in ("source", "development")}
@@ -297,7 +298,8 @@ class ProbeDriverV4ReviewFixTests(unittest.TestCase):
             "envelope_yield": 1000 / 1200, "groups_by_cell": {cell: 250 for cell in "ABCD"},
             "eligible_groups_by_cell": {cell: 250 for cell in "ABCD"},
             "four_cell_mass": {"numerator": 1000, "denominator": 1000, "fraction": 1.0}}
-        closure = {"status": "PASS_SOURCE_CLOSURE", "reason": None,
+        closure = {"status": "PASS_SOURCE_CLOSURE",
+            "source_attempts": 1000, "reason": None,
             "source_quota_closed": True, "source_quota_counts": source_counts,
             "source_quota_targets": source_targets, "train_projection": source_projection,
             "source_support": {"cells": source_projection["eligible_groups_by_cell"],
@@ -442,6 +444,7 @@ class ProbeDriverV4ReviewFixTests(unittest.TestCase):
         source_targets, empty_source = _profile_maps(self.config, "source", state)
         dev_targets, empty_dev = _profile_maps(self.config, "development", state)
         closure = {"status": "NO_GO_SOURCE_CLOSURE", "reason": "SOURCE_QUOTA_SHORTFALL",
+            "source_attempts": 0,
             "source_quota_closed": False, "source_quota_counts": empty_source,
             "source_quota_targets": source_targets, "train_projection": None,
             "source_support": None}
@@ -465,8 +468,97 @@ class ProbeDriverV4ReviewFixTests(unittest.TestCase):
         guard.check()
         report = _terminal_report(self.config, closure, replay, audit,
             "SOURCE_QUOTA_SHORTFALL", "NO_GO_PROPOSAL", guard, "e" * 64, "f" * 64, source)
+        with self.assertRaises(ValueError):
+            _verify_terminal_report(report, self.config, source, "e" * 64, "f" * 64,
+                                    closure, replay, audit)
+        closure["source_attempts"] = 30000
+        replay["partition_attempts"]["source"] = 30000
+        report = _terminal_report(self.config, closure, replay, audit,
+            "SOURCE_QUOTA_SHORTFALL", "NO_GO_PROPOSAL", guard, "e" * 64, "f" * 64, source)
         _verify_terminal_report(report, self.config, source, "e" * 64, "f" * 64,
                                 closure, replay, audit)
+
+    def test_unsupported_runtime_is_refused_before_initial_manifest_or_draw(self):
+        from dwr.tasks import probe_v4
+        with tempfile.TemporaryDirectory() as temp, \
+                patch.object(probe_v4.platform, "python_implementation", return_value="PyPy"), \
+                patch.object(probe_v4.platform, "python_version", return_value="3.13.0"):
+            output = Path(temp) / "unsupported-runtime"
+            with self.assertRaisesRegex(ValueError, "unsupported Python runtime"):
+                probe_v4._run_controller(CONFIG, output, ["synthetic-runtime-proof"],
+                    _fixture_policy=_FixturePolicy("unsupported-runtime"),
+                    _proposal_provider=lambda *args: self.fail("candidate draw was reached"))
+            self.assertFalse(output.exists())
+
+    def test_cli_records_effective_argv_and_uses_phase_neutral_failure_text(self):
+        import contextlib
+        import io
+        from dwr.tasks import probe_cli_v4
+        argv = ["--config", "chosen.json", "--mode", "development-probe", "--out", "chosen-out"]
+        with patch.object(probe_cli_v4, "run_probe", return_value=0) as run:
+            self.assertEqual(probe_cli_v4.main(argv), 0)
+        command = run.call_args.args[2]
+        self.assertEqual(command[-len(argv):], argv)
+        with patch.object(probe_cli_v4, "run_probe", side_effect=RuntimeError("private text")), \
+                contextlib.redirect_stderr(io.StringIO()) as stderr:
+            self.assertEqual(probe_cli_v4.main(argv), 1)
+        self.assertIn("probe invocation failed (RuntimeError)", stderr.getvalue())
+        self.assertNotIn("before candidate generation", stderr.getvalue())
+
+    def test_boolean_assignment_and_statistic_values_are_rejected(self):
+        policy = _FixturePolicy("strict-types")
+        state = ProbeState(self.config, _fixture_policy=policy)
+        outcome, record = consume_proposal(self.config, state, "source", 0,
+            ("eq",), "A", _proposal_provider=_fixed_semantic_fixture_provider)
+        self.assertIsNotNone(record)
+
+        for field, key, replacement in (("witness", "v0", False),
+                                        ("solution", "v0", False),
+                                        ("solver_stats", "uniqueness_solution_count_capped", True)):
+            malformed = copy.deepcopy(record)
+            malformed[field][key] = replacement
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                validate_accepted_record(malformed, self.config)
+
+        malformed_outcome = copy.deepcopy(outcome)
+        malformed_outcome["witness_or_null"]["v0"] = False
+        with self.assertRaises(ValueError):
+            validate_outcome(malformed_outcome)
+        malformed_outcome = copy.deepcopy(outcome)
+        malformed_outcome["oracle_solution_or_null"]["v0"] = False
+        with self.assertRaises(ValueError):
+            validate_outcome(malformed_outcome)
+        malformed_outcome = copy.deepcopy(outcome)
+        malformed_outcome["solver_stats_or_null"]["uniqueness_solution_count_capped"] = True
+        with self.assertRaises(ValueError):
+            validate_outcome(malformed_outcome)
+        malformed_outcome = copy.deepcopy(outcome)
+        malformed_outcome["private_eligibility_or_null"]["removal_solution_counts"][0] = True
+        with self.assertRaises(ValueError):
+            validate_outcome(malformed_outcome)
+        malformed_outcome = copy.deepcopy(outcome)
+        malformed_outcome["oracle_count_capped_or_null"] = True
+        with self.assertRaises(ValueError):
+            validate_outcome(malformed_outcome)
+        for field in ("task_or_null", "witness_or_null", "oracle_solution_or_null",
+                      "solver_stats_or_null", "private_eligibility_or_null"):
+            malformed_outcome = copy.deepcopy(outcome)
+            malformed_outcome[field] = None
+            with self.subTest(nullable_field=field), self.assertRaises(ValueError):
+                validate_outcome(malformed_outcome)
+
+    def test_deterministic_replay_uses_type_sensitive_nested_comparison(self):
+        from dwr.tasks.probe_v4 import ProbeFailure, replay_prefix
+        policy = _FixturePolicy("strict-replay-types")
+        state = ProbeState(self.config, _fixture_policy=policy)
+        outcome, record = consume_proposal(self.config, state, "source", 0,
+            ("eq",), "A", _proposal_provider=_fixed_semantic_fixture_provider)
+        malformed = copy.deepcopy(outcome)
+        malformed["witness_or_null"]["v0"] = False
+        with self.assertRaises(ProbeFailure) as caught:
+            replay_prefix(self.config, [malformed], [record], ResourceGuard(900, 1024),
+                _fixture_policy=policy, _proposal_provider=_fixed_semantic_fixture_provider)
+        self.assertEqual(caught.exception.reason, "outcome_mismatch")
 
     def test_terminal_source_links_reject_independent_count_projection_and_gate_mutations(self):
         state = ProbeState(self.config)

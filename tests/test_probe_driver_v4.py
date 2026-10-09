@@ -332,6 +332,10 @@ class ProbeDriverV4Tests(unittest.TestCase):
                 altered = copy.deepcopy(initial); altered[key] = value
                 initial_mutations.append((key, altered))
             altered = copy.deepcopy(initial)
+            altered["python"] = {"implementation": "PyPy", "version": "3.13.0",
+                                 "executable": "C:/unsupported/python.exe"}
+            initial_mutations.append(("unsupported-runtime", altered))
+            altered = copy.deepcopy(initial)
             altered["partitions"]["development"]["quota_targets"]["eq/neq"]["A"] += 1
             initial_mutations.append(("nested-development-target", altered))
             altered = copy.deepcopy(initial); altered["unknown"] = None

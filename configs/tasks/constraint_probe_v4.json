@@ -1,5 +1,5 @@
 {
-  "config_version": "dwr-constraint-development-probe-v4",
+  "config_version": "dwr-constraint-development-probe-v4-r2",
   "generator_id": "dwr-generator-v4-probe",
   "accepted_record_version": "dwr-v4-probe-accepted-record-v1",
   "artifact_versions": {
@@ -149,7 +149,12 @@
     "dwr/tasks/solver.py",
     "dwr/tasks/oracle.py",
     "dwr/tasks/audit.py",
-    "dwr/tasks/run_support.py"
+    "dwr/tasks/run_support.py",
+    "dwr/tasks/generator.py",
+    "dwr/tasks/dataset.py",
+    "dwr/tasks/verifier.py",
+    "dwr/tasks/__init__.py",
+    "dwr/__init__.py"
   ],
   "producer_identity_representation": "ordered-list-of-{path,sha256}-objects",
   "privacy": {

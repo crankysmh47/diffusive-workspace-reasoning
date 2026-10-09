@@ -20,6 +20,49 @@ GENERATOR_ID = "dwr-generator-v4-probe"
 _RECORD_KEYS = {"record_version", "generator_id", "partition", "candidate_index", "profile", "task",
                 "content_id", "lineage_id", "structure_signature", "split", "witness", "solution",
                 "solver_stats", "model_input", "model_input_sha256"}
+_ASSIGNMENT_KEYS = {f"v{i}" for i in range(6)}
+_SOLVER_STAT_KEYS = {"first_solution_nodes", "uniqueness_nodes", "uniqueness_solution_count_capped"}
+
+
+def _validate_assignment_payload(value: object, field: str) -> None:
+    if (not isinstance(value, dict) or set(value) != _ASSIGNMENT_KEYS or
+            any(type(item) is not int or item not in (0, 1, 2) for item in value.values())):
+        raise ValueError(f"{field} assignment payload is invalid")
+
+
+def _validate_solver_stats_payload(value: object, field: str) -> None:
+    if (not isinstance(value, dict) or set(value) != _SOLVER_STAT_KEYS or
+            any(type(item) is not int or item < 0 for item in value.values()) or
+            value["uniqueness_solution_count_capped"] not in (1, 2)):
+        raise ValueError(f"{field} solver statistics are invalid")
+
+
+def _validate_private_evidence(value: object) -> None:
+    if value is None:
+        return
+    if not isinstance(value, dict) or type(value.get("eligible")) is not bool:
+        raise ValueError("outcome private eligibility is malformed")
+    kind = value.get("kind")
+    if kind == "source":
+        counts = value.get("removal_solution_counts")
+        if (set(value) != {"kind", "eligible", "removal_solution_counts"} or type(counts) is not list or
+                any(type(item) is not int or not 0 <= item <= 729 for item in counts)):
+            raise ValueError("outcome source private eligibility is malformed")
+    elif kind == "mixed":
+        expected = {"kind", "eligible", "kinds", "kind_removal_solution_counts",
+                    "factor_graph_connected", "factor_graph_kinds", "all_present_kinds_in_graph", "reason"}
+        counts = value.get("kind_removal_solution_counts")
+        if (set(value) != expected or type(value.get("kinds")) is not list or
+                any(not isinstance(item, str) for item in value["kinds"]) or type(counts) is not list or
+                any(type(item) is not int or not 0 <= item <= 729 for item in counts) or
+                type(value.get("factor_graph_connected")) is not bool or
+                type(value.get("factor_graph_kinds")) is not list or
+                any(not isinstance(item, str) for item in value["factor_graph_kinds"]) or
+                type(value.get("all_present_kinds_in_graph")) is not bool or
+                (value.get("reason") is not None and not isinstance(value.get("reason"), str))):
+            raise ValueError("outcome mixed private eligibility is malformed")
+    else:
+        raise ValueError("outcome private eligibility kind is invalid")
 
 
 def _assignment(solution) -> dict[str, int]:
@@ -97,6 +140,9 @@ def validate_accepted_record(record: dict, config, *, interactions: bool = True)
     part = record["partition"]
     if part not in ("source", "development"):
         raise ValueError("accepted record partition invalid")
+    _validate_assignment_payload(record["witness"], "accepted record witness")
+    _validate_assignment_payload(record["solution"], "accepted record solution")
+    _validate_solver_stats_payload(record["solver_stats"], "accepted record")
     index = record["candidate_index"]
     if type(index) is not int or not 0 <= index < 2**64:
         raise ValueError("accepted record candidate index invalid")
@@ -123,13 +169,15 @@ def validate_accepted_record(record: dict, config, *, interactions: bool = True)
     if len(oracle.solutions) != 1:
         raise ValueError("accepted record is not independently oracle-unique")
     solution = oracle.solutions[0]
-    if record["solution"] != _assignment(solution) or record["witness"] != _assignment(solution):
+    solution_json = stable_json(_assignment(solution))
+    if (stable_json(record["solution"]) != solution_json or
+            stable_json(record["witness"]) != solution_json):
         raise ValueError("accepted record witness or solution mismatch")
     solved = solve(task)
     stats = {"first_solution_nodes": solved.stats.first_solution_nodes,
              "uniqueness_nodes": solved.stats.uniqueness_nodes,
              "uniqueness_solution_count_capped": solved.stats.uniqueness_solution_count_capped}
-    if record["solver_stats"] != stats:
+    if stable_json(record["solver_stats"]) != stable_json(stats):
         raise ValueError("accepted record solver statistics mismatch")
     model_input = serialize_model_input(task)
     if (record["model_input"] != model_input or
@@ -205,6 +253,18 @@ def validate_outcome(row: dict) -> None:
         raise ValueError("outcome state is invalid")
     if type(row["denominator_counted"]) is not bool:
         raise ValueError("outcome denominator flag is invalid")
+    for field in ("witness_or_null", "oracle_solution_or_null"):
+        if row[field] is not None:
+            _validate_assignment_payload(row[field], field)
+    if row["task_or_null"] is not None:
+        if not isinstance(row["task_or_null"], dict):
+            raise ValueError("outcome task payload must be an object or null")
+        task = parse_task_json(stable_json(row["task_or_null"]))
+        if stable_json(strict_json_loads(serialize_task(task))) != stable_json(row["task_or_null"]):
+            raise ValueError("outcome task payload is not canonical")
+    if row["solver_stats_or_null"] is not None:
+        _validate_solver_stats_payload(row["solver_stats_or_null"], "outcome")
+    _validate_private_evidence(row["private_eligibility_or_null"])
     reason_sets = {"rejected_proposal": {"no_source_eq_witness", "no_neq_witness",
             "no_feasible_constraint_vector", "no_feasible_neq_constraint_total"},
         "oracle_non_unique": {None}, "fatal_error": {"oracle_witness_disagreement", "solver_oracle_disagreement"},
@@ -226,11 +286,44 @@ def validate_outcome(row: dict) -> None:
         value = row[field]
         if value is not None and (not isinstance(value, str) or len(value) != 64 or any(c not in "0123456789abcdef" for c in value)):
             raise ValueError("outcome hash is malformed")
-    stats = row["solver_stats_or_null"]
-    if stats is not None:
-        keys = {"first_solution_nodes", "uniqueness_nodes", "uniqueness_solution_count_capped"}
-        if not isinstance(stats, dict) or set(stats) != keys or any(type(value) is not int or value < 0 for value in stats.values()):
-            raise ValueError("outcome solver statistics are invalid")
+    count = row["oracle_count_capped_or_null"]
+    if count is not None and count not in (0, 1, 2):
+        raise ValueError("outcome oracle count is outside the capped domain")
+    if count == 1 and not (row["state"] == "fatal_error" and
+                            row["reason"] == "solver_oracle_disagreement"):
+        for field in ("task_or_null", "witness_or_null", "oracle_solution_or_null", "solver_stats_or_null",
+                      "content_id_or_null", "lineage_id_or_null", "structure_signature_or_null",
+                      "split_or_null", "private_eligibility_or_null", "prompt_utf8_bytes_or_null",
+                      "prompt_byte_bin_or_null", "first_solution_node_bin_or_null"):
+            if row[field] is None:
+                raise ValueError("unique outcome lacks a required nested payload")
+    if row["state"] == "rejected_proposal":
+        expect_witness = row["reason"] in ("no_feasible_constraint_vector", "no_feasible_neq_constraint_total")
+        if (row["task_or_null"] is not None or (row["witness_or_null"] is not None) != expect_witness or
+                count is not None or any(row[field] is not None for field in (
+                    "oracle_solution_or_null", "solver_stats_or_null", "content_id_or_null",
+                    "lineage_id_or_null", "structure_signature_or_null", "split_or_null",
+                    "private_eligibility_or_null", "prompt_utf8_bytes_or_null", "prompt_byte_bin_or_null",
+                    "first_solution_node_bin_or_null", "quota_cell_count_after_or_null"))):
+            raise ValueError("proposal rejection has a state-incompatible nested payload")
+    elif row["state"] == "oracle_non_unique":
+        if (count != 2 or row["task_or_null"] is None or row["witness_or_null"] is None or
+                any(row[field] is not None for field in ("oracle_solution_or_null", "solver_stats_or_null",
+                    "content_id_or_null", "lineage_id_or_null", "structure_signature_or_null", "split_or_null",
+                    "private_eligibility_or_null", "prompt_utf8_bytes_or_null", "prompt_byte_bin_or_null",
+                    "first_solution_node_bin_or_null", "quota_cell_count_after_or_null"))):
+            raise ValueError("nonunique outcome has a state-incompatible nested payload")
+    elif row["state"] == "fatal_error":
+        if (count not in (0, 1) or row["task_or_null"] is None or row["witness_or_null"] is None or
+                any(row[field] is not None for field in ("oracle_solution_or_null", "solver_stats_or_null",
+                    "content_id_or_null", "lineage_id_or_null", "structure_signature_or_null", "split_or_null",
+                    "private_eligibility_or_null", "prompt_utf8_bytes_or_null", "prompt_byte_bin_or_null",
+                    "first_solution_node_bin_or_null", "quota_cell_count_after_or_null"))):
+            raise ValueError("fatal outcome has a state-incompatible nested payload")
+    elif row["state"] in ("duplicate_content", "scientifically_ineligible",
+                           "outside_registered_support_envelope", "retained_diagnostic", "accepted_for_quota"):
+        if count != 1:
+            raise ValueError("unique post-oracle outcome lacks a unique oracle count")
 
 
 def read_jsonl(path: Path, *, check=None) -> list[dict]:
@@ -301,16 +394,17 @@ def audit_records(records: list[dict], outcomes: list[dict], config, *, check=No
         first_seen_content.add(cid)
         first_seen_lineage.add(lid)
         oracle = enumerate_solutions(task)
-        if len(oracle.solutions) != 1 or _assignment(oracle.solutions[0]) != row["oracle_solution_or_null"]:
+        if (len(oracle.solutions) != 1 or
+                stable_json(_assignment(oracle.solutions[0])) != stable_json(row["oracle_solution_or_null"])):
             raise ValueError("unique outcome oracle claim mismatch")
         interaction = _independent_interaction_projection(task, part)
-        if row["private_eligibility_or_null"] != interaction:
+        if stable_json(row["private_eligibility_or_null"]) != stable_json(interaction):
             raise ValueError("unique outcome private eligibility evidence mismatch")
         solved = solve(task)
         stats = {"first_solution_nodes": solved.stats.first_solution_nodes,
                  "uniqueness_nodes": solved.stats.uniqueness_nodes,
                  "uniqueness_solution_count_capped": solved.stats.uniqueness_solution_count_capped}
-        if stats != row["solver_stats_or_null"]:
+        if stable_json(stats) != stable_json(row["solver_stats_or_null"]):
             raise ValueError("unique outcome solver claim mismatch")
         prompt = serialize_model_input(task)
         pbytes = len(prompt.encode("utf-8"))
@@ -352,7 +446,7 @@ def audit_records(records: list[dict], outcomes: list[dict], config, *, check=No
                     row["content_id_or_null"] != info["content_id"] or
                     row["structure_signature_or_null"] != info["signature"] or
                     row["lineage_id_or_null"] != info["lineage_id"] or
-                    row["oracle_solution_or_null"] != _assignment(info["solution"]) or
+                    stable_json(row["oracle_solution_or_null"]) != stable_json(_assignment(info["solution"])) or
                     stable_json(row["task_or_null"]) !=
                     stable_json(strict_json_loads(serialize_task(info["task"])))))):
             raise ValueError("accepted outcome identity does not match its record")

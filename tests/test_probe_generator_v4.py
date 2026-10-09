@@ -92,6 +92,10 @@ class ProbeGeneratorV4Tests(unittest.TestCase):
         )
         results = [propose_candidate(self.config, partition, index, (profile, cell))
                    for partition, index, profile, cell in cases]
+        from dataclasses import replace
+        unique = next(result for result in results if result.oracle_count_capped == 1)
+        with self.assertRaises(ValueError):
+            replace(unique, oracle_solution_or_null=None)
         self.assertTrue(all(type(result) is ProposalResult for result in results))
         self.assertEqual(tuple(ProposalResult.__dataclass_fields__), (
             "partition", "candidate_index", "profile", "stratum", "n", "g", "c",

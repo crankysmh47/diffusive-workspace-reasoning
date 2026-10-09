@@ -24,6 +24,7 @@ from .run_support import ResourceGuard, atomic_json, sha256_file, stable_json, s
 from .schema import serialize_model_input, serialize_task
 
 MANIFEST_VERSION = "dwr-v4-probe-manifest-v1"
+PROBE_ID = "dwr-constraint-development-probe-v4-r2"
 OUTCOME_VERSION = "dwr-v4-probe-outcome-v1"
 RECORD_VERSION = "dwr-v4-probe-accepted-record-v1"
 ARTIFACTS = tuple(("probe_manifest.initial.json", "outcomes.jsonl", "accepted_records.jsonl",
@@ -57,6 +58,15 @@ def _utc_timestamp(value) -> bool:
     except ValueError:
         return False
     return parsed.tzinfo is not None
+
+
+def _require_supported_runtime(implementation: str, version: str, allowed: tuple | list) -> None:
+    try:
+        major_minor = ".".join(version.split(".")[:2])
+    except (AttributeError, TypeError):
+        major_minor = ""
+    if implementation != "CPython" or major_minor not in allowed:
+        raise ValueError("unsupported Python runtime; CPython 3.11 or 3.12 is required")
 
 
 def _plain_profile(profile: tuple[str, ...]) -> list[str]:
@@ -399,7 +409,7 @@ def _initial_manifest(config: ProbeConfig, config_path: Path, output_dir: Path,
                          "quota_targets": quotas[part],
                          "quota_counts": {p: {c: 0 for c in _CELLS} for p in quotas[part]}}
                   for part in ("source", "development")}
-    return {"manifest_version": MANIFEST_VERSION, "probe_id": "dwr-constraint-development-probe-v4",
+    return {"manifest_version": MANIFEST_VERSION, "probe_id": PROBE_ID,
         "status": "running", "created_utc": datetime.now(timezone.utc).isoformat(),
         "finished_utc": None, "command": command, "cwd": str(Path.cwd()), "source": source,
         "python": {"implementation": platform.python_implementation(), "version": platform.python_version(),
@@ -452,7 +462,7 @@ def _verify_initial_binding(initial: dict, config: ProbeConfig, source: dict,
             any(set(item) != {"path", "sha256"} or not _is_sha256(item["sha256"])
                 for item in producer)):
         raise ValueError("producer identity shape or registered order mismatch")
-    if (initial["probe_id"] != "dwr-constraint-development-probe-v4" or
+    if (initial["probe_id"] != PROBE_ID or
             not _utc_timestamp(initial["created_utc"]) or initial["status"] != "running" or
             initial["finished_utc"] is not None or initial["error"] is not None or
             initial["exit_code"] is not None or initial["elapsed_wall_seconds"] is not None or
@@ -494,6 +504,8 @@ def _verify_initial_binding(initial: dict, config: ProbeConfig, source: dict,
             not isinstance(initial["output_dir"], str) or not Path(initial["output_dir"]).is_absolute() or
             initial["config_path"] != str(Path(config_path).resolve())):
         raise ValueError("initial manifest runtime or RNG binding malformed")
+    _require_supported_runtime(initial["python"]["implementation"], initial["python"]["version"],
+                              config.raw_config["rng"]["python_versions"])
     if set(initial["partitions"]) != {"source", "development"}:
         raise ValueError("initial manifest partition map mismatch")
     for part in ("source", "development"):
@@ -675,7 +687,9 @@ def _verify_source_closure(closure: dict, output: Path, config: ProbeConfig,
         raise ValueError("source closure identity mismatch")
     expected_targets = _profile_maps(config, "source", ProbeState(config, _fixture_policy=fixture_policy))[0]
     counts = closure["source_quota_counts"]
-    if (type(closure["source_attempts"]) is not int or closure["source_attempts"] < 0 or
+    attempt_limit = 30000 if fixture_policy is None else fixture_policy.max_attempts_per_partition
+    if (type(closure["source_attempts"]) is not int or
+            not 0 <= closure["source_attempts"] <= attempt_limit or
             closure["source_quota_targets"] != expected_targets or not isinstance(counts, dict) or
             set(counts) != set(expected_targets) or any(
                 not isinstance(counts[p], dict) or set(counts[p]) != set(_CELLS) or any(
@@ -735,6 +749,9 @@ def _verify_source_closure(closure: dict, output: Path, config: ProbeConfig,
             raise ValueError("source no-go reason is not registered")
         if closure["reason"] == "SOURCE_QUOTA_SHORTFALL" and closure["source_quota_closed"]:
             raise ValueError("source shortfall claims closed quotas")
+        if (closure["reason"] == "SOURCE_QUOTA_SHORTFALL" and
+                closure["source_attempts"] != attempt_limit):
+            raise ValueError("source quota shortfall did not exhaust the registered attempt cap")
         if closure["reason"] in ("SOURCE_TRAIN_FLOOR_FAILED", "SOURCE_SUPPORT_FAILED"):
             if projection is None or not closure["source_quota_closed"]:
                 raise ValueError("source floor no-go lacks complete assessed evidence")
@@ -1041,10 +1058,11 @@ def replay_prefix(config: ProbeConfig, outcomes: list[dict], expected_records: l
             # compare its retained outcome row, then let the terminal run stay
             # NOT_ASSESSED because the proposal stage failed closed.
             row, record = state.last_outcome, None
-        if row != expected:
+        if stable_json(row) != stable_json(expected):
             raise ProbeFailure("NOT_ASSESSED_REPLAY_MISMATCH", "replay", part, index, "outcome_mismatch")
         saved = record_by_key.get((part, index))
-        if record != saved:
+        if ((None if record is None else stable_json(record)) !=
+                (None if saved is None else stable_json(saved))):
             raise ProbeFailure("NOT_ASSESSED_REPLAY_MISMATCH", "replay", part, index, "accepted_record_mismatch")
     return state, hashlib.sha256(stable_json(_denominator_projection(state)).encode("utf-8")).hexdigest()
 
@@ -1155,6 +1173,9 @@ def _verify_terminal_report(report: dict, config: ProbeConfig, source: dict,
             report["replay_sha256"] != replay.get("artifact_sha256") or
             report["audit_sha256"] != audit.get("artifact_sha256")):
         raise ValueError("terminal report identity or artifact linkage mismatch")
+    if (type(closure.get("source_attempts")) is not int or
+            closure["source_attempts"] != replay.get("partition_attempts", {}).get("source")):
+        raise ValueError("terminal source attempts disagree between closure and replay")
     quota = report["quotas"]
     expected_dev_counts = replay["quota_counts"]["development"]
     expected_dev_closed = (replay["quota_closed"]["development"]
@@ -1334,10 +1355,15 @@ def _validate_terminal_acceptance(report: dict, closure: dict, replay: dict, aud
         source_pass = (closure.get("status") == "PASS_SOURCE_CLOSURE" and
                        closure.get("source_quota_closed") is True)
         replay_pass = replay.get("status") == "PASS_REPLAY"
-        if reason == "SOURCE_QUOTA_SHORTFALL" and not (
-                closure.get("status") == "NO_GO_SOURCE_CLOSURE" and
-                closure.get("reason") == reason and closure.get("source_quota_closed") is False):
-            raise ValueError("source quota no-go lacks source shortfall evidence")
+        attempt_limit = 30000 if fixture_policy is None else fixture_policy.max_attempts_per_partition
+        if reason == "SOURCE_QUOTA_SHORTFALL":
+            if not (closure.get("status") == "NO_GO_SOURCE_CLOSURE" and
+                    closure.get("reason") == reason and closure.get("source_quota_closed") is False):
+                raise ValueError("source quota no-go lacks source shortfall evidence")
+            if (closure.get("source_attempts") != attempt_limit or not replay_pass or
+                    replay.get("partition_attempts", {}).get("source") != attempt_limit or
+                    closure.get("source_attempts") != replay.get("partition_attempts", {}).get("source")):
+                raise ValueError("source quota no-go lacks cap-exhausted cross-bound attempts")
         if reason in ("SOURCE_TRAIN_FLOOR_FAILED", "SOURCE_SUPPORT_FAILED") and not (
                 closure.get("status") == "NO_GO_SOURCE_CLOSURE" and
                 closure.get("reason") == reason and closure.get("train_projection") is not None):
@@ -1347,10 +1373,12 @@ def _validate_terminal_acceptance(report: dict, closure: dict, replay: dict, aud
             if ((reason == "SOURCE_TRAIN_FLOOR_FAILED" and floor_pass) or
                     (reason == "SOURCE_SUPPORT_FAILED" and (not floor_pass or support_pass))):
                 raise ValueError("source no-go reason contradicts numeric floors")
-        if reason == "DEVELOPMENT_VALIDATION_QUOTA_SHORTFALL" and not (
-                source_pass and replay_pass and
-                not all(replay.get("quota_closed", {}).get("development", {}).values())):
-            raise ValueError("development quota no-go lacks replayed shortfall evidence")
+        if reason == "DEVELOPMENT_VALIDATION_QUOTA_SHORTFALL":
+            if not (source_pass and replay_pass and
+                    not all(replay.get("quota_closed", {}).get("development", {}).values())):
+                raise ValueError("development quota no-go lacks replayed shortfall evidence")
+            if replay.get("partition_attempts", {}).get("development") != attempt_limit:
+                raise ValueError("development quota no-go did not exhaust the registered attempt cap")
         if reason == "DEVELOPMENT_FLOOR_FAILED" and not (
                 source_pass and replay_pass and
                 all(replay.get("quota_closed", {}).get("development", {}).values()) and
@@ -1452,6 +1480,12 @@ def _verify_terminal_manifest(terminal: dict, initial: dict, config: ProbeConfig
                 (value["status"] == "complete" and not complete) or
                 (value["status"] == "quota_shortfall" and complete)):
             raise ValueError("terminal manifest partition status disagrees with its quota counts")
+    attempt_limit = 30000 if fixture_policy is None else fixture_policy.max_attempts_per_partition
+    if ((report["reason"] == "SOURCE_QUOTA_SHORTFALL" and
+            partitions["source"]["attempts"] != attempt_limit) or
+            (report["reason"] == "DEVELOPMENT_VALIDATION_QUOTA_SHORTFALL" and
+             partitions["development"]["attempts"] != attempt_limit)):
+        raise ValueError("terminal quota shortfall lacks cap-exhausted partition attempts")
     expected_status = {"PASS_DEVELOPMENT_PROPOSAL": ("complete", 0),
                        "NO_GO_PROPOSAL": ("scientific_no_go", 1),
                        "NOT_ASSESSED": ("not_assessed", 1),
@@ -1534,6 +1568,8 @@ def _run_controller_body(config_path: Path, output_dir: Path, command: list[str]
     """One guarded invocation; real candidates are only run by the separately reviewed CLI stage."""
     config_path = Path(config_path).resolve()
     config = load_probe_config(config_path)
+    _require_supported_runtime(platform.python_implementation(), platform.python_version(),
+                              config.raw_config["rng"]["python_versions"])
     output_dir = Path(output_dir).resolve()
     root = Path(__file__).resolve().parents[2]
     if _fixture_policy is None:

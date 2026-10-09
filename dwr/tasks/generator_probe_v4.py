@@ -138,9 +138,10 @@ class ProposalResult:
             if not _solution_satisfies_task(task, witness):
                 raise ValueError("private witness does not satisfy its task and givens")
             if self.oracle_count_capped_or_null == 1:
-                if (tuple(name for name, _ in self.oracle_solution_or_null.assignments) != expected_variables or
-                        self.oracle_solution_or_null != witness or
-                        not _solution_satisfies_task(task, self.oracle_solution_or_null)):
+                if (self.oracle_solution_or_null is None or
+                    tuple(name for name, _ in self.oracle_solution_or_null.assignments) != expected_variables or
+                    self.oracle_solution_or_null != witness or
+                    not _solution_satisfies_task(task, self.oracle_solution_or_null)):
                     raise ValueError("unique oracle solution must match the satisfying private witness")
         if self.oracle_count_capped_or_null == 2 and any(
                 value is not None for value in (self.oracle_solution_or_null, self.solver_stats_or_null,
