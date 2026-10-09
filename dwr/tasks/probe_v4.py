@@ -16,7 +16,7 @@ from typing import Any
 
 from .audit_probe_v4 import (AUDIT_VERSION, audit_records, read_jsonl,
                              validate_accepted_record)
-from .canonical import content_id, development_split, lineage_id, source_split, structure_signature
+from .canonical import content_id, development_split, source_split, structure_signature
 from .config_probe_v4 import ProbeConfig, load_probe_config
 from .generator_probe_v4 import (ProposalFatalError, ProposalResult,
                                  next_active_cell, propose_candidate)
@@ -42,6 +42,21 @@ _OUTCOME_KEYS = ("outcome_version", "partition", "candidate_index", "profile", "
 
 def _profile_key(profile: tuple[str, ...]) -> str:
     return "/".join(profile)
+
+
+def _is_sha256(value) -> bool:
+    return (isinstance(value, str) and len(value) == 64 and
+            all(character in "0123456789abcdef" for character in value))
+
+
+def _utc_timestamp(value) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None
 
 
 def _plain_profile(profile: tuple[str, ...]) -> list[str]:
@@ -265,7 +280,7 @@ def consume_proposal(config: ProbeConfig, state: ProbeState, partition: str, ind
 
     task = result.task
     cid = content_id(task)
-    lid = lineage_id(task)
+    lid = hashlib.sha256(b"dwr-lineage-v1\0" + cid.encode("ascii")).hexdigest()
     sid = structure_signature(task)
     split = source_split(cid) if partition == "source" else development_split(sid)
     model_input = serialize_model_input(task)
@@ -431,10 +446,15 @@ def _verify_initial_binding(initial: dict, config: ProbeConfig, source: dict,
     producer_paths = list(config.raw_config["producer_hash_paths"])
     if (not isinstance(producer, list) or len(producer) != len(producer_paths) or
             [item.get("path") if isinstance(item, dict) else None for item in producer] != producer_paths or
-            any(set(item) != {"path", "sha256"} or not isinstance(item["sha256"], str) or
-                len(item["sha256"]) != 64 for item in producer)):
+            any(set(item) != {"path", "sha256"} or not _is_sha256(item["sha256"])
+                for item in producer)):
         raise ValueError("producer identity shape or registered order mismatch")
-    if (initial["status"] != "running" or initial["finished_utc"] is not None or
+    if (initial["probe_id"] != "dwr-constraint-development-probe-v4" or
+            not _utc_timestamp(initial["created_utc"]) or initial["status"] != "running" or
+            initial["finished_utc"] is not None or initial["error"] is not None or
+            initial["exit_code"] is not None or initial["elapsed_wall_seconds"] is not None or
+            initial["cpu_seconds"] is not None or initial["peak_resident_bytes"] is not None or
+            initial["accounting_end_boundary"] is not None or
             initial["source"] != source or (fixture_policy is None and source.get("dirty") is not False) or
             initial["producer"] != producer or initial["config_sha256"] != config.config_sha256 or
             sha256_file(config_path) != config.config_sha256 or initial["seed"] != config.root_seed or
@@ -448,7 +468,9 @@ def _verify_initial_binding(initial: dict, config: ProbeConfig, source: dict,
             raise ValueError("initial manifest artifact declaration is malformed")
     expected_limits = {"max_attempts_per_partition": 30000 if fixture_policy is None else fixture_policy.max_attempts_per_partition, "workers": 1,
                        "active_wall_seconds": 900, "max_peak_rss_bytes": 1073741824}
-    if initial["limits"] != expected_limits:
+    if (not isinstance(initial["limits"], dict) or set(initial["limits"]) != set(expected_limits) or
+            any(type(initial["limits"][key]) is not int or initial["limits"][key] != value
+                for key, value in expected_limits.items())):
         raise ValueError("initial manifest resource limits mismatch")
     if (not isinstance(initial["python"], dict) or
             set(initial["python"]) != {"implementation", "version", "executable"} or
@@ -458,10 +480,16 @@ def _verify_initial_binding(initial: dict, config: ProbeConfig, source: dict,
             any(not isinstance(value, str) or not value for value in initial["platform"].values()) or
             not isinstance(initial["rng_identity"], dict) or
             set(initial["rng_identity"]) != {"generator_id", "seed_derivation", "seed_material", "root_seed"} or
-            initial["rng_identity"]["generator_id"] != config.generator_id or
-            initial["rng_identity"]["root_seed"] != config.root_seed or
+            initial["rng_identity"] != {"generator_id": config.generator_id,
+                "seed_derivation": "sha256-prefix64-v4",
+                "seed_material": config.raw_config["rng"]["material"],
+                "root_seed": config.root_seed} or
+            type(initial["seed"]) is not int or type(initial["rng_identity"]["root_seed"]) is not int or
             not isinstance(initial["command"], list) or
-            any(not isinstance(value, str) for value in initial["command"])):
+            not initial["command"] or any(not isinstance(value, str) for value in initial["command"]) or
+            not isinstance(initial["cwd"], str) or not Path(initial["cwd"]).is_absolute() or
+            not isinstance(initial["output_dir"], str) or not Path(initial["output_dir"]).is_absolute() or
+            initial["config_path"] != str(Path(config_path).resolve())):
         raise ValueError("initial manifest runtime or RNG binding malformed")
     if set(initial["partitions"]) != {"source", "development"}:
         raise ValueError("initial manifest partition map mismatch")
@@ -473,6 +501,8 @@ def _verify_initial_binding(initial: dict, config: ProbeConfig, source: dict,
                 {profile: {cell: 0 for cell in _CELLS} for profile in targets} or
                 type(item["attempts"]) is not int or item["attempts"] != 0 or item["status"] != "not_started"):
             raise ValueError("initial manifest nested partition binding mismatch")
+        if any(type(count) is not int for cells in item["quota_targets"].values() for count in cells.values()):
+            raise ValueError("initial manifest target values must be integers")
 
 
 def _prefix_sha256(path: Path, byte_count: int) -> str:
@@ -488,6 +518,107 @@ def _prefix_sha256(path: Path, byte_count: int) -> str:
             digest.update(chunk)
             remaining -= len(chunk)
     return digest.hexdigest()
+
+
+def _nonnegative_integer(value) -> bool:
+    return type(value) is int and value >= 0
+
+
+def _finite_number(value) -> bool:
+    return type(value) in (int, float) and math.isfinite(value)
+
+
+def _validate_source_projection(projection: dict) -> None:
+    fields = {"accepted_groups", "unique_oracle_groups", "structure_signatures", "profile_groups",
+        "solution_value_counts", "given_counts", "sensitive_groups", "sensitivity_fraction",
+        "eligible_envelope_groups", "envelope_yield", "groups_by_cell", "eligible_groups_by_cell",
+        "four_cell_mass"}
+    if not isinstance(projection, dict) or set(projection) != fields:
+        raise ValueError("source projection fields malformed")
+    for key in ("accepted_groups", "unique_oracle_groups", "structure_signatures", "sensitive_groups",
+                "eligible_envelope_groups"):
+        if not _nonnegative_integer(projection[key]):
+            raise ValueError("source projection count malformed")
+    if (projection["accepted_groups"] > projection["unique_oracle_groups"] or
+            projection["sensitive_groups"] > projection["unique_oracle_groups"] or
+            projection["eligible_envelope_groups"] > projection["sensitive_groups"]):
+        raise ValueError("source projection count relationship malformed")
+    for key, expected in (("profile_groups", {"eq", "neq", "add_mod"}),
+                          ("solution_value_counts", {"0", "1", "2"}),
+                          ("given_counts", {"2", "3"}),
+                          ("groups_by_cell", set(_CELLS)),
+                          ("eligible_groups_by_cell", set(_CELLS))):
+        value = projection[key]
+        if (not isinstance(value, dict) or set(value) != expected or
+                any(not _nonnegative_integer(count) for count in value.values())):
+            raise ValueError("source projection nested counts malformed")
+    mass = projection["four_cell_mass"]
+    if (not isinstance(mass, dict) or set(mass) != {"numerator", "denominator", "fraction"} or
+            not _nonnegative_integer(mass["numerator"]) or
+            not _nonnegative_integer(mass["denominator"]) or
+            not _finite_number(mass["fraction"]) or not 0 <= mass["fraction"] <= 1 or
+            (mass["denominator"] == 0 and mass["fraction"] != 0)):
+        raise ValueError("source projection mass malformed")
+    for key in ("sensitivity_fraction", "envelope_yield"):
+        if not _finite_number(projection[key]) or not 0 <= projection[key] <= 1:
+            raise ValueError("source projection fraction malformed")
+
+
+def _validate_profile_projection(value: dict) -> None:
+    fields = {"status", "eligible_groups", "unique_oracle_groups", "eligible_signatures",
+        "scientifically_eligible_groups", "scientific_eligibility_fraction",
+        "eligible_envelope_groups", "envelope_yield", "groups_by_cell", "eligible_groups_by_cell"}
+    if not isinstance(value, dict) or set(value) != fields or value["status"] not in (
+            "complete", "not_attempted", "not_assessed"):
+        raise ValueError("development profile projection fields/status malformed")
+    metrics = fields - {"status"}
+    if value["status"] != "complete":
+        if any(value[key] is not None for key in metrics):
+            raise ValueError("incomplete development projection carries metrics")
+        return
+    for key in ("eligible_groups", "unique_oracle_groups", "eligible_signatures",
+                "scientifically_eligible_groups", "eligible_envelope_groups"):
+        if not _nonnegative_integer(value[key]):
+            raise ValueError("development projection count malformed")
+    for key in ("scientific_eligibility_fraction", "envelope_yield"):
+        if not _finite_number(value[key]) or not 0 <= value[key] <= 1:
+            raise ValueError("development projection fraction malformed")
+    for key in ("groups_by_cell", "eligible_groups_by_cell"):
+        if (not isinstance(value[key], dict) or set(value[key]) != set(_CELLS) or
+                any(not _nonnegative_integer(count) for count in value[key].values())):
+            raise ValueError("development projection cell map malformed")
+
+
+def _validate_four_cohort_proxy(proxy: dict | None) -> None:
+    names = {"source_train_eligible", "development_validation_eq_neq_primary_eligible",
+             "development_validation_eq_add_mod_primary_eligible",
+             "development_validation_neq_add_mod_primary_eligible"}
+    if proxy is None:
+        return
+    if not isinstance(proxy, dict) or set(proxy) != {"cohorts", "pass"} or type(proxy["pass"]) is not bool:
+        raise ValueError("four-cohort proxy shape malformed")
+    cohorts = proxy["cohorts"]
+    if not isinstance(cohorts, dict) or set(cohorts) != names:
+        raise ValueError("four-cohort proxy cohort map malformed")
+    for cohort in cohorts.values():
+        if (not isinstance(cohort, dict) or set(cohort) != {"group_count", "groups_by_cell",
+                "common_cell_groups", "mass_fraction", "pass"} or
+                not _nonnegative_integer(cohort["group_count"]) or
+                type(cohort["pass"]) is not bool or not _finite_number(cohort["mass_fraction"]) or
+                not 0 <= cohort["mass_fraction"] <= 1 or
+                not isinstance(cohort["groups_by_cell"], dict) or
+                set(cohort["groups_by_cell"]) != set(_CELLS) or
+                any(not _nonnegative_integer(count) for count in cohort["groups_by_cell"].values()) or
+                not isinstance(cohort["common_cell_groups"], dict) or
+                not set(cohort["common_cell_groups"]).issubset(_CELLS) or
+                any(not _nonnegative_integer(count) for count in cohort["common_cell_groups"].values())):
+            raise ValueError("four-cohort proxy cohort values malformed")
+        expected_pass = bool(cohort["group_count"] and cohort["common_cell_groups"] and
+                             cohort["mass_fraction"] >= 0.8)
+        if cohort["pass"] is not expected_pass:
+            raise ValueError("four-cohort proxy pass flag disagrees with mass")
+    if proxy["pass"] is not all(cohort["pass"] for cohort in cohorts.values()):
+        raise ValueError("four-cohort aggregate pass disagrees with cohorts")
 
 
 def _verify_source_closure(closure: dict, output: Path, config: ProbeConfig,
@@ -518,18 +649,7 @@ def _verify_source_closure(closure: dict, output: Path, config: ProbeConfig,
         "eligible_envelope_groups", "envelope_yield", "groups_by_cell", "eligible_groups_by_cell",
         "four_cell_mass"}
     if projection is not None:
-        if (not isinstance(projection, dict) or set(projection) != projection_fields or
-                not isinstance(projection["profile_groups"], dict) or
-                set(projection["profile_groups"]) != {"eq", "neq", "add_mod"} or
-                not isinstance(projection["solution_value_counts"], dict) or
-                set(projection["solution_value_counts"]) != {"0", "1", "2"} or
-                not isinstance(projection["given_counts"], dict) or
-                set(projection["given_counts"]) != {"2", "3"} or
-                any(not isinstance(projection[key], dict) or set(projection[key]) != set(_CELLS)
-                    for key in ("groups_by_cell", "eligible_groups_by_cell")) or
-                not isinstance(projection["four_cell_mass"], dict) or
-                set(projection["four_cell_mass"]) != {"numerator", "denominator", "fraction"}):
-            raise ValueError("source closure train projection nested schema mismatch")
+        _validate_source_projection(projection)
     support = closure["source_support"]
     if support is not None and (not isinstance(support, dict) or set(support) != {"cells", "cell_min_pass", "mass_pass"} or
             not isinstance(support["cells"], dict) or set(support["cells"]) != set(_CELLS) or
@@ -548,6 +668,19 @@ def _verify_source_closure(closure: dict, output: Path, config: ProbeConfig,
     if (_prefix_sha256(output / "outcomes.jsonl", closure["outcome_prefix_bytes"]) != closure["outcome_prefix_sha256"] or
             _prefix_sha256(output / "accepted_records.jsonl", closure["record_prefix_bytes"]) != closure["record_prefix_sha256"]):
         raise ValueError("source closure prefix hash mismatch")
+    if closure["status"] == "PASS_SOURCE_CLOSURE":
+        if (closure["reason"] is not None or closure["source_quota_closed"] is not True or
+                counts != expected_targets or projection is None or support is None or
+                support["cell_min_pass"] is not True or support["mass_pass"] is not True):
+            raise ValueError("passing source closure lacks closed quotas, projection, or support")
+    elif closure["status"] == "NO_GO_SOURCE_CLOSURE":
+        if closure["reason"] not in ("SOURCE_QUOTA_SHORTFALL", "SOURCE_TRAIN_FLOOR_FAILED",
+                                      "SOURCE_SUPPORT_FAILED"):
+            raise ValueError("source no-go reason is not registered")
+        if closure["reason"] == "SOURCE_QUOTA_SHORTFALL" and closure["source_quota_closed"]:
+            raise ValueError("source shortfall claims closed quotas")
+    elif not isinstance(closure["reason"], str) or not closure["reason"]:
+        raise ValueError("unassessed source closure needs a typed reason")
 
 
 def _verify_replay_document(replay: dict, output: Path, config: ProbeConfig,
@@ -577,20 +710,40 @@ def _verify_replay_document(replay: dict, output: Path, config: ProbeConfig,
                     for cell in _CELLS) for profile in expected_counts_shape[part]) for part in expected_counts_shape)):
         raise ValueError("candidate replay quota counts nested shape mismatch")
     attempt_limit = 30000 if fixture_policy is None else fixture_policy.max_attempts_per_partition
-    if (set(replay["partition_attempts"]) != {"source", "development"} or any(
-            type(v) is not int or v < 0 or v > attempt_limit for v in replay["partition_attempts"].values()) or
-            set(replay["quota_closed"]) != {"source", "development"} or
-            type(replay["quota_closed"]["source"]) is not bool or
-            not isinstance(replay["quota_closed"]["development"], dict) or
-            set(replay["quota_closed"]["development"]) != set(expected_targets["development"]) or any(
-                type(v) is not bool for v in replay["quota_closed"]["development"].values())):
+    closed = replay["quota_closed"]
+    if (not isinstance(replay["partition_attempts"], dict) or
+            set(replay["partition_attempts"]) != {"source", "development"} or any(
+                type(v) is not int or v < 0 or v > attempt_limit for v in replay["partition_attempts"].values()) or
+            not isinstance(closed, dict) or set(closed) != {"source", "development"} or
+            (closed["source"] is not None and type(closed["source"]) is not bool) or
+            not isinstance(closed["development"], dict) or
+            set(closed["development"]) != set(expected_targets["development"]) or any(
+                value is not None and type(value) is not bool
+                for value in closed["development"].values())):
         raise ValueError("candidate replay partition accounting malformed")
-    if (_prefix_sha256(output / "outcomes.jsonl", replay["outcome_prefix_bytes"]) != replay["outcome_prefix_sha256"] or
-            _prefix_sha256(output / "accepted_records.jsonl", replay["record_prefix_bytes"]) != replay["record_prefix_sha256"]):
-        raise ValueError("candidate replay prefix hash mismatch")
-    if (not isinstance(replay["denominator_projection_sha256"], str) or
-            len(replay["denominator_projection_sha256"]) != 64):
+    prefixes = (("outcome_prefix_bytes", "outcome_prefix_sha256", "outcomes.jsonl"),
+                ("record_prefix_bytes", "record_prefix_sha256", "accepted_records.jsonl"))
+    for byte_key, hash_key, filename in prefixes:
+        byte_count, digest = replay[byte_key], replay[hash_key]
+        if byte_count is None or digest is None:
+            if byte_count is not None or digest is not None:
+                raise ValueError("candidate replay prefix byte/hash nullability mismatch")
+        elif (type(byte_count) is not int or byte_count < 0 or
+              not _is_sha256(digest) or
+              _prefix_sha256(output / filename, byte_count) != digest):
+            raise ValueError("candidate replay prefix hash mismatch")
+    denominator_digest = replay["denominator_projection_sha256"]
+    if denominator_digest is not None and not _is_sha256(denominator_digest):
         raise ValueError("candidate replay denominator digest is malformed")
+    if replay["status"] == "NOT_ASSESSED" and (
+            any(replay[key] is not None for pair in prefixes for key in pair[:2]) or
+            denominator_digest is not None or closed["source"] is not None or
+            any(value is not None for value in closed["development"].values())):
+        raise ValueError("unassessed replay must use null prefix, digest and closure values")
+    if replay["status"] == "PASS_REPLAY" and (
+            denominator_digest is None or any(replay[key] is None for pair in prefixes for key in pair[:2]) or
+            closed["source"] is None or any(value is None for value in closed["development"].values())):
+        raise ValueError("passing replay is missing completed closure evidence")
 
 
 def _verify_audit_document(audit: dict, output: Path, config: ProbeConfig,
@@ -605,15 +758,38 @@ def _verify_audit_document(audit: dict, output: Path, config: ProbeConfig,
         raise ValueError("independent audit identity mismatch")
     if audit["replay_sha256"] != sha256_file(output / "candidate_replay.json") or audit["source_closure_sha256"] != sha256_file(output / "source_closure.json"):
         raise ValueError("independent audit artifact linkage mismatch")
-    if set(audit["public_projection"]) != {"source_train", "development_validation_by_profile", "four_cohort_proxy"}:
+    projection = audit["public_projection"]
+    if (not isinstance(projection, dict) or
+            set(projection) != {"source_train", "development_validation_by_profile", "four_cohort_proxy"}):
         raise ValueError("independent audit public projection has wrong fields")
+    if projection["source_train"] is not None:
+        _validate_source_projection(projection["source_train"])
+    dev = projection["development_validation_by_profile"]
+    dev_keys = {_profile_key(profile) for profile in config.development_profiles}
+    if not isinstance(dev, dict) or set(dev) != dev_keys:
+        raise ValueError("independent audit development projection profile set mismatch")
+    for value in dev.values():
+        _validate_profile_projection(value)
+    _validate_four_cohort_proxy(projection["four_cohort_proxy"])
     integrity = audit["integrity"]
     if (not isinstance(integrity, dict) or set(integrity) != {"status", "failures"} or
+            integrity["status"] not in ("pass", "fail", "not_assessed") or
             not isinstance(integrity["failures"], list) or
+            any(not isinstance(code, str) or not code for code in integrity["failures"]) or
+            integrity["failures"] != sorted(set(integrity["failures"])) or
             (audit["status"] == "PASS_AUDIT" and
              (integrity["status"] != "pass" or integrity["failures"] != [])) or
-            (audit["status"] != "PASS_AUDIT" and integrity["status"] not in ("not_assessed", "fail"))):
+            (audit["status"] == "NO_GO_AUDIT" and
+             (integrity["status"] != "fail" or not integrity["failures"])) or
+            (audit["status"] == "NOT_ASSESSED" and integrity["status"] != "not_assessed")):
         raise ValueError("independent audit integrity/status mismatch")
+    resource = audit["resource_snapshot"]
+    if (not isinstance(resource, dict) or set(resource) != {"wall_seconds", "cpu_seconds", "peak_rss_bytes"} or
+            any(value is not None and (not _finite_number(value) or value < 0)
+                for value in resource.values())):
+        raise ValueError("independent audit resource snapshot malformed")
+    if audit["status"] == "PASS_AUDIT" and any(value is None for value in resource.values()):
+        raise ValueError("passing independent audit lacks resource accounting")
 
 
 def _ensure_failure_artifacts(output: Path, config: ProbeConfig, source: dict,
@@ -627,7 +803,8 @@ def _ensure_failure_artifacts(output: Path, config: ProbeConfig, source: dict,
     closure_path = output / ARTIFACTS[3]
     if not closure_path.exists():
         closure = _write_closure(output, config, manifest, state,
-                                 "NOT_ASSESSED", "NOT_ASSESSED_INCOMPLETE_STAGE", guard)
+                                 "NOT_ASSESSED", "NOT_ASSESSED_INCOMPLETE_STAGE", guard,
+                                 fixture_policy=state._fixture_policy)
         atomic_json(closure_path, closure)
     replay_path = output / ARTIFACTS[4]
     if not replay_path.exists():
@@ -635,26 +812,33 @@ def _ensure_failure_artifacts(output: Path, config: ProbeConfig, source: dict,
             "config_sha256": config.config_sha256, "source": source, "producer": producer,
             "partition_attempts": {part: manifest["partitions"][part]["attempts"]
                                    for part in ("source", "development")},
-            "outcome_prefix_bytes": outcomes_path.stat().st_size,
-            "outcome_prefix_sha256": sha256_file(outcomes_path),
-            "record_prefix_bytes": records_path.stat().st_size,
-            "record_prefix_sha256": sha256_file(records_path),
+            "outcome_prefix_bytes": None, "outcome_prefix_sha256": None,
+            "record_prefix_bytes": None, "record_prefix_sha256": None,
             "quota_targets": {part: _profile_maps(config, part, state)[0]
                               for part in ("source", "development")},
             "quota_counts": {part: _profile_maps(config, part, state)[1]
                              for part in ("source", "development")},
-            "quota_closed": {"source": state.partition_closed("source"),
-                "development": {_profile_key(p): state.partition_closed("development")
-                                 for p in state.profiles_for("development")}},
-            "denominator_projection_sha256": hashlib.sha256(b"").hexdigest()}
+            "quota_closed": {"source": None,
+                "development": {_profile_key(p): None for p in state.profiles_for("development")}},
+            "denominator_projection_sha256": None}
         atomic_json(replay_path, replay)
     audit_path = output / ARTIFACTS[5]
     if not audit_path.exists():
+        source_closure = strict_json_loads(closure_path.read_text(encoding="utf-8"))
+        dev_attempted = manifest["partitions"]["development"]["attempts"] > 0
+        dev_status = "not_assessed" if dev_attempted else "not_attempted"
+        dev_fields = {"status": dev_status, "eligible_groups": None,
+            "unique_oracle_groups": None, "eligible_signatures": None,
+            "scientifically_eligible_groups": None, "scientific_eligibility_fraction": None,
+            "eligible_envelope_groups": None, "envelope_yield": None,
+            "groups_by_cell": None, "eligible_groups_by_cell": None}
         audit = {"audit_version": AUDIT_VERSION, "status": "NOT_ASSESSED",
             "config_sha256": config.config_sha256, "source": source, "producer": producer,
             "replay_sha256": sha256_file(replay_path), "source_closure_sha256": sha256_file(closure_path),
-            "public_projection": {"source_train": None,
-                "development_validation_by_profile": None, "four_cohort_proxy": None},
+            "public_projection": {"source_train": source_closure["train_projection"],
+                "development_validation_by_profile": {
+                    _profile_key(profile): dict(dev_fields) for profile in state.profiles_for("development")},
+                "four_cohort_proxy": None},
             "integrity": {"status": "not_assessed", "failures": ["audit_not_completed"]},
             "resource_snapshot": {"wall_seconds": None, "cpu_seconds": None, "peak_rss_bytes": None}}
         atomic_json(audit_path, audit)
@@ -785,7 +969,7 @@ def replay_prefix(config: ProbeConfig, outcomes: list[dict], expected_records: l
 
 def _write_closure(output: Path, config: ProbeConfig, manifest: dict, state: ProbeState,
                    status: str, reason: str | None, guard: ResourceGuard,
-                   train_projection: dict | None = None) -> dict:
+                   train_projection: dict | None = None, fixture_policy=None) -> dict:
     outcomes_path, records_path = output / "outcomes.jsonl", output / "accepted_records.jsonl"
     source_attempts = manifest["partitions"]["source"]["attempts"]
     outcome_size = outcomes_path.stat().st_size
@@ -793,8 +977,14 @@ def _write_closure(output: Path, config: ProbeConfig, manifest: dict, state: Pro
     source_projection = train_projection
     support = None
     if source_projection is not None:
+        minimum_cell = 10 if fixture_policy is None else (1 if not fixture_policy.source_only else 0)
+        fixture_cell_pass = (source_projection["eligible_groups_by_cell"]["C"] >= 1
+                             if fixture_policy is not None and fixture_policy.source_only else
+                             all(source_projection["eligible_groups_by_cell"][c] >= minimum_cell
+                                 for c in _CELLS))
         support = {"cells": source_projection["eligible_groups_by_cell"],
-                   "cell_min_pass": all(source_projection["eligible_groups_by_cell"][c] >= 10 for c in _CELLS),
+                   "cell_min_pass": fixture_cell_pass if fixture_policy is not None else
+                       all(source_projection["eligible_groups_by_cell"][c] >= 10 for c in _CELLS),
                    "mass_pass": source_projection["four_cell_mass"]["fraction"] >= 0.8}
     return {"closure_version": "dwr-v4-source-closure-v1", "status": status, "reason": reason,
         "config_sha256": config.config_sha256, "source": manifest["source"], "producer": manifest["producer"],
@@ -839,13 +1029,14 @@ def _terminal_report(config: ProbeConfig, source_closure: dict, replay: dict, au
     proxy = projection.get("four_cohort_proxy")
     proxy_status = "not_assessed" if proxy is None else "pass" if proxy.get("pass") else "fail"
     quota_counts = replay.get("quota_counts", {})
-    development_attempted = replay.get("partition_attempts", {}).get("development", 0) > 0
     source_by_cell = {cell: sum(quota_counts.get("source", {}).get(_profile_key(p), {}).get(cell, 0)
                                 for p in config.source_profiles) for cell in _CELLS}
     source_closed = (None if source_closure["status"] == "NOT_ASSESSED"
                      else source_closure.get("source_quota_closed"))
-    dev_closed = (replay.get("quota_closed", {}).get("development", {}) if development_attempted else
-                  {_profile_key(profile): None for profile in config.development_profiles})
+    dev_closed = (replay.get("quota_closed", {}).get("development",
+        {_profile_key(profile): None for profile in config.development_profiles})
+        if source_closure["status"] == "PASS_SOURCE_CLOSURE" else
+        {_profile_key(profile): None for profile in config.development_profiles})
     return {"report_version": "dwr-v4-probe-report-v1", "status": status, "reason": reason,
         "config_sha256": config.config_sha256, "source": source_identity,
         "initial_manifest_sha256": initial_sha, "source_closure_sha256": closure_sha,
@@ -866,7 +1057,7 @@ def _terminal_report(config: ProbeConfig, source_closure: dict, replay: dict, au
 
 def _verify_terminal_report(report: dict, config: ProbeConfig, source: dict,
                             initial_sha: str, closure_sha: str, closure: dict, replay: dict,
-                            audit: dict) -> None:
+                            audit: dict, fixture_policy=None, error: dict | None = None) -> None:
     fields = {"report_version", "status", "reason", "config_sha256", "source",
         "initial_manifest_sha256", "source_closure_sha256", "replay_sha256", "audit_sha256",
         "quotas", "public_floors", "four_cohort_proxy", "resource_snapshot", "g2_status",
@@ -883,19 +1074,51 @@ def _verify_terminal_report(report: dict, config: ProbeConfig, source: dict,
             report["audit_sha256"] != audit.get("artifact_sha256")):
         raise ValueError("terminal report identity or artifact linkage mismatch")
     quota = report["quotas"]
-    development_attempted = replay.get("partition_attempts", {}).get("development", 0) > 0
     expected_dev_counts = replay["quota_counts"]["development"]
-    expected_dev_closed = (replay["quota_closed"]["development"] if development_attempted else
+    expected_dev_closed = (replay["quota_closed"]["development"]
+        if closure["status"] == "PASS_SOURCE_CLOSURE" else
         {_profile_key(profile): None for profile in config.development_profiles})
     expected_source_closed = (None if closure["status"] == "NOT_ASSESSED" else
                               closure["source_quota_closed"])
+    expected_source_by_cell = {cell: sum(closure["source_quota_counts"][profile][cell]
+                                         for profile in closure["source_quota_counts"])
+                               for cell in _CELLS}
     if (not isinstance(quota, dict) or set(quota) != {"source_by_profile_cell", "source_by_cell",
             "source_closed", "development_validation_by_profile_cell", "development_validation_closed"} or
             quota["source_by_profile_cell"] != closure["source_quota_counts"] or
+            quota["source_by_cell"] != expected_source_by_cell or
             quota["development_validation_by_profile_cell"] != expected_dev_counts or
             quota["source_closed"] != expected_source_closed or
             quota["development_validation_closed"] != expected_dev_closed):
         raise ValueError("terminal report nested quota accounting mismatch")
+    source_profile_keys = {_profile_key(profile) for profile in config.source_profiles}
+    for key, expected in (("source_by_profile_cell", source_profile_keys),):
+        value = quota[key]
+        if (not isinstance(value, dict) or set(value) != expected or any(
+                not isinstance(cells, dict) or set(cells) != set(_CELLS) or any(
+                    type(count) is not int or count < 0 for count in cells.values())
+                for cells in value.values())):
+            raise ValueError("terminal report source quota nested types malformed")
+    for key, expected_profiles in (("development_validation_by_profile_cell",
+                                    {_profile_key(profile) for profile in config.development_profiles}),):
+        value = quota[key]
+        if (not isinstance(value, dict) or set(value) != expected_profiles or any(
+                not isinstance(cells, dict) or set(cells) != set(_CELLS) or any(
+                    type(count) is not int or count < 0 for count in cells.values())
+                for cells in value.values())):
+            raise ValueError("terminal report development quota nested types malformed")
+    for key in ("source_closed",):
+        if quota[key] is not None and type(quota[key]) is not bool:
+            raise ValueError("terminal report source closure type malformed")
+    if (not isinstance(quota["development_validation_closed"], dict) or
+            set(quota["development_validation_closed"]) !=
+                {_profile_key(profile) for profile in config.development_profiles} or
+            any(value is not None and type(value) is not bool
+                for value in quota["development_validation_closed"].values())):
+        raise ValueError("terminal report development closure types malformed")
+    if (not isinstance(quota["source_by_cell"], dict) or set(quota["source_by_cell"]) != set(_CELLS) or
+            any(type(value) is not int or value < 0 for value in quota["source_by_cell"].values())):
+        raise ValueError("terminal report source cell quota types malformed")
     floors = report["public_floors"]
     dev_keys = {_profile_key(profile) for profile in config.development_profiles}
     if (not isinstance(floors, dict) or set(floors) != {"source_train", "development_validation_by_profile",
@@ -937,30 +1160,121 @@ def _verify_terminal_report(report: dict, config: ProbeConfig, source: dict,
                 for value in resource.values()) or report["g2_status"] != "not_assessed" or
             report["preflight_emitted"] is not False):
         raise ValueError("terminal report resource or gate status malformed")
+    _validate_terminal_acceptance(report, closure, replay, audit, error, fixture_policy)
+
+
+def _validate_terminal_acceptance(report: dict, closure: dict, replay: dict, audit: dict,
+                                  error: dict | None = None, fixture_policy=None) -> None:
+    status = report["status"]
+    if status in ("PASS_DEVELOPMENT_PROPOSAL", "FIXTURE_PASS"):
+        fixture = status == "FIXTURE_PASS"
+        if fixture != (fixture_policy is not None) or error is not None or report["reason"] is not None:
+            raise ValueError("terminal PASS has fixture or operational identity mismatch")
+        if (closure.get("status") != "PASS_SOURCE_CLOSURE" or
+                closure.get("source_quota_closed") is not True or
+                closure.get("source_quota_counts") != closure.get("source_quota_targets") or
+                closure.get("train_projection") is None or
+                not isinstance(closure.get("source_support"), dict) or
+                closure["source_support"].get("cell_min_pass") is not True or
+                closure["source_support"].get("mass_pass") is not True):
+            raise ValueError("terminal PASS lacks source closure/support evidence")
+        if (replay.get("status") != "PASS_REPLAY" or
+                replay.get("quota_closed", {}).get("source") is not True or
+                not all(value is True for value in replay.get("quota_closed", {}).get("development", {}).values()) or
+                replay.get("quota_counts", {}) != replay.get("quota_targets", {})):
+            raise ValueError("terminal PASS lacks complete replay/quota evidence")
+        projection = audit.get("public_projection", {})
+        dev = projection.get("development_validation_by_profile", {})
+        if (audit.get("status") != "PASS_AUDIT" or
+                audit.get("integrity", {}).get("status") != "pass" or
+                projection.get("source_train") != closure.get("train_projection") or
+                set(dev) != {"eq/neq", "eq/add_mod", "neq/add_mod"} or
+                any(value.get("status") != "complete" for value in dev.values()) or
+                projection.get("four_cohort_proxy") is None or
+                projection["four_cohort_proxy"].get("pass") is not True):
+            raise ValueError("terminal PASS lacks independent audit/proxy evidence")
+        if (report["public_floors"]["source_train"]["status"] != "pass" or
+                any(value["status"] != "pass" for value in
+                    report["public_floors"]["development_validation_by_profile"].values()) or
+                report["public_floors"]["four_cohort_proxy"]["status"] != "pass"):
+            raise ValueError("terminal PASS has a failed or unassessed public floor")
+        resource = report["resource_snapshot"]
+        if (resource["wall_seconds"] is None or resource["wall_seconds"] >= 900 or
+                resource["peak_rss_bytes"] is None or resource["peak_rss_bytes"] > 1073741824):
+            raise ValueError("terminal PASS exceeds or lacks registered resource accounting")
+    elif status == "NO_GO_PROPOSAL":
+        allowed = {"SOURCE_QUOTA_SHORTFALL", "SOURCE_TRAIN_FLOOR_FAILED", "SOURCE_SUPPORT_FAILED",
+                   "DEVELOPMENT_VALIDATION_QUOTA_SHORTFALL", "DEVELOPMENT_FLOOR_FAILED",
+                   "FOUR_COHORT_PROXY_FAILED"}
+        if error is not None or report["reason"] not in allowed:
+            raise ValueError("terminal scientific no-go has an operational cause or unknown reason")
+        reason = report["reason"]
+        source_pass = (closure.get("status") == "PASS_SOURCE_CLOSURE" and
+                       closure.get("source_quota_closed") is True)
+        replay_pass = replay.get("status") == "PASS_REPLAY"
+        if reason == "SOURCE_QUOTA_SHORTFALL" and not (
+                closure.get("status") == "NO_GO_SOURCE_CLOSURE" and
+                closure.get("reason") == reason and closure.get("source_quota_closed") is False):
+            raise ValueError("source quota no-go lacks source shortfall evidence")
+        if reason in ("SOURCE_TRAIN_FLOOR_FAILED", "SOURCE_SUPPORT_FAILED") and not (
+                closure.get("status") == "NO_GO_SOURCE_CLOSURE" and
+                closure.get("reason") == reason and closure.get("train_projection") is not None):
+            raise ValueError("source floor no-go lacks assessed source evidence")
+        if reason == "DEVELOPMENT_VALIDATION_QUOTA_SHORTFALL" and not (
+                source_pass and replay_pass and
+                not all(replay.get("quota_closed", {}).get("development", {}).values())):
+            raise ValueError("development quota no-go lacks replayed shortfall evidence")
+        if reason == "DEVELOPMENT_FLOOR_FAILED" and not (
+                source_pass and replay_pass and
+                all(replay.get("quota_closed", {}).get("development", {}).values()) and
+                any(floor["status"] == "fail" for floor in
+                    report["public_floors"]["development_validation_by_profile"].values())):
+            raise ValueError("development floor no-go lacks a failed assessed profile")
+        if reason == "FOUR_COHORT_PROXY_FAILED" and not (
+                source_pass and replay_pass and report["four_cohort_proxy"] is not None and
+                report["four_cohort_proxy"].get("pass") is False):
+            raise ValueError("proxy no-go lacks failed proxy evidence")
+    elif status == "NOT_ASSESSED":
+        allowed = {"NOT_ASSESSED_RESOURCE_CAP", "NOT_ASSESSED_IO_OR_SERIALIZATION_ERROR",
+                   "NOT_ASSESSED_SOLVER_OR_ORACLE_ERROR", "NOT_ASSESSED_REPLAY_MISMATCH",
+                   "NOT_ASSESSED_AUDIT_MISMATCH"}
+        if (report["reason"] not in allowed or error is None or
+                not isinstance(error, dict) or error.get("reason") != report["reason"] or
+                any(not isinstance(error.get(key), str) or not error[key]
+                    for key in ("type", "message", "phase"))):
+            raise ValueError("terminal operational result has an unregistered or mismatched cause")
 
 
 def _verify_terminal_manifest(terminal: dict, initial: dict, config: ProbeConfig,
-                              output: Path, replay: dict, report: dict) -> None:
+                              output: Path, replay: dict, report: dict,
+                              fixture_policy=None) -> None:
     fields = {"manifest_version", "probe_id", "status", "created_utc", "finished_utc", "command", "cwd",
         "source", "python", "platform", "config_path", "config_sha256", "resolved_config", "seed",
         "rng_identity", "producer", "limits", "output_dir", "partitions", "artifacts", "error",
         "exit_code", "elapsed_wall_seconds", "cpu_seconds", "peak_resident_bytes", "accounting_end_boundary"}
     if set(terminal) != fields or terminal.get("manifest_version") != MANIFEST_VERSION:
         raise ValueError("terminal manifest fields or version mismatch")
-    if (terminal["status"] not in ("complete", "scientific_no_go", "not_assessed") or
-            terminal["finished_utc"] is None or terminal["source"] != initial["source"] or
+    if (terminal["status"] not in ("complete", "scientific_no_go", "not_assessed", "fixture_complete") or
+            not _utc_timestamp(terminal["finished_utc"]) or terminal["source"] != initial["source"] or
             terminal["producer"] != initial["producer"] or terminal["config_sha256"] != config.config_sha256 or
             terminal["config_path"] != initial["config_path"] or terminal["output_dir"] != str(output.resolve()) or
             terminal["accounting_end_boundary"] != "post_first_terminal_write_resource_check"):
         raise ValueError("terminal manifest source/config/status binding mismatch")
-    if (not isinstance(terminal["finished_utc"], str) or type(terminal["exit_code"]) is not int or
+    if (type(terminal["exit_code"]) is not int or
             type(terminal["elapsed_wall_seconds"]) not in (int, float) or
             not math.isfinite(terminal["elapsed_wall_seconds"]) or terminal["elapsed_wall_seconds"] < 0 or
             type(terminal["cpu_seconds"]) not in (int, float) or not math.isfinite(terminal["cpu_seconds"]) or
             terminal["cpu_seconds"] < 0 or
             (terminal["peak_resident_bytes"] is not None and
              (type(terminal["peak_resident_bytes"]) is not int or terminal["peak_resident_bytes"] < 0)) or
-            terminal["error"] is not None and not isinstance(terminal["error"], dict)):
+            (terminal["error"] is not None and (not isinstance(terminal["error"], dict) or
+                set(terminal["error"]) != {"type", "message", "phase", "partition", "candidate_index", "reason"} or
+                any(not isinstance(terminal["error"][key], str) or not terminal["error"][key]
+                    for key in ("type", "message", "phase", "reason")) or
+                terminal["error"]["partition"] not in (None, "source", "development") or
+                (terminal["error"]["candidate_index"] is not None and
+                 (type(terminal["error"]["candidate_index"]) is not int or
+                  terminal["error"]["candidate_index"] < 0))))) :
         raise ValueError("terminal manifest accounting or error payload malformed")
     for key in ("probe_id", "created_utc", "command", "cwd", "python", "platform", "resolved_config",
                 "seed", "rng_identity", "limits"):
@@ -980,54 +1294,109 @@ def _verify_terminal_manifest(terminal: dict, initial: dict, config: ProbeConfig
         raise ValueError("terminal manifest partition set mismatch")
     for part in ("source", "development"):
         value = partitions[part]
-        if (set(value) != {"status", "attempts", "quota_targets", "quota_counts"} or
+        expected_targets = replay["quota_targets"][part]
+        expected_profiles = set(expected_targets)
+        if (not isinstance(value, dict) or set(value) != {"status", "attempts", "quota_targets", "quota_counts"} or
+                value["status"] not in ("not_started", "running", "complete", "quota_shortfall", "not_assessed") or
                 type(value["attempts"]) is not int or value["attempts"] != replay["partition_attempts"][part] or
                 value["quota_targets"] != replay["quota_targets"][part] or
-                value["quota_counts"] != replay["quota_counts"][part]):
+                value["quota_counts"] != replay["quota_counts"][part] or
+                not isinstance(value["quota_targets"], dict) or
+                set(value["quota_targets"]) != expected_profiles or
+                not isinstance(value["quota_counts"], dict) or
+                set(value["quota_counts"]) != expected_profiles or
+                any(not isinstance(value["quota_targets"][profile], dict) or
+                    set(value["quota_targets"][profile]) != set(_CELLS) or
+                    not isinstance(value["quota_counts"][profile], dict) or
+                    set(value["quota_counts"][profile]) != set(_CELLS) or
+                    any(type(value["quota_targets"][profile][cell]) is not int or
+                        value["quota_targets"][profile][cell] <= 0 or
+                        type(value["quota_counts"][profile][cell]) is not int or
+                        not 0 <= value["quota_counts"][profile][cell] <=
+                            value["quota_targets"][profile][cell]
+                        for cell in _CELLS) for profile in expected_profiles) or
+                value["status"] == "running"):
             raise ValueError("terminal manifest partition accounting differs from replay")
+        complete = all(value["quota_counts"][profile][cell] == value["quota_targets"][profile][cell]
+                       for profile in expected_profiles for cell in _CELLS)
+        if ((value["status"] == "not_started" and
+             (value["attempts"] != 0 or any(value["quota_counts"][profile][cell] != 0
+                                             for profile in expected_profiles for cell in _CELLS))) or
+                (value["status"] == "complete" and not complete) or
+                (value["status"] == "quota_shortfall" and complete)):
+            raise ValueError("terminal manifest partition status disagrees with its quota counts")
     expected_status = {"PASS_DEVELOPMENT_PROPOSAL": ("complete", 0),
                        "NO_GO_PROPOSAL": ("scientific_no_go", 1),
-                       "NOT_ASSESSED": ("not_assessed", 1)}.get(report["status"])
+                       "NOT_ASSESSED": ("not_assessed", 1),
+                       "FIXTURE_PASS": ("fixture_complete", 0)}.get(report["status"])
     if expected_status is None or (terminal["status"], terminal["exit_code"]) != expected_status:
         raise ValueError("terminal manifest status disagrees with final report")
+    if ((report["status"] == "FIXTURE_PASS" and fixture_policy is None) or
+            (report["status"] == "PASS_DEVELOPMENT_PROPOSAL" and fixture_policy is not None) or
+            (report["status"] == "NOT_ASSESSED" and
+             (terminal["error"] is None or terminal["error"]["reason"] != report["reason"])) or
+            (report["status"] != "NOT_ASSESSED" and terminal["error"] is not None) or
+            (report["status"] in ("PASS_DEVELOPMENT_PROPOSAL", "FIXTURE_PASS") and
+             any(partitions[part]["status"] != "complete" for part in ("source", "development"))) or
+            (report["status"] == "NOT_ASSESSED" and terminal["exit_code"] != 1)):
+        raise ValueError("terminal manifest error and report decision disagree")
 
 
 def _not_assessed_report(config: ProbeConfig, source: dict, initial_path: Path,
                          closure_path: Path, guard: ResourceGuard, reason: str,
                          state: ProbeState, development_attempts: int = 0) -> dict:
     closure = strict_json_loads(closure_path.read_text(encoding="utf-8")) if closure_path.exists() else None
+    audit_path = initial_path.parent / ARTIFACTS[5]
+    audit = strict_json_loads(audit_path.read_text(encoding="utf-8")) if audit_path.exists() else None
+    replay_path = initial_path.parent / ARTIFACTS[4]
+    replay = strict_json_loads(replay_path.read_text(encoding="utf-8")) if replay_path.exists() else None
     source_values = closure.get("train_projection") if closure else None
     source_status = ("pass" if closure and closure.get("status") == "PASS_SOURCE_CLOSURE" else
                      "fail" if source_values is not None else "not_assessed")
-    dev_status = "not_assessed" if development_attempts else "not_attempted"
-    dev = {_profile_key(p): {"status": dev_status, "values": None}
-           for p in config.development_profiles}
+    dev_projection = (audit.get("public_projection", {}).get("development_validation_by_profile", {})
+                     if audit is not None else {})
+    derived_floors = _development_floors(state, dev_projection) if dev_projection else {}
+    dev = {}
+    for profile in config.development_profiles:
+        key = _profile_key(profile)
+        metric = dev_projection.get(key)
+        if metric is not None and metric.get("status") == "complete":
+            dev[key] = {"status": derived_floors.get(key, "not_assessed"), "values": metric}
+        elif not development_attempts:
+            dev[key] = {"status": "not_attempted", "values": None}
+        else:
+            status = "not_attempted" if metric is not None and metric.get("status") == "not_attempted" else "not_assessed"
+            dev[key] = {"status": status, "values": None}
+    proxy = audit.get("public_projection", {}).get("four_cohort_proxy") if audit is not None else None
+    proxy_status = "not_assessed" if proxy is None else "pass" if proxy.get("pass") else "fail"
     _, source_counts = _profile_maps(config, "source", state)
     _, dev_counts = _profile_maps(config, "development", state)
     return {"report_version": "dwr-v4-probe-report-v1", "status": "NOT_ASSESSED", "reason": reason,
         "config_sha256": config.config_sha256, "source": source,
         "initial_manifest_sha256": sha256_file(initial_path),
         "source_closure_sha256": sha256_file(closure_path) if closure_path.exists() else None,
-        "replay_sha256": None, "audit_sha256": None,
+        "replay_sha256": sha256_file(replay_path) if replay_path.exists() else None,
+        "audit_sha256": sha256_file(audit_path) if audit_path.exists() else None,
         "quotas": {"source_by_profile_cell": source_counts,
         "source_by_cell": {c: sum(source_counts[_profile_key(p)][c] for p in state.profiles_for("source")) for c in _CELLS},
             "source_closed": None if closure is None or closure.get("status") == "NOT_ASSESSED" else closure.get("source_quota_closed"),
             "development_validation_by_profile_cell": dev_counts,
-            "development_validation_closed": ({_profile_key(p): all(
-                state.quota_counts["development"].get(p, {}).get(cell, 0) == state.quota_for("development", p, cell)
-                for cell in _CELLS) for p in config.development_profiles} if development_attempts else
+            "development_validation_closed": (replay["quota_closed"]["development"]
+                if replay is not None and replay.get("status") == "PASS_REPLAY" and
+                   closure is not None and closure.get("status") == "PASS_SOURCE_CLOSURE" else
                 {_profile_key(p): None for p in config.development_profiles})},
         "public_floors": {"source_train": {"status": source_status,
                 "values": source_values if source_status in ("pass", "fail") else None},
             "development_validation_by_profile": dev,
-            "four_cohort_proxy": {"status": "not_assessed", "values": None}},
-        "four_cohort_proxy": None, "resource_snapshot": _resource_snapshot(guard),
+            "four_cohort_proxy": {"status": proxy_status,
+                                  "values": proxy if proxy_status in ("pass", "fail") else None}},
+        "four_cohort_proxy": proxy, "resource_snapshot": _resource_snapshot(guard),
         "g2_status": "not_assessed", "preflight_emitted": False}
 
 
-def _run_controller(config_path: Path, output_dir: Path, command: list[str] | None = None,
-                    *, guard: ResourceGuard | None = None, _fixture_policy=None,
-                    _proposal_provider=None) -> int:
+def _run_controller_body(config_path: Path, output_dir: Path, command: list[str] | None = None,
+                         *, guard: ResourceGuard | None = None, _fixture_policy=None,
+                         _proposal_provider=None) -> int:
     """One guarded invocation; real candidates are only run by the separately reviewed CLI stage."""
     config_path = Path(config_path).resolve()
     config = load_probe_config(config_path)
@@ -1099,7 +1468,7 @@ def _run_controller(config_path: Path, output_dir: Path, command: list[str] | No
                         source_status = "PASS_SOURCE_CLOSURE"
                 source_closure = _write_closure(output_dir, config, initial, state,
                     source_status, reason if source_status != "PASS_SOURCE_CLOSURE" else None, guard,
-                    projection if source_status_stage == "complete" else None)
+                    projection if source_status_stage == "complete" else None, _fixture_policy)
                 atomic_json(output_dir / ARTIFACTS[3], source_closure)
                 _verify_source_closure(strict_json_loads((output_dir / ARTIFACTS[3]).read_text(encoding="utf-8")),
                                        output_dir, config, source, producer, _fixture_policy)
@@ -1115,25 +1484,39 @@ def _run_controller(config_path: Path, output_dir: Path, command: list[str] | No
                 reason = exc.code
                 if exc.partition in initial["partitions"]:
                     initial["partitions"][exc.partition]["status"] = "not_assessed"
-                error = {"type": type(exc).__name__, "message": exc.code, "phase": exc.phase,
-                    "partition": exc.partition, "candidate_index": exc.candidate_index, "reason": exc.reason}
+                if error is None:
+                    error = {"type": type(exc).__name__, "message": exc.reason or exc.code,
+                        "phase": exc.phase, "partition": exc.partition,
+                        "candidate_index": exc.candidate_index, "reason": exc.code}
                 if not (output_dir / ARTIFACTS[3]).exists():
-                    source_closure = _write_closure(output_dir, config, initial, state, "NOT_ASSESSED", reason, guard)
+                    source_closure = _write_closure(output_dir, config, initial, state, "NOT_ASSESSED", reason, guard,
+                                                    fixture_policy=_fixture_policy)
                     atomic_json(output_dir / ARTIFACTS[3], source_closure)
+            except ProposalFatalError as exc:
+                for part in initial["partitions"].values():
+                    if part["status"] == "running":
+                        part["status"] = "not_assessed"
+                reason = "NOT_ASSESSED_SOLVER_OR_ORACLE_ERROR"
+                context = exc.context
+                error = {"type": type(exc).__name__, "message": reason, "phase": "generation",
+                    "partition": context.partition, "candidate_index": context.candidate_index,
+                    "reason": reason}
             except (TimeoutError, MemoryError, RuntimeError) as exc:
                 for part in initial["partitions"].values():
                     if part["status"] == "running":
                         part["status"] = "not_assessed"
                 reason = "NOT_ASSESSED_RESOURCE_CAP" if isinstance(exc, (TimeoutError, MemoryError)) else "NOT_ASSESSED_RESOURCE_CAP"
-                error = {"type": type(exc).__name__, "message": reason, "phase": "generation",
-                         "partition": None, "candidate_index": None, "reason": reason}
+                if error is None:
+                    error = {"type": type(exc).__name__, "message": reason, "phase": "generation",
+                             "partition": None, "candidate_index": None, "reason": reason}
             except Exception as exc:
                 for part in initial["partitions"].values():
                     if part["status"] == "running":
                         part["status"] = "not_assessed"
                 reason = "NOT_ASSESSED_IO_OR_SERIALIZATION_ERROR"
-                error = {"type": type(exc).__name__, "message": reason, "phase": "generation",
-                         "partition": None, "candidate_index": None, "reason": reason}
+                if error is None:
+                    error = {"type": type(exc).__name__, "message": reason, "phase": "generation",
+                             "partition": None, "candidate_index": None, "reason": reason}
     except Exception as exc:
         reason = "NOT_ASSESSED_IO_OR_SERIALIZATION_ERROR"
         error = {"type": type(exc).__name__, "message": reason, "phase": "artifact_open",
@@ -1141,7 +1524,7 @@ def _run_controller(config_path: Path, output_dir: Path, command: list[str] | No
 
     if not (output_dir / ARTIFACTS[3]).exists() and outcomes_path.exists() and records_path.exists():
         source_closure = _write_closure(output_dir, config, initial, state,
-                                        "NOT_ASSESSED", reason, guard)
+                                        "NOT_ASSESSED", reason, guard, fixture_policy=_fixture_policy)
         atomic_json(output_dir / ARTIFACTS[3], source_closure)
 
     try:
@@ -1195,6 +1578,9 @@ def _run_controller(config_path: Path, output_dir: Path, command: list[str] | No
                 reason, report_status = None, "PASS_DEVELOPMENT_PROPOSAL"
             if _fixture_policy is not None and report_status == "PASS_DEVELOPMENT_PROPOSAL":
                 report_status = "FIXTURE_PASS"
+        if error is not None:
+            report_status = "NOT_ASSESSED"
+            reason = error["reason"]
         initial_sha = sha256_file(initial_path)
         closure_sha = sha256_file(output_dir / ARTIFACTS[3])
         report = _terminal_report(config, source_closure,
@@ -1204,34 +1590,40 @@ def _run_controller(config_path: Path, output_dir: Path, command: list[str] | No
             profile_status if source_status == "PASS_SOURCE_CLOSURE" and replayed.partition_closed("development") else None)
         _verify_terminal_report(report, config, initial["source"], initial_sha, closure_sha,
             source_closure, {**replay_doc, "artifact_sha256": replay_ref["sha256"]},
-            {**audit_doc, "artifact_sha256": audit_ref["sha256"]})
+            {**audit_doc, "artifact_sha256": audit_ref["sha256"]}, _fixture_policy, error)
         atomic_json(output_dir / ARTIFACTS[6], report)
     except ProbeFailure as exc:
         reason, report_status = exc.code, "NOT_ASSESSED"
-        error = {"type": type(exc).__name__, "message": reason, "phase": "replay_audit_finalization",
-                 "partition": None, "candidate_index": None, "reason": reason}
+        if error is None:
+            error = {"type": type(exc).__name__, "message": reason, "phase": "replay_audit_finalization",
+                     "partition": None, "candidate_index": None, "reason": reason}
         if not (output_dir / ARTIFACTS[3]).exists():
-            source_closure = _write_closure(output_dir, config, initial, state, "NOT_ASSESSED", reason, guard)
+            source_closure = _write_closure(output_dir, config, initial, state, "NOT_ASSESSED", reason, guard,
+                                            fixture_policy=_fixture_policy)
             atomic_json(output_dir / ARTIFACTS[3], source_closure)
         atomic_json(output_dir / ARTIFACTS[6], _not_assessed_report(
             config, initial["source"], initial_path, output_dir / ARTIFACTS[3], guard, reason, state,
             initial["partitions"]["development"]["attempts"]))
     except (TimeoutError, MemoryError, RuntimeError) as exc:
         reason, report_status = "NOT_ASSESSED_RESOURCE_CAP", "NOT_ASSESSED"
-        error = {"type": type(exc).__name__, "message": reason, "phase": "replay_audit_finalization",
-                 "partition": None, "candidate_index": None, "reason": reason}
+        if error is None:
+            error = {"type": type(exc).__name__, "message": reason, "phase": "replay_audit_finalization",
+                     "partition": None, "candidate_index": None, "reason": reason}
         if not (output_dir / ARTIFACTS[3]).exists():
-            source_closure = _write_closure(output_dir, config, initial, state, "NOT_ASSESSED", reason, guard)
+            source_closure = _write_closure(output_dir, config, initial, state, "NOT_ASSESSED", reason, guard,
+                                            fixture_policy=_fixture_policy)
             atomic_json(output_dir / ARTIFACTS[3], source_closure)
         atomic_json(output_dir / ARTIFACTS[6], _not_assessed_report(
             config, initial["source"], initial_path, output_dir / ARTIFACTS[3], guard, reason, state,
             initial["partitions"]["development"]["attempts"]))
     except Exception as exc:
         reason, report_status = "NOT_ASSESSED_AUDIT_MISMATCH", "NOT_ASSESSED"
-        error = {"type": type(exc).__name__, "message": reason, "phase": "replay_audit_finalization",
-                 "partition": None, "candidate_index": None, "reason": reason}
+        if error is None:
+            error = {"type": type(exc).__name__, "message": reason, "phase": "replay_audit_finalization",
+                     "partition": None, "candidate_index": None, "reason": reason}
         if not (output_dir / ARTIFACTS[3]).exists():
-            source_closure = _write_closure(output_dir, config, initial, state, "NOT_ASSESSED", reason, guard)
+            source_closure = _write_closure(output_dir, config, initial, state, "NOT_ASSESSED", reason, guard,
+                                            fixture_policy=_fixture_policy)
             atomic_json(output_dir / ARTIFACTS[3], source_closure)
         atomic_json(output_dir / ARTIFACTS[6], _not_assessed_report(
             config, initial["source"], initial_path, output_dir / ARTIFACTS[3], guard, reason, state,
@@ -1246,16 +1638,23 @@ def _run_controller(config_path: Path, output_dir: Path, command: list[str] | No
         _verify_audit_document(audit_doc, output_dir, config, initial["source"], producer)
         report_path = output_dir / ARTIFACTS[6]
         report = strict_json_loads(report_path.read_text(encoding="utf-8"))
-        if report["replay_sha256"] is None:
-            report["replay_sha256"] = sha256_file(replay_path)
-        if report["audit_sha256"] is None:
-            report["audit_sha256"] = sha256_file(audit_path)
+        if report_status == "NOT_ASSESSED":
+            report = _not_assessed_report(config, initial["source"], initial_path,
+                output_dir / ARTIFACTS[3], guard, reason, state,
+                initial["partitions"]["development"]["attempts"])
+        report["replay_sha256"] = sha256_file(replay_path)
+        report["audit_sha256"] = sha256_file(audit_path)
         atomic_json(report_path, report)
     except Exception as exc:
         report_status = "NOT_ASSESSED"
         reason = "NOT_ASSESSED_IO_OR_SERIALIZATION_ERROR"
-        error = {"type": type(exc).__name__, "message": reason, "phase": "failure_artifact_flush",
-                 "partition": None, "candidate_index": None, "reason": reason}
+        if error is None:
+            error = {"type": type(exc).__name__, "message": reason, "phase": "failure_artifact_flush",
+                     "partition": None, "candidate_index": None, "reason": reason}
+
+    if error is not None:
+        report_status = "NOT_ASSESSED"
+        reason = error["reason"]
 
     elapsed = guard.elapsed
     current_cpu = max(0.0, time.process_time() - cpu_started)
@@ -1276,30 +1675,152 @@ def _run_controller(config_path: Path, output_dir: Path, command: list[str] | No
     guard.check()
     terminal_path = output_dir / ARTIFACTS[-1]
     atomic_json(terminal_path, initial)
+    terminal_replay = strict_json_loads((output_dir / ARTIFACTS[4]).read_text(encoding="utf-8"))
+    terminal_report = strict_json_loads((output_dir / ARTIFACTS[6]).read_text(encoding="utf-8"))
+    _verify_terminal_manifest(strict_json_loads(terminal_path.read_text(encoding="utf-8")),
+        strict_json_loads(initial_path.read_text(encoding="utf-8")), config, output_dir,
+        terminal_replay, terminal_report, _fixture_policy)
     try:
         guard.check()
     except (TimeoutError, MemoryError, RuntimeError):
+        report_status = "NOT_ASSESSED"
+        reason = "NOT_ASSESSED_RESOURCE_CAP"
+        error = {"type": "ResourceCap", "message": reason,
+            "phase": "post_terminal_write", "partition": None,
+            "candidate_index": None, "reason": reason}
         initial["status"] = "not_assessed"
         initial["exit_code"] = 1
-        initial["error"] = {"type": "ResourceCap", "message": "NOT_ASSESSED_RESOURCE_CAP",
-            "phase": "post_terminal_write", "partition": None, "candidate_index": None,
-            "reason": "NOT_ASSESSED_RESOURCE_CAP"}
+        initial["error"] = error
         # One bounded accounting/status flush; the guard is not reset.
         revoked = strict_json_loads((output_dir / ARTIFACTS[6]).read_text(encoding="utf-8"))
         revoked["status"] = "NOT_ASSESSED"
         revoked["reason"] = "NOT_ASSESSED_RESOURCE_CAP"
-        revoked["public_floors"] = {
-            "source_train": {"status": "not_assessed", "values": None},
-            "development_validation_by_profile": {
-                key: {"status": "not_assessed", "values": None}
-                for key in revoked["public_floors"]["development_validation_by_profile"]},
-            "four_cohort_proxy": {"status": "not_assessed", "values": None}}
-        revoked["four_cohort_proxy"] = None
         revoked["g2_status"] = "not_assessed"
+        boundary = _resource_snapshot(guard)
+        revoked["resource_snapshot"] = boundary
         atomic_json(output_dir / ARTIFACTS[6], revoked)
         initial["artifacts"][ARTIFACTS[6]] = _artifact_ref(output_dir / ARTIFACTS[6])
+        initial["finished_utc"] = datetime.now(timezone.utc).isoformat()
+        initial["elapsed_wall_seconds"] = boundary["wall_seconds"]
+        initial["cpu_seconds"] = boundary["cpu_seconds"]
+        initial["peak_resident_bytes"] = boundary["peak_rss_bytes"]
         atomic_json(terminal_path, initial)
+        _verify_terminal_manifest(strict_json_loads(terminal_path.read_text(encoding="utf-8")),
+            strict_json_loads(initial_path.read_text(encoding="utf-8")), config, output_dir,
+            terminal_replay, revoked, _fixture_policy)
     return 0 if report_status in ("PASS_DEVELOPMENT_PROPOSAL", "FIXTURE_PASS") else 1
+
+
+def _emergency_failure_flush(config_path: Path, output_dir: Path, command: list[str] | None,
+                             guard: ResourceGuard, fixture_policy, started_cpu: float,
+                             exc: Exception) -> int:
+    """Bounded best-effort terminal bundle for failures escaping the normal finalizer."""
+    output = Path(output_dir).resolve()
+    root = Path(__file__).resolve().parents[2]
+    config = load_probe_config(Path(config_path).resolve())
+    if not output.exists():
+        return 1
+    source = _source_identity(root, None if fixture_policy is None else fixture_policy.fixture_id)
+    producer = _producer_identity(config, root)
+    initial_path = output / ARTIFACTS[0]
+    if initial_path.exists():
+        initial = strict_json_loads(initial_path.read_text(encoding="utf-8"))
+        source = initial["source"]
+        producer = initial["producer"]
+    else:
+        initial = _initial_manifest(config, Path(config_path).resolve(), output,
+            command or sys.argv[:], root, producer, source, fixture_policy)
+        initial_path.write_text(stable_json(initial) + "\n", encoding="utf-8", newline="\n")
+    state = ProbeState(config, capture_rows=False, _fixture_policy=fixture_policy)
+    for part in ("source", "development"):
+        for profile_key, cells in initial["partitions"][part]["quota_counts"].items():
+            profile = tuple(profile_key.split("/"))
+            if profile in state.quota_counts[part]:
+                for cell in _CELLS:
+                    value = cells.get(cell, 0)
+                    if type(value) is int and 0 <= value <= state.quota_for(part, profile, cell):
+                        state.quota_counts[part][profile][cell] = value
+    for name in (ARTIFACTS[1], ARTIFACTS[2]):
+        path = output / name
+        if not path.exists():
+            path.write_text("", encoding="utf-8", newline="\n")
+    if isinstance(exc, ProbeFailure):
+        reason = exc.code
+        phase, partition, candidate_index = exc.phase, exc.partition, exc.candidate_index
+    elif isinstance(exc, ProposalFatalError):
+        reason, phase, partition, candidate_index = (
+            "NOT_ASSESSED_SOLVER_OR_ORACLE_ERROR", "generation", "development", None)
+    elif isinstance(exc, (TimeoutError, MemoryError, RuntimeError)):
+        reason, phase, partition, candidate_index = (
+            "NOT_ASSESSED_RESOURCE_CAP", "terminal_finalization", None, None)
+    else:
+        reason, phase, partition, candidate_index = (
+            "NOT_ASSESSED_IO_OR_SERIALIZATION_ERROR", "terminal_finalization", None, None)
+    error = {"type": type(exc).__name__, "message": reason, "phase": phase,
+             "partition": partition, "candidate_index": candidate_index, "reason": reason}
+    _ensure_failure_artifacts(output, config, source, producer, state, initial, guard)
+    closure_path, replay_path, audit_path, report_path = (output / name for name in ARTIFACTS[3:7])
+    closure = strict_json_loads(closure_path.read_text(encoding="utf-8"))
+    replay = strict_json_loads(replay_path.read_text(encoding="utf-8"))
+    audit = strict_json_loads(audit_path.read_text(encoding="utf-8"))
+    if report_path.exists():
+        report = strict_json_loads(report_path.read_text(encoding="utf-8"))
+    else:
+        report = _not_assessed_report(config, source, initial_path, closure_path, guard,
+            reason, state, initial["partitions"]["development"]["attempts"])
+    report.update({"status": "NOT_ASSESSED", "reason": reason,
+        "config_sha256": config.config_sha256, "source": source,
+        "initial_manifest_sha256": sha256_file(initial_path),
+        "source_closure_sha256": sha256_file(closure_path),
+        "replay_sha256": sha256_file(replay_path), "audit_sha256": sha256_file(audit_path),
+        "resource_snapshot": _resource_snapshot(guard)})
+    atomic_json(report_path, report)
+    initial.update({"status": "not_assessed", "finished_utc": datetime.now(timezone.utc).isoformat(),
+        "error": error, "exit_code": 1, "elapsed_wall_seconds": round(guard.elapsed, 6),
+        "cpu_seconds": round(max(0.0, time.process_time() - started_cpu), 6),
+        "peak_resident_bytes": guard.peak_bytes,
+        "accounting_end_boundary": "post_first_terminal_write_resource_check"})
+    for part in ("source", "development"):
+        item = initial["partitions"][part]
+        if item["status"] == "running":
+            item["status"] = "not_assessed"
+        item["quota_counts"] = _profile_maps(config, part, state)[1]
+    initial["artifacts"] = {name: _artifact_ref(output / name) for name in ARTIFACTS[:-1]}
+    terminal_path = output / ARTIFACTS[-1]
+    atomic_json(terminal_path, initial)
+    # The resource boundary is sampled immediately after the first durable terminal.
+    snapshot = _resource_snapshot(guard)
+    report["resource_snapshot"] = snapshot
+    atomic_json(report_path, report)
+    initial["artifacts"][ARTIFACTS[6]] = _artifact_ref(report_path)
+    initial["elapsed_wall_seconds"] = round(snapshot["wall_seconds"], 6)
+    initial["cpu_seconds"] = round(snapshot["cpu_seconds"], 6)
+    initial["peak_resident_bytes"] = snapshot["peak_rss_bytes"]
+    initial["error"] = error
+    atomic_json(terminal_path, initial)
+    return 1
+
+
+def _run_controller(config_path: Path, output_dir: Path, command: list[str] | None = None,
+                    *, guard: ResourceGuard | None = None, _fixture_policy=None,
+                    _proposal_provider=None) -> int:
+    output = Path(output_dir).resolve()
+    existed_before = output.exists()
+    guard = guard or ResourceGuard(900, 1024)
+    started_cpu = time.process_time()
+    try:
+        return _run_controller_body(config_path, output, command, guard=guard,
+            _fixture_policy=_fixture_policy, _proposal_provider=_proposal_provider)
+    except Exception as exc:
+        # Preserve ordinary path/config errors and resume refusal. Only failures
+        # after this invocation created its unique output can be terminalized.
+        if existed_before or not output.is_dir():
+            raise
+        try:
+            return _emergency_failure_flush(config_path, output, command, guard,
+                                            _fixture_policy, started_cpu, exc)
+        except Exception:
+            return 1
 
 
 def run_probe(config_path: Path, output_dir: Path, command: list[str] | None = None,

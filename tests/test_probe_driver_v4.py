@@ -408,7 +408,7 @@ class ProbeDriverV4Tests(unittest.TestCase):
             audit_for_report = {**audit, "artifact_sha256": sha256_file(output / "independent_audit.json")}
             _verify_terminal_report(report, self.config, source,
                 sha256_file(output / "probe_manifest.initial.json"), closure_sha,
-                closure, replay_for_report, audit_for_report)
+                closure, replay_for_report, audit_for_report, policy)
             report_mutations = []
             report_source = {**source, "commit": "8" * 40}
             for key, value in (("report_version", "wrong-version"),
@@ -433,7 +433,7 @@ class ProbeDriverV4Tests(unittest.TestCase):
                 with self.subTest(document="report", mutation=name), self.assertRaises(ValueError):
                     _verify_terminal_report(altered, self.config, source,
                         sha256_file(output / "probe_manifest.initial.json"), closure_sha,
-                        closure, replay_for_report, audit_for_report)
+                        closure, replay_for_report, audit_for_report, policy)
 
             for artifact_name, validator in (("outcomes.jsonl", _verify_source_closure),
                                              ("accepted_records.jsonl", _verify_replay_document)):
@@ -593,12 +593,10 @@ class ProbeDriverV4Tests(unittest.TestCase):
                     self.assertEqual(manifest["error"]["reason"], "NOT_ASSESSED_RESOURCE_CAP")
                     self.assertEqual(report["status"], "NOT_ASSESSED")
                     self.assertEqual(report["reason"], "NOT_ASSESSED_RESOURCE_CAP")
-                    self.assertIsNone(report["four_cohort_proxy"])
-                    self.assertEqual(report["public_floors"]["source_train"],
-                                     {"status": "not_assessed", "values": None})
-                    self.assertTrue(all(value == {"status": "not_assessed", "values": None}
-                                        for value in report["public_floors"][
-                                            "development_validation_by_profile"].values()))
+                    self.assertIsNotNone(report["four_cohort_proxy"])
+                    self.assertEqual(report["public_floors"]["source_train"]["status"], "pass")
+                    self.assertTrue(all(value["status"] == "pass" for value in report["public_floors"][
+                                        "development_validation_by_profile"].values()))
                     report_ref = manifest["artifacts"]["probe_report.json"]
                     report_bytes = (output / "probe_report.json").read_bytes()
                     self.assertEqual(report_ref["bytes"], len(report_bytes))

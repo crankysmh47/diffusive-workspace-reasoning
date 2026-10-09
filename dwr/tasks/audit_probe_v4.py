@@ -141,6 +141,8 @@ def validate_accepted_record(record: dict, config, *, interactions: bool = True)
     if forbidden.intersection(projected):
         raise ValueError("audit metadata leaked into model input")
     interaction = _independent_interaction_projection(task, part)
+    if interaction["eligible"] is not True:
+        raise ValueError("accepted record fails independently recomputed eligibility")
     if interactions:
         checked = audit_interactions(task, part)
         if part == "source":
@@ -318,6 +320,16 @@ def audit_records(records: list[dict], outcomes: list[dict], config, *, check=No
                                 (part == "development" and split == "development_validation"))
         if row["denominator_counted"] is not expected_denominator:
             raise ValueError("unique outcome denominator timing or cohort mismatch")
+        if not interaction["eligible"]:
+            expected_state = "scientifically_ineligible"
+            expected_reason = "source_insensitive" if part == "source" else interaction["reason"]
+        elif _cell(task, pbin, nbin) is None:
+            expected_state = "outside_registered_support_envelope"
+            expected_reason = "outside_registered_support_envelope"
+        else:
+            expected_state, expected_reason = "accepted_for_quota", None
+        if (row["state"], row["reason"]) != (expected_state, expected_reason):
+            raise ValueError("unique outcome state or reason disagrees with independent eligibility precedence")
         denominator_groups.append({"partition": part, "split": split, "profile": tuple(row["profile"]),
             "task": task, "content_id": cid, "lineage_id": lid, "signature": signature,
             "interaction": interaction, "solution": oracle.solutions[0],
@@ -330,8 +342,16 @@ def audit_records(records: list[dict], outcomes: list[dict], config, *, check=No
         key = (row["partition"], row["candidate_index"])
         info = info_by_key.get(key)
         if row["state"] == "accepted_for_quota" and (
-                info is None or row["split_or_null"] != info["split"] or row["stratum"] not in ("A", "B", "C", "D") or
-                ("content_id" in info and row["content_id_or_null"] != info["content_id"])):
+                info is None or row["split_or_null"] != info["split"] or
+                row["stratum"] not in ("A", "B", "C", "D") or
+                tuple(row["profile"]) != info.get("profile") or
+                ("task" in info and (info.get("cell") != row["stratum"] or
+                    row["content_id_or_null"] != info["content_id"] or
+                    row["structure_signature_or_null"] != info["signature"] or
+                    row["lineage_id_or_null"] != info["lineage_id"] or
+                    row["oracle_solution_or_null"] != _assignment(info["solution"]) or
+                    stable_json(row["task_or_null"]) !=
+                    stable_json(strict_json_loads(serialize_task(info["task"])))))):
             raise ValueError("accepted outcome identity does not match its record")
     grouped = defaultdict(list)
     for info in denominator_groups:
@@ -382,7 +402,7 @@ def _public_projection(grouped: dict, accepted_groups: dict,
         eligible = [i for i in denominator_rows if i["interaction"]["eligible"]]
         sigs = {i["signature"] for i in eligible}
         cell_counts = Counter(i["cell"] for i in rows if i["cell"] is not None)
-        eligible_cells = Counter(i["cell"] for i in rows if i["cell"] is not None)
+        eligible_cells = Counter(i["cell"] for i in eligible if i["cell"] is not None)
         target_profile = None if fixture_targets is None else fixture_targets["development"].get(profile)
         target_total = 100 if target_profile is None else sum(target_profile.values())
         target_cells = {c: 25 for c in "ABCD"} if target_profile is None else target_profile
@@ -403,10 +423,13 @@ def _public_projection(grouped: dict, accepted_groups: dict,
                 "scientifically_eligible_groups": None, "scientific_eligibility_fraction": None,
                 "eligible_envelope_groups": None, "envelope_yield": None,
                 "groups_by_cell": None, "eligible_groups_by_cell": None}
-    cohorts = {"source_train_eligible": accepted_source,
-        "development_validation_eq_neq_primary_eligible": accepted_groups.get(("development", "eq", "neq"), []),
-        "development_validation_eq_add_mod_primary_eligible": accepted_groups.get(("development", "eq", "add_mod"), []),
-        "development_validation_neq_add_mod_primary_eligible": accepted_groups.get(("development", "neq", "add_mod"), [])}
+    cohorts = {"source_train_eligible": source_sensitive,
+        "development_validation_eq_neq_primary_eligible": [i for i in grouped.get(("development", "eq", "neq"), [])
+                                                              if i["interaction"]["eligible"]],
+        "development_validation_eq_add_mod_primary_eligible": [i for i in grouped.get(("development", "eq", "add_mod"), [])
+                                                                  if i["interaction"]["eligible"]],
+        "development_validation_neq_add_mod_primary_eligible": [i for i in grouped.get(("development", "neq", "add_mod"), [])
+                                                                   if i["interaction"]["eligible"]]}
     proxy = None
     complete_keys = (("source",), ("development", "eq", "neq"),
                      ("development", "eq", "add_mod"), ("development", "neq", "add_mod"))
@@ -431,6 +454,22 @@ def _public_projection(grouped: dict, accepted_groups: dict,
         proxy = {"cohorts": proxy_cohorts, "pass": all(x["pass"] for x in proxy_cohorts.values())}
     return {"source_train": source_projection, "development_validation_by_profile": dev,
             "four_cohort_proxy": proxy}
+
+
+def _verify_source_terminal_links(source_doc: dict, replay_doc: dict, audit_doc: dict) -> None:
+    """Bind saved source closure facts to the independently replayed/audited stream."""
+    if (source_doc["source_quota_counts"] != replay_doc["quota_counts"]["source"] or
+            source_doc["source_attempts"] != replay_doc["partition_attempts"]["source"] or
+            (source_doc["train_projection"] is not None and
+             audit_doc["public_projection"]["source_train"] != source_doc["train_projection"])):
+        raise ValueError("source closure facts differ from replay or independent audit")
+    if (source_doc["status"] == "PASS_SOURCE_CLOSURE" and
+            (replay_doc["quota_closed"]["source"] is not True or
+             audit_doc["public_projection"]["source_train"] != source_doc["train_projection"])):
+        raise ValueError("passing source closure is not independently supported")
+    if (source_doc["status"] != "PASS_SOURCE_CLOSURE" and
+            replay_doc["partition_attempts"]["development"] != 0):
+        raise ValueError("development stream exists without passing source closure")
 
 
 def audit_run(output_dir: Path, config, *, guard=None) -> dict:
@@ -477,13 +516,23 @@ def audit_run(output_dir: Path, config, *, guard=None) -> dict:
     _verify_source_closure(source_doc, output_dir, config, current_source, current_producer)
     _verify_replay_document(replay_doc, output_dir, config, current_source, current_producer)
     _verify_audit_document(audit_doc, output_dir, config, current_source, current_producer)
+    # The source closure is a prefix of the same stream that replay and audit
+    # certify. Bind its exact assessed facts before considering terminal status.
+    _verify_source_terminal_links(source_doc, replay_doc, audit_doc)
     _verify_terminal_report(report, config, current_source, sha256_file(initial_path),
         sha256_file(output_dir / ARTIFACTS[3]), source_doc,
         {**replay_doc, "artifact_sha256": sha256_file(output_dir / ARTIFACTS[4])},
-        {**audit_doc, "artifact_sha256": sha256_file(output_dir / ARTIFACTS[5])})
+        {**audit_doc, "artifact_sha256": sha256_file(output_dir / ARTIFACTS[5])},
+        error=terminal["error"])
     _verify_terminal_manifest(terminal, initial, config, output_dir, replay_doc, report)
-    if replay_doc["status"] != "PASS_REPLAY" or audit_doc["status"] != "PASS_AUDIT":
-        raise ValueError("production terminal replay or independent audit is not a pass")
+    if replay_doc["status"] != "PASS_REPLAY":
+        if report["status"] != "NOT_ASSESSED":
+            raise ValueError("nonpassing replay must have a NOT_ASSESSED terminal decision")
+        return audit_doc
+    if audit_doc["status"] != "PASS_AUDIT":
+        if report["status"] != "NOT_ASSESSED":
+            raise ValueError("nonpassing independent audit must have a NOT_ASSESSED terminal decision")
+        return audit_doc
     outcomes = _read_jsonl(output_dir / "outcomes.jsonl", check=guard.check)
     records = _read_jsonl(output_dir / "accepted_records.jsonl", check=guard.check)
     replayed, denominator_digest = replay_prefix(config, outcomes, records, guard, capture_rows=False)
