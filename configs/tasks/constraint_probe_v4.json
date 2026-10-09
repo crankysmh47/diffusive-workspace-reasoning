@@ -2,6 +2,14 @@
   "config_version": "dwr-constraint-development-probe-v4",
   "generator_id": "dwr-generator-v4-probe",
   "accepted_record_version": "dwr-v4-probe-accepted-record-v1",
+  "artifact_versions": {
+    "manifest": "dwr-v4-probe-manifest-v1",
+    "source_closure": "dwr-v4-source-closure-v1",
+    "candidate_replay": "dwr-v4-candidate-replay-v1",
+    "independent_audit": "dwr-v4-independent-audit-v1",
+    "probe_report": "dwr-v4-probe-report-v1"
+  },
+  "artifact_names": ["probe_manifest.initial.json", "outcomes.jsonl", "accepted_records.jsonl", "source_closure.json", "candidate_replay.json", "independent_audit.json", "probe_report.json", "probe_manifest.json"],
   "task_schema_version": "constraint-task-v1",
   "root_seed": 20261007,
   "rng": {
@@ -20,7 +28,8 @@
     "variables": "v0-through-v5",
     "normalized_operand_order": "constraint-task-v1",
     "kind_order": ["eq", "neq", "add_mod"],
-    "anchor_anchor_tuples_in_pools": true
+    "anchor_anchor_tuples_in_pools": true,
+    "anchor_anchor_pool_exception": "source-neq-only-pool-excludes-any-tuple-not-touching-an-unknown"
   },
   "partitions": {
     "source_profiles": ["eq", "neq", "add_mod"],
@@ -54,6 +63,7 @@
   "proposal": {
     "given_locations": "uniform-sample-without-replacement-from-v0-through-v5-then-sort",
     "source_eq_witnesses": "lexicographic-F3-6-tuples-using-only-values-present-in-givens-and-having-at-least-c-satisfied-normalized-eq-tuples;uniform-choice",
+    "source_eq_constraint_draw": "ordered-normalized-satisfied-eq-pool-including-anchor-anchor;enumerate-active-count-vectors-for-fixed-c;uniform-rng-choice-even-singleton;uniform-rng-sample-c-without-replacement;canonical-sort",
     "source_neq_witnesses": "lexicographic-F3-6-tuples-using-all-3-values-and-at-least-2-values-among-givens;uniform-choice",
     "other_witnesses": "six-independent-uniform-F3-draws-in-variable-order",
     "source_neq_pool": "witness-satisfied-normalized-neq-tuples-touching-unknowns",
@@ -117,11 +127,13 @@
     "version": "dwr-v4-probe-outcome-v1",
     "all_candidate_indices_logged": true,
     "closed_fields": ["outcome_version", "partition", "candidate_index", "profile", "stratum", "n", "given_count", "constraint_count", "state", "reason", "task_or_null", "witness_or_null", "oracle_solution_or_null", "oracle_count_capped_or_null", "solver_stats_or_null", "content_id_or_null", "lineage_id_or_null", "structure_signature_or_null", "split_or_null", "private_eligibility_or_null", "denominator_counted", "prompt_utf8_bytes_or_null", "prompt_byte_bin_or_null", "first_solution_node_bin_or_null", "quota_cell_count_after_or_null"],
-    "states": ["rejected_proposal", "oracle_non_unique", "fatal_error", "duplicate_content", "scientifically_ineligible", "outside_registered_support_envelope", "accepted_for_quota"],
-    "scientific_reasons": ["source_insensitive", "mixed_kind_not_necessary", "mixed_unknown_factor_disconnected"],
-    "reason_order": ["proposal_rejection", "oracle_non_unique", "solver_oracle_disagreement_fatal", "duplicate_content", "first_seen_denominator_insert", "scientific_ineligibility", "outside_registered_support_envelope", "quota_accepted"],
+    "states": ["rejected_proposal", "oracle_non_unique", "fatal_error", "duplicate_content", "scientifically_ineligible", "outside_registered_support_envelope", "retained_diagnostic", "accepted_for_quota"],
+    "reason_order": ["proposal_rejection", "oracle_witness_disagreement_fatal", "oracle_non_unique", "solver_oracle_disagreement_fatal", "duplicate_content", "first_seen_denominator_insert", "scientific_ineligibility", "outside_registered_support_envelope", "development_diagnostic_split", "quota_accepted"],
     "proposal_reasons": ["no_source_eq_witness", "no_neq_witness", "no_feasible_constraint_vector", "no_feasible_neq_constraint_total"],
     "fatal_reasons": ["oracle_witness_disagreement", "solver_oracle_disagreement"],
+    "retained_diagnostic_reason": "development_diagnostic_split",
+    "diagnostic_denominator_counted": false,
+    "diagnostic_accepted_record_emitted": false,
     "scientific_reasons": ["source_insensitive", "mixed_kind_not_necessary", "mixed_unknown_factor_disconnected"],
     "operational_statuses": ["NOT_ASSESSED_RESOURCE_CAP", "NOT_ASSESSED_IO_OR_SERIALIZATION_ERROR", "NOT_ASSESSED_SOLVER_OR_ORACLE_ERROR", "NOT_ASSESSED_REPLAY_MISMATCH", "NOT_ASSESSED_AUDIT_MISMATCH"]
   },
@@ -139,6 +151,7 @@
     "dwr/tasks/audit.py",
     "dwr/tasks/run_support.py"
   ],
+  "producer_identity_representation": "ordered-list-of-{path,sha256}-objects",
   "privacy": {
     "model_input_excludes": ["witness", "solution", "oracle", "solver", "eligibility", "content_id", "lineage_id", "signature", "split", "stratum", "quota_state", "audit_metadata"],
     "artifact_location": "unique-ignored-data-directory",
