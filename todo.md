@@ -1,8 +1,18 @@
 # DWR research and implementation checklist
 
-Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_v2.md), amended by the binding [v2.2 protocol](docs/research_protocol.md); the current registered generation proposal is [v3](docs/task_spec_v3.md). This is the sole live checklist. Check an item only when its output and recorded verification exist. Planning does not count as implementing a gate.
+Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_v2.md), amended by the binding [v2.2 protocol](docs/research_protocol.md); the terminal v4 proposal record is [v4](docs/task_spec_v4.md). This is the sole live checklist. Check an item only when its output and recorded verification exist. Planning does not count as implementing a gate.
 
-## Current v3 gate — 2026-10-08
+## Current v4 proposal status — 2026-10-10
+
+- [x] Implement and review the pinned v4 development-probe machinery. At clean source `169740fb7c1c4f995526ba18c28a8c82797df6fe`, the fresh CPU suite passed 275 tests in 46.451 seconds; the scoped final review was READY. These establish implementation/review evidence only.
+- [x] Execute and preserve the single registered development probe and its root receipt. It recorded the source quota of 1,000 rows after 20,299 attempts, then exited 1 at the 900-second resource cap. The root rehashed all eight artifacts and cross-bound small public metadata; source verification, semantic replay, and audit remain `NOT_ASSESSED`.
+- [ ] Establish source suitability, generate development-validation cohorts, or pass a development proposal gate. Source verification was not assessed; development had 0 attempts and was not started. This proposal is closed without retry, extension, or retuning.
+- [ ] Design and run a full corpus/G2 gate. This probe did not PASS and emits no preflight; a future full stage would first require a separate reviewed design/schema/linkage task. G2 is not assessed.
+- [ ] Implement a workspace/model, select a backbone, or train. Model work still requires a complete passing five-cohort G2 audit; training also requires a separate complete study registration.
+
+See the [v4 suitability report](docs/task_suitability_v4.md), [compact result manifest](configs/splits/constraint-v4-development-probe-result.json), and [execution state](docs/execution_state.md). The preserved result is operationally `NOT_ASSESSED`, not a scientific NO-GO or PASS. A `PASS_DEVELOPMENT_PROPOSAL` would authorize only a separately reviewed full-run design and one 2,400-second full G2 gate; it would not itself pass G2.
+
+## Historical v3 gate — 2026-10-08
 
 - [x] Implement and review the pinned v3 generator, bounded orchestration, source-prefix replay, and independent audit. CPU implementation checks pass; see the [v3 execution plan](docs/task_v3_execution_plan.md).
 - [x] Freeze source/config identities and run the one registered feasibility attempt plus its audit. Source quotas closed; the replay-validated top-ten source-train capacity bound was 0.3977695167 against the required 0.8, so the proposal ended NO-GO. Evidence: [v3 suitability result](docs/task_suitability_v3.md) and [compact run manifest](configs/splits/constraint-v3-feasibility-nogo.json).

@@ -1,4 +1,30 @@
-# Execution state: transfer v3
+# Execution state: transfer v4
+
+Updated: 2026-10-10. Branch: `research/transfer-cpu-v1`. Worktree: `C:\sem5\diffusive-workspace-reasoning\.worktrees\transfer-cpu-v1`.
+
+## Current state
+
+The v4 development-probe implementation is frozen at clean source commit `169740fb7c1c4f995526ba18c28a8c82797df6fe`, config SHA-256 `6f86fa7d91a0b469fbd9f657eedfe7de87a6934005054059fe246878ec52f104`, and CPython 3.11.9. The fresh controller CPU suite passed 275 tests in 46.451 seconds, and the scoped final rereview was READY. These checks validate implementation/review only.
+
+The sole registered development probe at `data/constraint-probe-v4-20261009T192624974846Z` exited 1 with `NOT_ASSESSED_RESOURCE_CAP` at the post-terminal-write resource check. Public quota bookkeeping recorded 1,000 source rows after 20,299 attempts. The authoritative boundary was 900.234 seconds wall, 897.34375 seconds CPU, and 285,614,080 peak resident bytes; the external wrapper recorded 900.75 seconds. Source verification, closure, replay, and audit remain unassessed. Development had zero attempts and was not started; no final/full run or preflight occurred; G2 is not assessed. No model or training ran. See the [v4 suitability report](task_suitability_v4.md) and [compact result manifest](../configs/splits/constraint-v4-development-probe-result.json).
+
+The outcome is operationally unassessed, not a scientific `NO_GO_PROPOSAL` or `PASS_DEVELOPMENT_PROPOSAL`. Preserve the artifacts and stop this proposal: no retry, cap extension, retuning, v5 allocation, full/G2 stage, or model work follows. Only a real `PASS_DEVELOPMENT_PROPOSAL` could permit a separate full-run design/schema/linkage task followed by one 2,400-second full G2 gate; even that would not itself pass G2. A further experimental path requires a new bounded prospective design decision. The ignored local artifacts have no archival backup or independent reproduction.
+
+## Durable v4 decisions — 2026-10-10
+
+| Decision | Reason and cost |
+| --- | --- |
+| Complete the explicitly authorized bounded replacement design and conditional experiment work without repeated permission prompts, while requiring prospective writing and review before implementation. | The user's authorization covered reversible design/implementation and only the later stages allowed by their gates; it did not waive G2 or study registration. |
+| Keep the isolated worktree, v1–v3 artifacts and thresholds, assigned Luna implementers, and ignored evidence. | Preserves branch boundaries and research provenance; costs a separate checkout and local review files. |
+| Condition source EQ witnesses on every witness value appearing in givens and enough witness-satisfied EQ tuples, retaining the independent oracle and sensitivity check. | Both conditions are necessary for unique dense-EQ tasks and remove mathematically futile proposals; cost is a distinct sampled population shared by all eventual comparators, with no predicted PASS. |
+| Build a development-only proposal probe before any formal full v4 preflight/schema consumer. | Avoids building conditional infrastructure if the bounded proposal gate fails; a `PASS_DEVELOPMENT_PROPOSAL` would still require separate reviewed full-stage work and would not grant G2. |
+| Allow a private keyword-only reduced-quota fixture policy and deterministic proposal fixtures for real orchestration, replay, and semantic-audit success/failure checks. | Production CLI/config stays pinned; actual 1,000/300 quotas cannot be tested with tiny fixtures without scientific sampling. This proves machinery only, not production floors or corpus yield. Fixture results must remain rejected by production readers, use paths outside `data/` and `runs/`, and never be presented as scientific PASS evidence. |
+| Use at most four handcrafted fixture alternatives per EQ/NEQ A/B cell to exercise validation and diagnostic hash-split branches while preserving the scientific split function. | The fixed unit structures otherwise land only in diagnostics; overriding the split would weaken integration coverage. Selected unit examples cannot estimate split realization or scientific yield, so no RNG/candidate seed search or scientific pool was allowed. |
+| Change the provenance-only config identity to `dwr-constraint-development-probe-v4-r2` and add exact runtime dependency paths while preserving population, RNG, split, quota, floor, and budget settings. | Makes runtime producer hashes complete without weakening checks. It invalidated the original prototype admission and required a new source/config freeze and fresh full CPU suite before the sole attempt. |
+| Apply README Writer guidance and manually check the status prose because its required humanizer subskill was unavailable. | Preserves the authorized, evidence-bound edit and existing v2 fallback without installing tools; there was no automated humanizer pass, so wording and claims received manual review. No source edits occurred while the scientific run was active. |
+| Preserve the sole budget-exhausted v4 probe as `NOT_ASSESSED` and stop before conditional full/G2/model work, with no retry, extension, retuning, or scientific NO-GO interpretation. | Source quota bookkeeping completed, but source verification did not finish within 900 seconds and targets were unattempted. No task-floor, support, or transfer conclusion is available; any later experiment needs a new bounded prospective decision. Preserve local ignored artifacts without claiming archival backup or independent reproduction. |
+
+## Historical execution state: transfer v3
 
 Updated: 2026-10-09. Branch: `research/transfer-cpu-v1`. Worktree: `C:\sem5\diffusive-workspace-reasoning\.worktrees\transfer-cpu-v1`.
 

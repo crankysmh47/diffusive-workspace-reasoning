@@ -1,0 +1,99 @@
+{
+  "format_version": "dwr-compact-probe-result-v1",
+  "proposal": "v4 development-only finite-domain composition probe",
+  "proposal_status": "NOT_ASSESSED",
+  "scientific_interpretation": "operationally unassessed; neither NO_GO_PROPOSAL nor PASS_DEVELOPMENT_PROPOSAL",
+  "source": {
+    "commit": "169740fb7c1c4f995526ba18c28a8c82797df6fe",
+    "dirty": false,
+    "config": "configs/tasks/constraint_probe_v4.json",
+    "config_sha256": "6f86fa7d91a0b469fbd9f657eedfe7de87a6934005054059fe246878ec52f104",
+    "generator_id": "dwr-generator-v4-probe",
+    "config_version": "dwr-constraint-development-probe-v4-r2",
+    "producer_count": 17
+  },
+  "command": [
+    "C:\\Users\\Hank47\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+    "-m",
+    "dwr.tasks.probe_cli_v4",
+    "--config",
+    "configs/tasks/constraint_probe_v4.json",
+    "--mode",
+    "development-probe",
+    "--out",
+    "data/constraint-probe-v4-20261009T192624974846Z"
+  ],
+  "runtime": {
+    "implementation": "CPython",
+    "version": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "workers": 1,
+    "candidate_cap_per_partition": 30000,
+    "registered_wall_cap_seconds": 900,
+    "registered_peak_rss_cap_bytes": 1073741824
+  },
+  "terminal": {
+    "status": "NOT_ASSESSED_RESOURCE_CAP",
+    "reason": "NOT_ASSESSED_RESOURCE_CAP",
+    "error_type": "TimeoutError",
+    "error_phase": "post_terminal_write",
+    "process_exit_code": 1,
+    "run_started_utc": "2026-10-09T19:26:24.974846+00:00",
+    "run_finished_utc": "2026-10-09T19:41:25.755624+00:00",
+    "root_observed_utc": "2026-10-09T19:43:29.048884+00:00",
+    "accounting_boundary": "post_first_terminal_write_resource_check",
+    "elapsed_wall_seconds": 900.234,
+    "external_wrapper_wall_seconds": 900.75,
+    "cpu_seconds": 897.34375,
+    "peak_resident_bytes": 285614080
+  },
+  "observed_counts": {
+    "source_quota_rows": 1000,
+    "source_attempts": 20299,
+    "source_quota_bookkeeping_closed": true,
+    "source_verification": "NOT_ASSESSED",
+    "source_closure": "NOT_ASSESSED",
+    "replay": "NOT_ASSESSED",
+    "audit": "NOT_ASSESSED",
+    "development_attempts": 0,
+    "development_status": "not_started",
+    "final_attempts": 0,
+    "preflight_emitted": false,
+    "g2_status": "not_assessed",
+    "model_or_training": "not_run"
+  },
+  "run_artifacts": {
+    "directory": "data/constraint-probe-v4-20261009T192624974846Z",
+    "root_rehashed_all_eight_artifacts": true,
+    "semantic_replay_or_audit_performed_by_root": false,
+    "sha256": {
+      "accepted_records.jsonl": "84459b1d0d50fd90327cbf0c8019b948fd7d96b29b1c0136e3c3300208ced5a5",
+      "candidate_replay.json": "884ebc8a20e6ba15d87f8b24006f98f1295b92bb31dce054fa98a6185b726af3",
+      "independent_audit.json": "ebc637c9f332700fad9827609a395ca3b48c9cb7fe3989e98ec459795b1abed7",
+      "outcomes.jsonl": "088235db9a9deb0d1b2b3034efe7782c748adecb2a93e7322992eae6b8b37b21",
+      "probe_manifest.initial.json": "d3375a13ec7c68e7f89eb31a3af8b4fb6669246a82141efddde6f690705a10af",
+      "probe_manifest.json": "c1325457f7941e903b81d7b5e53efc4802710fffb043badbe84be6849c957327",
+      "probe_report.json": "d7293fa5fb47e830b889c1cf4feb060c74f317913b3447597edb4e8821ac41b6",
+      "source_closure.json": "8370a9b6033c82e29dca9514e7a30a6775f7b7174e20ceadf803db9a54b0fdcc"
+    }
+  },
+  "controller_evidence": {
+    "observation_path": ".superpowers/sdd/transfer-v4/controller-observation.json",
+    "observation_sha256": "df328fb5374cc307226d67b0ed9f201090c094118146d94c7bd4349376971fe5",
+    "receipt_path": ".superpowers/sdd/transfer-v4/controller-probe-finalfix-command.json",
+    "receipt_sha256": "b5f28f15201014cb619c6b588e2ad90a9a18be0139c1b25d81101a6fb25697f6",
+    "root_full_suite": {
+      "source_commit": "169740fb7c1c4f995526ba18c28a8c82797df6fe",
+      "result": "275 tests passed",
+      "elapsed_seconds": 46.451,
+      "log_sha256": "967d8a9bf9f327bbdf08738c79bf626ff0ced335207f9091af1b658d5dda130f"
+    },
+    "independent_final_rereview": {
+      "status": "READY",
+      "sha256": "c913ab95b69b7287649b0748787bb368eaca5880e6907d54620f76deb100b31d"
+    }
+  },
+  "archival_backup": false,
+  "independent_reproduction": false,
+  "g2_or_model_claim": false
+}

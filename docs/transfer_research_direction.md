@@ -1,6 +1,6 @@
 # Main direction: transferable computation with exchangeable workspaces
 
-Decision date: 2026-10-07. User selected reusable computation across tasks as the main direction. Status: the CPU task contract and generation/audit infrastructure exist; the first bounded corpus attempt is incomplete and G2 is not assessed. No workspace, model, training, or transfer result exists. This document specifies the research focus of protocol v2.2; the protocol retains the experimental safeguards. Other directions are parked in [spare_research_ideas.md](spare_research_ideas.md). See [task suitability](task_suitability.md) and [execution state](execution_state.md).
+Decision date: 2026-10-07. User selected reusable computation across tasks as the main direction. Current gate status: the sole v4 development probe is operationally `NOT_ASSESSED_RESOURCE_CAP`; source verification/replay/audit are not assessed, development was unattempted, and G2 is not assessed. No workspace, model, training, or transfer result exists. See the [v4 suitability result](task_suitability_v4.md), [compact result manifest](../configs/splits/constraint-v4-development-probe-result.json), and [execution state](execution_state.md). This status link does not change the protocol v2.2 research focus or safeguards. Other directions are parked in [spare_research_ideas.md](spare_research_ideas.md).
 
 ## Central question
 
