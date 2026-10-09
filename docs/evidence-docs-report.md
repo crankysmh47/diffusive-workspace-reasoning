@@ -23,6 +23,7 @@ The following checks were run in the scoped worktree:
 | `git diff --check` | Passed before commit. |
 | `git status --short --branch` after commit | Clean; branch is `research/transfer-cpu-v1`. |
 | README Writer skill review | Read `C:/Users/Hank47/.agents/skills/accelint-readme-writer/SKILL.md`; checked package metadata from `pyproject.toml`, `dwr/__init__.py`, and `dwr/tasks/__init__.py`. The required humanizer subskill was unavailable, so prose received a manual plain-language/evidence-bound review, matching the documented v2 fallback. |
+| Manual platform wording precision check | Root's read-only `Get-CimInstance Win32_OperatingSystem` returned `Caption=Microsoft Windows11Pro`, `Version=10.0.26200`, `BuildNumber=26200`. The suitability report now quotes the probe receipt's exact captured Python platform string `Windows-10-10.0.26200-SP0` and says only that the host was 64-bit Windows; this OS metadata check is not new scientific environment evidence. The immutable receipt and compact manifest were not changed. |
 
 No new tests were run: this was a doc-only status refresh, and the frozen-source suite and final review are cited as prior controller evidence, not repeated here.
 

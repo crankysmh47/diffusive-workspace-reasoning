@@ -4,7 +4,7 @@ Date: 2026-10-10. Status: **operationally unassessed at the registered resource 
 
 ## Frozen identities and execution
 
-The probe used clean source commit `169740fb7c1c4f995526ba18c28a8c82797df6fe`, config `configs/tasks/constraint_probe_v4.json` SHA-256 `6f86fa7d91a0b469fbd9f657eedfe7de87a6934005054059fe246878ec52f104`, generator `dwr-generator-v4-probe`, config identity `dwr-constraint-development-probe-v4-r2`, the registered 17 producer files, and CPython 3.11.9 on 64-bit Windows 10 build 26200. The registered limits were one worker, 30,000 candidates per partition, a combined 900-second wall budget, and 1 GiB peak resident memory.
+The probe used clean source commit `169740fb7c1c4f995526ba18c28a8c82797df6fe`, config `configs/tasks/constraint_probe_v4.json` SHA-256 `6f86fa7d91a0b469fbd9f657eedfe7de87a6934005054059fe246878ec52f104`, generator `dwr-generator-v4-probe`, config identity `dwr-constraint-development-probe-v4-r2`, the registered 17 producer files, and CPython 3.11.9. Its captured Python platform string was `Windows-10-10.0.26200-SP0`, on 64-bit Windows. The registered limits were one worker, 30,000 candidates per partition, a combined 900-second wall budget, and 1 GiB peak resident memory.
 
 The exact command was:
 
