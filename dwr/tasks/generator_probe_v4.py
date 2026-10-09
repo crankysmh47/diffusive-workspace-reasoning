@@ -38,6 +38,24 @@ _PROPOSAL_REASONS = {
 }
 
 
+def _solution_satisfies_task(task: ConstraintTask, solution: Solution) -> bool:
+    if tuple(name for name, _ in solution.assignments) != task.variables:
+        return False
+    values = dict(solution.assignments)
+    if any(values[given.variable] != given.value for given in task.givens):
+        return False
+    for constraint in task.constraints:
+        operands = tuple(values[name] for name in constraint.variables)
+        if constraint.kind is RelationKind.EQ and operands[0] != operands[1]:
+            return False
+        if constraint.kind is RelationKind.NEQ and operands[0] == operands[1]:
+            return False
+        if (constraint.kind is RelationKind.ADD_MOD and
+                (operands[0] + operands[1]) % 3 != operands[2]):
+            return False
+    return True
+
+
 @dataclass(frozen=True, slots=True)
 class ProposalResult:
     partition: str
@@ -105,6 +123,25 @@ class ProposalResult:
         elif (self.task_or_null is None or self.witness_or_null is None or
               self.oracle_count_capped_or_null not in (1, 2)):
             raise ValueError("constructed proposal must carry task, witness and capped oracle count")
+        if self.proposal_reason_or_null is None:
+            task = self.task_or_null
+            witness = self.witness_or_null
+            expected_variables = tuple(f"v{i}" for i in range(self.n))
+            if task.variables != expected_variables or len(task.variables) != self.n:
+                raise ValueError("task variables do not match the proposal size")
+            if len(task.givens) != self.g or len(task.constraints) != self.c:
+                raise ValueError("task given or constraint count does not match the proposal header")
+            present_kinds = {constraint.kind.value for constraint in task.constraints}
+            actual_profile = tuple(kind.value for kind in KIND_ORDER if kind.value in present_kinds)
+            if actual_profile != self.profile:
+                raise ValueError("task relation kinds do not match the proposal profile")
+            if not _solution_satisfies_task(task, witness):
+                raise ValueError("private witness does not satisfy its task and givens")
+            if self.oracle_count_capped_or_null == 1:
+                if (tuple(name for name, _ in self.oracle_solution_or_null.assignments) != expected_variables or
+                        self.oracle_solution_or_null != witness or
+                        not _solution_satisfies_task(task, self.oracle_solution_or_null)):
+                    raise ValueError("unique oracle solution must match the satisfying private witness")
         if self.oracle_count_capped_or_null == 2 and any(
                 value is not None for value in (self.oracle_solution_or_null, self.solver_stats_or_null,
                                                 self.private_eligibility_or_null)):
@@ -142,9 +179,12 @@ class ProposalResult:
                 kinds = eligibility["kinds"]
                 graph_kinds = eligibility["factor_graph_kinds"]
                 if (any(type(kind) is not str for kind in (*kinds, *graph_kinds)) or
-                        kinds != sorted(set(kinds)) or graph_kinds != sorted(set(graph_kinds)) or
+                        not kinds or kinds != sorted(set(kinds)) or graph_kinds != sorted(set(graph_kinds)) or
+                        set(kinds) != {constraint.kind.value for constraint in self.task_or_null.constraints} or
                         not set(graph_kinds) <= set(kinds) or
-                        eligibility["all_present_kinds_in_graph"] != (set(kinds) <= set(graph_kinds))):
+                        eligibility["all_present_kinds_in_graph"] != (
+                            {constraint.kind.value for constraint in self.task_or_null.constraints}
+                            <= set(graph_kinds))):
                     raise ValueError("mixed eligibility kind projections are inconsistent")
                 eligible = (all(value >= 2 for value in counts) and
                             eligibility["factor_graph_connected"] and

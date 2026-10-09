@@ -16,7 +16,11 @@ from dwr.tasks.generator_probe_v4 import (
     propose_candidate,
 )
 from dwr.tasks.generator_v2 import CandidateOutcome, _count_vectors, _normalized_tuples
-from dwr.tasks.schema import RelationKind, canonical_constraint_key
+from dwr.tasks.schema import (
+    Constraint, ConstraintTask, GivenAssignment, RelationKind, Solution,
+    canonical_constraint_key,
+)
+from dwr.tasks.solver import SolverStats
 
 
 CONFIG_PATH = Path(__file__).parents[1] / "configs" / "tasks" / "constraint_probe_v4.json"
@@ -247,10 +251,92 @@ class ProbeGeneratorV4Tests(unittest.TestCase):
                 propose_candidate(*candidate)
             self.assertEqual(caught.exception.reason, "solver_oracle_disagreement")
 
+    def test_result_constructor_rejects_task_shape_profile_and_invalid_witness_fixture(self) -> None:
+        task = ConstraintTask(
+            "constraint-task-v1", 3, ("v0", "v1", "v2"),
+            (Constraint(RelationKind.NEQ, ("v0", "v1")),
+             Constraint(RelationKind.NEQ, ("v1", "v2"))),
+            (GivenAssignment("v0", 0),),
+        )
+        invalid_witness = Solution((("v0", 0), ("v1", 0), ("v2", 0)))
+        with self.assertRaises((TypeError, ValueError)):
+            ProposalResult("source", 41, ("eq",), "A", 6, 2, 8, None,
+                           task, invalid_witness, 2, None, None, None)
+
+    def test_result_constructor_rejects_empty_mixed_present_kind_projection(self) -> None:
+        task = _pure_eq_task()
+        solution = Solution(tuple((f"v{i}", 0) for i in range(6)))
+        eligibility = {
+            "kind": "mixed", "eligible": True, "kinds": [],
+            "kind_removal_solution_counts": [], "factor_graph_connected": True,
+            "factor_graph_kinds": [], "all_present_kinds_in_graph": True, "reason": None,
+        }
+        with self.assertRaises((TypeError, ValueError)):
+            ProposalResult("development", 9, ("eq", "neq"), "A", 6, 2, 8, None,
+                           task, solution, 1, solution, SolverStats(1, 1, 1), eligibility)
+
+    def test_result_constructor_rejects_wrong_witness_length_and_given_value(self) -> None:
+        task = _pure_eq_task()
+        solution = Solution(tuple((f"v{i}", 0) for i in range(6)))
+        eligibility = {"kind": "source", "eligible": True,
+                       "removal_solution_counts": [1, 1, 1, 1, 3, 1, 1, 1]}
+        base = ("source", 12, ("eq",), "A", 6, 2, 8, None, task)
+        with self.subTest(case="short witness"), self.assertRaises((TypeError, ValueError)):
+            ProposalResult(*base, Solution((("v0", 0), ("v1", 0), ("v2", 0))),
+                           1, solution, SolverStats(1, 1, 1), eligibility)
+        wrong_given = Solution((("v0", 1), ("v1", 0), ("v2", 0),
+                                ("v3", 0), ("v4", 0), ("v5", 0)))
+        with self.subTest(case="wrong given value"), self.assertRaises((TypeError, ValueError)):
+            ProposalResult(*base, wrong_given, 1, solution,
+                           SolverStats(1, 1, 1), eligibility)
+        wrong_oracle_solution = Solution((("v0", 0), ("v1", 0), ("v2", 0),
+                                          ("v3", 0), ("v4", 0), ("v5", 1)))
+        with self.subTest(case="unique oracle differs from witness"), self.assertRaises((TypeError, ValueError)):
+            ProposalResult(*base, solution, 1, wrong_oracle_solution,
+                           SolverStats(1, 1, 1), eligibility)
+
+    def test_result_constructor_rejects_mixed_projection_not_matching_task_kinds(self) -> None:
+        task = _mixed_unique_task()
+        witness = Solution((("v0", 0), ("v1", 1), ("v2", 2),
+                            ("v3", 2), ("v4", 2), ("v5", 2)))
+        eligibility = {
+            "kind": "mixed", "eligible": False, "kinds": ["eq"],
+            "kind_removal_solution_counts": [1], "factor_graph_connected": True,
+            "factor_graph_kinds": ["eq"], "all_present_kinds_in_graph": True,
+            "reason": "mixed_kind_not_necessary",
+        }
+        with self.assertRaises((TypeError, ValueError)):
+            ProposalResult("development", 13, ("eq", "neq"), "D", 6, 3, 8,
+                           None, task, witness, 1, witness, SolverStats(1, 1, 1), eligibility)
+
     @staticmethod
     def configured_solution():
         from dwr.tasks.schema import Solution
         return Solution(tuple((f"v{i}", 0) for i in range(6)))
+
+
+def _pure_eq_task() -> ConstraintTask:
+    pairs = (("v0", "v1"), ("v0", "v2"), ("v0", "v3"), ("v0", "v4"),
+             ("v0", "v5"), ("v1", "v2"), ("v1", "v3"), ("v1", "v4"))
+    return ConstraintTask("constraint-task-v1", 3, tuple(f"v{i}" for i in range(6)),
+                          tuple(Constraint(RelationKind.EQ, pair) for pair in pairs),
+                          (GivenAssignment("v0", 0), GivenAssignment("v1", 0)))
+
+
+def _mixed_unique_task() -> ConstraintTask:
+    constraints = (
+        Constraint(RelationKind.NEQ, ("v0", "v3")),
+        Constraint(RelationKind.NEQ, ("v1", "v3")),
+        Constraint(RelationKind.NEQ, ("v0", "v4")),
+        Constraint(RelationKind.NEQ, ("v1", "v4")),
+        Constraint(RelationKind.NEQ, ("v0", "v5")),
+        Constraint(RelationKind.NEQ, ("v1", "v5")),
+        Constraint(RelationKind.EQ, ("v2", "v3")),
+        Constraint(RelationKind.EQ, ("v3", "v4")),
+    )
+    return ConstraintTask("constraint-task-v1", 3, tuple(f"v{i}" for i in range(6)),
+                          constraints, (GivenAssignment("v0", 0), GivenAssignment("v1", 1),
+                                        GivenAssignment("v2", 2)))
 
 
 if __name__ == "__main__":
