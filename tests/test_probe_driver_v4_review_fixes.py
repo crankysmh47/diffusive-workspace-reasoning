@@ -161,8 +161,42 @@ class ProbeDriverV4ReviewFixTests(unittest.TestCase):
         for profile in ("eq/neq", "eq/add_mod", "neq/add_mod"):
             self.assertEqual(projection["development_validation_by_profile"][profile]["eligible_groups"], 150)
         proxy = projection["four_cohort_proxy"]
+        self.assertEqual(proxy["cohorts"]["source_train_eligible"]["group_count"], 100)
         self.assertEqual(proxy["cohorts"]["development_validation_eq_neq_primary_eligible"]["group_count"], 150)
         self.assertFalse(proxy["pass"])
+
+    def test_profile_attempt_status_is_per_profile_even_when_rows_have_no_metrics(self):
+        from dwr.tasks.audit_probe_v4 import _public_projection
+        groups = {("development", "eq", "neq"): [],
+                  ("development", "eq", "add_mod"): [],
+                  ("development", "neq", "add_mod"): []}
+        attempted = {("eq", "neq")}
+        projection = _public_projection(groups, {}, attempted_dev_profiles=attempted)
+        statuses = projection["development_validation_by_profile"]
+        self.assertEqual(statuses["eq/neq"]["status"], "not_assessed")
+        self.assertEqual(statuses["eq/add_mod"]["status"], "not_attempted")
+        self.assertEqual(statuses["neq/add_mod"]["status"], "not_attempted")
+
+    def test_source_prefix_bytes_and_hash_bind_exact_reconstructed_source_rows(self):
+        from dwr.tasks.audit_probe_v4 import _verify_reconstructed_source_prefix
+        from dwr.tasks.run_support import stable_json
+        outcomes = [{"partition": "source", "candidate_index": 0},
+                    {"partition": "development", "candidate_index": 0}]
+        records = [{"partition": "source", "candidate_index": 0},
+                   {"partition": "development", "candidate_index": 0}]
+        outcome_prefix = (stable_json(outcomes[0]) + "\n").encode("utf-8")
+        record_prefix = (stable_json(records[0]) + "\n").encode("utf-8")
+        closure = {"source_attempts": 1, "outcome_prefix_bytes": len(outcome_prefix),
+            "outcome_prefix_sha256": hashlib.sha256(outcome_prefix).hexdigest(),
+            "record_prefix_bytes": len(record_prefix),
+            "record_prefix_sha256": hashlib.sha256(record_prefix).hexdigest()}
+        _verify_reconstructed_source_prefix(closure, outcomes, records)
+        altered = dict(closure, outcome_prefix_bytes=closure["outcome_prefix_bytes"] + 1)
+        with self.assertRaises(ValueError):
+            _verify_reconstructed_source_prefix(altered, outcomes, records)
+        altered = dict(closure, record_prefix_sha256="0" * 64)
+        with self.assertRaises(ValueError):
+            _verify_reconstructed_source_prefix(altered, outcomes, records)
 
     def test_terminal_report_pass_requires_all_source_dev_and_proxy_gates(self):
         from dwr.tasks.probe_v4 import ProbeState
@@ -206,10 +240,10 @@ class ProbeDriverV4ReviewFixTests(unittest.TestCase):
         source_projection = {
             "accepted_groups": 1000, "unique_oracle_groups": 1200, "structure_signatures": 20,
             "profile_groups": {"eq": 334, "neq": 333, "add_mod": 333},
-            "solution_value_counts": {"0": 334, "1": 333, "2": 333},
+            "solution_value_counts": {"0": 2000, "1": 2000, "2": 2000},
             "given_counts": {"2": 500, "3": 500}, "sensitive_groups": 1000,
-            "sensitivity_fraction": 1.0, "eligible_envelope_groups": 1000,
-            "envelope_yield": 1.0, "groups_by_cell": {cell: 300 for cell in "ABCD"},
+            "sensitivity_fraction": 1000 / 1200, "eligible_envelope_groups": 1000,
+            "envelope_yield": 1000 / 1200, "groups_by_cell": {cell: 250 for cell in "ABCD"},
             "eligible_groups_by_cell": {cell: 250 for cell in "ABCD"},
             "four_cell_mass": {"numerator": 1000, "denominator": 1000, "fraction": 1.0}}
         closure = {"status": "PASS_SOURCE_CLOSURE", "reason": None,
@@ -229,8 +263,8 @@ class ProbeDriverV4ReviewFixTests(unittest.TestCase):
             dev[key] = {"status": "complete", "eligible_groups": 120,
                 "unique_oracle_groups": 120, "eligible_signatures": 12,
                 "scientifically_eligible_groups": 120, "scientific_eligibility_fraction": 1.0,
-                "eligible_envelope_groups": 120, "envelope_yield": 1.0,
-                "groups_by_cell": {cell: 30 for cell in "ABCD"},
+                "eligible_envelope_groups": 100, "envelope_yield": 100 / 120,
+                "groups_by_cell": {cell: 25 for cell in "ABCD"},
                 "eligible_groups_by_cell": {cell: 30 for cell in "ABCD"}}
         def cohort(count):
             cells = {cell: count // 4 for cell in "ABCD"}
@@ -240,6 +274,9 @@ class ProbeDriverV4ReviewFixTests(unittest.TestCase):
             "development_validation_eq_neq_primary_eligible": cohort(120),
             "development_validation_eq_add_mod_primary_eligible": cohort(120),
             "development_validation_neq_add_mod_primary_eligible": cohort(120)}, "pass": True}
+        for key in dev_targets:
+            proxy["cohorts"]["development_validation_" + key.replace("/", "_") + "_primary_eligible"]["groups_by_cell"] = {cell: 30 for cell in "ABCD"}
+            proxy["cohorts"]["development_validation_" + key.replace("/", "_") + "_primary_eligible"]["common_cell_groups"] = {cell: 30 for cell in "ABCD"}
         audit = {"status": "PASS_AUDIT", "integrity": {"status": "pass", "failures": []},
             "public_projection": {"source_train": source_projection,
                 "development_validation_by_profile": dev, "four_cohort_proxy": proxy},
@@ -253,6 +290,21 @@ class ProbeDriverV4ReviewFixTests(unittest.TestCase):
             {key: "pass" for key in dev_targets})
         _verify_terminal_report(report, self.config, source, "e" * 64, "f" * 64,
                                 closure, replay, audit)
+        altered = copy.deepcopy(report)
+        altered_closure, altered_audit = copy.deepcopy(closure), copy.deepcopy(audit)
+        altered_closure["train_projection"]["structure_signatures"] = 11
+        altered_audit["public_projection"]["source_train"]["structure_signatures"] = 11
+        altered["public_floors"]["source_train"]["values"]["structure_signatures"] = 11
+        with self.assertRaises(ValueError):
+            _verify_terminal_report(altered, self.config, source, "e" * 64, "f" * 64,
+                                    altered_closure, replay, altered_audit)
+        altered_dev = copy.deepcopy(report)
+        altered_audit = copy.deepcopy(audit)
+        altered_audit["public_projection"]["development_validation_by_profile"]["eq/neq"]["eligible_signatures"] = 11
+        altered_dev["public_floors"]["development_validation_by_profile"]["eq/neq"]["values"]["eligible_signatures"] = 11
+        with self.assertRaises(ValueError):
+            _verify_terminal_report(altered_dev, self.config, source, "e" * 64, "f" * 64,
+                                    closure, replay, altered_audit)
         bad_closure = copy.deepcopy(closure)
         bad_closure["source_quota_closed"] = False
         bad_replay = copy.deepcopy(replay)
@@ -317,8 +369,9 @@ class ProbeDriverV4ReviewFixTests(unittest.TestCase):
             terminal = copy.deepcopy(initial)
             terminal.update({"status": "not_assessed",
                 "finished_utc": datetime.now(timezone.utc).isoformat(), "error": error,
-                "exit_code": 1, "elapsed_wall_seconds": guard.elapsed,
-                "cpu_seconds": 0.0, "peak_resident_bytes": guard.peak_bytes,
+                "exit_code": 1, "elapsed_wall_seconds": report["resource_snapshot"]["wall_seconds"],
+                "cpu_seconds": report["resource_snapshot"]["cpu_seconds"],
+                "peak_resident_bytes": report["resource_snapshot"]["peak_rss_bytes"],
                 "accounting_end_boundary": "post_first_terminal_write_resource_check",
                 "artifacts": {name: _artifact_ref(output / name) for name in ARTIFACTS[:-1]}})
             atomic_json(output / ARTIFACTS[-1], terminal)
@@ -511,6 +564,72 @@ class ProbeDriverV4ReviewFixTests(unittest.TestCase):
             terminal = json.loads((output / ARTIFACTS[-1]).read_text(encoding="utf-8"))
             self.assertEqual(report["status"], "NOT_ASSESSED")
             self.assertEqual(terminal["status"], "not_assessed")
+            from dwr.tasks.run_support import strict_json_loads
+            from dwr.tasks.probe_v4 import (_verify_audit_document, _verify_replay_document,
+                _verify_source_closure, _verify_terminal_manifest, _verify_terminal_report)
+            from dwr.tasks.run_support import sha256_file
+            initial = strict_json_loads((output / ARTIFACTS[0]).read_text(encoding="utf-8"))
+            closure = strict_json_loads((output / ARTIFACTS[3]).read_text(encoding="utf-8"))
+            replay = strict_json_loads((output / ARTIFACTS[4]).read_text(encoding="utf-8"))
+            audit = strict_json_loads((output / ARTIFACTS[5]).read_text(encoding="utf-8"))
+            self.assertEqual(terminal["partitions"]["source"]["attempts"], replay["partition_attempts"]["source"])
+            self.assertEqual(terminal["partitions"]["development"]["attempts"], replay["partition_attempts"]["development"])
+            policy = _FixturePolicy("preterminal-cap")
+            _verify_source_closure(closure, output, self.config, initial["source"], initial["producer"], policy)
+            _verify_replay_document(replay, output, self.config, initial["source"], initial["producer"], policy)
+            _verify_audit_document(audit, output, self.config, initial["source"], initial["producer"], policy)
+            _verify_terminal_report(report, self.config, initial["source"], sha256_file(output / ARTIFACTS[0]),
+                sha256_file(output / ARTIFACTS[3]), closure,
+                {**replay, "artifact_sha256": sha256_file(output / ARTIFACTS[4])},
+                {**audit, "artifact_sha256": sha256_file(output / ARTIFACTS[5])}, policy, terminal["error"])
+            _verify_terminal_manifest(terminal, initial, self.config, output, replay, report,
+                                      policy)
+
+    def test_emergency_terminal_write_samples_live_rss_and_revokes_decision(self):
+        from dwr.tasks import probe_v4
+        over = {"value": False}
+        guard = OneShotGuard()
+        guard.memory_reader = lambda: 2 * 1024 * 1024 * 1024 if over["value"] else 100
+        real_atomic_json = probe_v4.atomic_json
+        fired = {"value": False}
+        def trigger_preterminal_then_raise_rss(path, value):
+            real_atomic_json(path, value)
+            if Path(path).name == ARTIFACTS[6] and not fired["value"]:
+                fired["value"] = True
+                guard.trip = True
+            if Path(path).name == ARTIFACTS[-1]:
+                over["value"] = True
+        with tempfile.TemporaryDirectory() as temp, patch.object(probe_v4, "atomic_json",
+                                                                    side_effect=trigger_preterminal_then_raise_rss):
+            output = Path(temp) / "emergency-postwrite-rss"
+            code = _run_controller(CONFIG, output, ["internal-fixture", "emergency-postwrite-rss"],
+                guard=guard, _fixture_policy=_FixturePolicy("emergency-postwrite-rss"),
+                _proposal_provider=_fixed_semantic_fixture_provider)
+            report = json.loads((output / ARTIFACTS[6]).read_text(encoding="utf-8"))
+            terminal = json.loads((output / ARTIFACTS[-1]).read_text(encoding="utf-8"))
+            self.assertEqual(code, 1)
+            self.assertEqual(report["reason"], "NOT_ASSESSED_RESOURCE_CAP")
+            self.assertEqual(terminal["error"]["phase"], "post_terminal_write")
+            self.assertEqual(report["resource_snapshot"]["peak_rss_bytes"], 2 * 1024 * 1024 * 1024)
+            self.assertEqual(report["resource_snapshot"]["wall_seconds"], terminal["elapsed_wall_seconds"])
+            self.assertEqual(report["resource_snapshot"]["cpu_seconds"], terminal["cpu_seconds"])
+            self.assertEqual(report["resource_snapshot"]["peak_rss_bytes"], terminal["peak_resident_bytes"])
+            from dwr.tasks.run_support import strict_json_loads, sha256_file
+            from dwr.tasks.probe_v4 import (_verify_audit_document, _verify_replay_document,
+                _verify_source_closure, _verify_terminal_manifest, _verify_terminal_report)
+            initial = strict_json_loads((output / ARTIFACTS[0]).read_text(encoding="utf-8"))
+            closure = strict_json_loads((output / ARTIFACTS[3]).read_text(encoding="utf-8"))
+            replay = strict_json_loads((output / ARTIFACTS[4]).read_text(encoding="utf-8"))
+            audit = strict_json_loads((output / ARTIFACTS[5]).read_text(encoding="utf-8"))
+            policy = _FixturePolicy("emergency-postwrite-rss")
+            _verify_source_closure(closure, output, self.config, initial["source"], initial["producer"], policy)
+            _verify_replay_document(replay, output, self.config, initial["source"], initial["producer"], policy)
+            _verify_audit_document(audit, output, self.config, initial["source"], initial["producer"], policy)
+            _verify_terminal_report(report, self.config, initial["source"], sha256_file(output / ARTIFACTS[0]),
+                sha256_file(output / ARTIFACTS[3]), closure,
+                {**replay, "artifact_sha256": sha256_file(output / ARTIFACTS[4])},
+                {**audit, "artifact_sha256": sha256_file(output / ARTIFACTS[5])}, policy, terminal["error"])
+            _verify_terminal_manifest(terminal, initial, self.config, output, replay, report, policy)
 
     def test_postwrite_cap_returns_nonzero_and_refreshes_resource_accounting(self):
         import time

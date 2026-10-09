@@ -273,9 +273,12 @@ def audit_records(records: list[dict], outcomes: list[dict], config, *, check=No
     first_seen_content: set[str] = set()
     first_seen_lineage: set[str] = set()
     denominator_groups = []
+    attempted_dev_profiles = set()
     for row in outcomes:
         if check: check()
         validate_outcome(row)
+        if row["partition"] == "development":
+            attempted_dev_profiles.add(tuple(row["profile"]))
         if row["oracle_count_capped_or_null"] != 1 or row["state"] in ("duplicate_content", "fatal_error"):
             continue
         # Source validation/test and development diagnostic rows stay opaque.
@@ -365,11 +368,12 @@ def audit_records(records: list[dict], outcomes: list[dict], config, *, check=No
             accepted_groups[("source",)].append(info)
         elif info["partition"] == "development" and info["split"] == "development_validation":
             accepted_groups[("development", *info["profile"])].append(info)
-    return _public_projection(grouped, accepted_groups, _fixture_targets)
+    return _public_projection(grouped, accepted_groups, _fixture_targets, attempted_dev_profiles)
 
 
 def _public_projection(grouped: dict, accepted_groups: dict,
-                       fixture_targets: dict | None = None) -> dict:
+                       fixture_targets: dict | None = None,
+                       attempted_dev_profiles: set[tuple[str, ...]] | None = None) -> dict:
     source = grouped.get(("source",), [])
     accepted_source = accepted_groups.get(("source",), [])
     source_sensitive = [i for i in source if i["interaction"]["eligible"]]
@@ -417,13 +421,14 @@ def _public_projection(grouped: dict, accepted_groups: dict,
                 "groups_by_cell": {c: cell_counts[c] for c in "ABCD"},
                 "eligible_groups_by_cell": {c: eligible_cells[c] for c in "ABCD"}}
         else:
-            status = "not_assessed" if denominator_rows or rows else "not_attempted"
+            attempted = (profile in (attempted_dev_profiles or set()) or denominator_rows or rows)
+            status = "not_assessed" if attempted else "not_attempted"
             dev["/".join(profile)] = {"status": status, "eligible_groups": None,
                 "unique_oracle_groups": None, "eligible_signatures": None,
                 "scientifically_eligible_groups": None, "scientific_eligibility_fraction": None,
                 "eligible_envelope_groups": None, "envelope_yield": None,
                 "groups_by_cell": None, "eligible_groups_by_cell": None}
-    cohorts = {"source_train_eligible": source_sensitive,
+    cohorts = {"source_train_eligible": accepted_source,
         "development_validation_eq_neq_primary_eligible": [i for i in grouped.get(("development", "eq", "neq"), [])
                                                               if i["interaction"]["eligible"]],
         "development_validation_eq_add_mod_primary_eligible": [i for i in grouped.get(("development", "eq", "add_mod"), [])
@@ -470,6 +475,19 @@ def _verify_source_terminal_links(source_doc: dict, replay_doc: dict, audit_doc:
     if (source_doc["status"] != "PASS_SOURCE_CLOSURE" and
             replay_doc["partition_attempts"]["development"] != 0):
         raise ValueError("development stream exists without passing source closure")
+
+
+def _verify_reconstructed_source_prefix(source_doc: dict, outcomes: list[dict], records: list[dict]) -> None:
+    source_outcomes = [row for row in outcomes if row["partition"] == "source"]
+    source_records = [row for row in records if row["partition"] == "source"]
+    expected_outcome = "".join(stable_json(row) + "\n" for row in source_outcomes).encode("utf-8")
+    expected_record = "".join(stable_json(row) + "\n" for row in source_records).encode("utf-8")
+    if (source_doc["source_attempts"] != len(source_outcomes) or
+            source_doc["outcome_prefix_bytes"] != len(expected_outcome) or
+            source_doc["outcome_prefix_sha256"] != hashlib.sha256(expected_outcome).hexdigest() or
+            source_doc["record_prefix_bytes"] != len(expected_record) or
+            source_doc["record_prefix_sha256"] != hashlib.sha256(expected_record).hexdigest()):
+        raise ValueError("source closure prefixes are not the reconstructed source-only stream")
 
 
 def audit_run(output_dir: Path, config, *, guard=None) -> dict:
@@ -525,6 +543,9 @@ def audit_run(output_dir: Path, config, *, guard=None) -> dict:
         {**audit_doc, "artifact_sha256": sha256_file(output_dir / ARTIFACTS[5])},
         error=terminal["error"])
     _verify_terminal_manifest(terminal, initial, config, output_dir, replay_doc, report)
+    outcomes = _read_jsonl(output_dir / "outcomes.jsonl", check=guard.check)
+    records = _read_jsonl(output_dir / "accepted_records.jsonl", check=guard.check)
+    _verify_reconstructed_source_prefix(source_doc, outcomes, records)
     if replay_doc["status"] != "PASS_REPLAY":
         if report["status"] != "NOT_ASSESSED":
             raise ValueError("nonpassing replay must have a NOT_ASSESSED terminal decision")
@@ -533,8 +554,6 @@ def audit_run(output_dir: Path, config, *, guard=None) -> dict:
         if report["status"] != "NOT_ASSESSED":
             raise ValueError("nonpassing independent audit must have a NOT_ASSESSED terminal decision")
         return audit_doc
-    outcomes = _read_jsonl(output_dir / "outcomes.jsonl", check=guard.check)
-    records = _read_jsonl(output_dir / "accepted_records.jsonl", check=guard.check)
     replayed, denominator_digest = replay_prefix(config, outcomes, records, guard, capture_rows=False)
     if (replayed.quota_counts != replay_doc["quota_counts"] or
             denominator_digest != replay_doc["denominator_projection_sha256"]):

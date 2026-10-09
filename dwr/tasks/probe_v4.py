@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from .audit_probe_v4 import (AUDIT_VERSION, audit_records, read_jsonl,
-                             validate_accepted_record)
+                             validate_accepted_record, validate_outcome)
 from .canonical import content_id, development_split, source_split, structure_signature
 from .config_probe_v4 import ProbeConfig, load_probe_config
 from .generator_probe_v4 import (ProposalFatalError, ProposalResult,
@@ -116,6 +116,7 @@ class ProbeState:
         self.denominators = {"source_train": _empty_counter(),
                              "development_validation": {_profile_key(p): _empty_counter() for p in config.development_profiles}}
         self.development_eligible_signatures = {_profile_key(p): set() for p in config.development_profiles}
+        self.attempted_dev_profiles: set[tuple[str, ...]] = set()
         self.last_outcome: dict | None = None
         # Full task rows are kept only by tiny correctness fixtures; production streams to disk.
         self.unique_groups: list[dict] = []
@@ -124,6 +125,8 @@ class ProbeState:
 
     def save_outcome(self, row: dict) -> None:
         self.last_outcome = row
+        if row.get("partition") == "development":
+            self.attempted_dev_profiles.add(tuple(row.get("profile", ())))
         if self.capture_rows:
             self.outcomes.append(row)
 
@@ -562,6 +565,25 @@ def _validate_source_projection(projection: dict) -> None:
     for key in ("sensitivity_fraction", "envelope_yield"):
         if not _finite_number(projection[key]) or not 0 <= projection[key] <= 1:
             raise ValueError("source projection fraction malformed")
+    accepted = projection["accepted_groups"]
+    sensitive = projection["sensitive_groups"]
+    mass = projection["four_cell_mass"]
+    expected = ((sum(projection["profile_groups"].values()) == accepted) and
+        (sum(projection["solution_value_counts"].values()) == accepted * 6) and
+        (sum(projection["given_counts"].values()) == accepted) and
+        (sum(projection["groups_by_cell"].values()) == accepted) and
+        (sum(projection["eligible_groups_by_cell"].values()) == mass["numerator"]) and
+        mass["numerator"] <= sensitive and mass["denominator"] == sensitive and
+        math.isclose(projection["sensitivity_fraction"],
+            sensitive / projection["unique_oracle_groups"] if projection["unique_oracle_groups"] else 0.0,
+            rel_tol=0, abs_tol=1e-12) and
+        math.isclose(projection["envelope_yield"],
+            accepted / projection["unique_oracle_groups"] if projection["unique_oracle_groups"] else 0.0,
+            rel_tol=0, abs_tol=1e-12) and
+        math.isclose(mass["fraction"], mass["numerator"] / mass["denominator"] if mass["denominator"] else 0.0,
+            rel_tol=0, abs_tol=1e-12))
+    if not expected:
+        raise ValueError("source projection counts, totals, or fractions disagree")
 
 
 def _validate_profile_projection(value: dict) -> None:
@@ -587,9 +609,21 @@ def _validate_profile_projection(value: dict) -> None:
         if (not isinstance(value[key], dict) or set(value[key]) != set(_CELLS) or
                 any(not _nonnegative_integer(count) for count in value[key].values())):
             raise ValueError("development projection cell map malformed")
+    eligible = value["eligible_groups"]
+    unique = value["unique_oracle_groups"]
+    envelope = value["eligible_envelope_groups"]
+    if (eligible > unique or envelope > eligible or
+            sum(value["groups_by_cell"].values()) != envelope or
+            sum(value["eligible_groups_by_cell"].values()) > eligible or
+            value["scientifically_eligible_groups"] != eligible or
+            not math.isclose(value["scientific_eligibility_fraction"], eligible / unique if unique else 0.0,
+                             rel_tol=0, abs_tol=1e-12) or
+            not math.isclose(value["envelope_yield"], envelope / unique if unique else 0.0,
+                             rel_tol=0, abs_tol=1e-12)):
+        raise ValueError("development projection counts, totals, or fractions disagree")
 
 
-def _validate_four_cohort_proxy(proxy: dict | None) -> None:
+def _validate_four_cohort_proxy(proxy: dict | None, fixture_policy=None) -> None:
     names = {"source_train_eligible", "development_validation_eq_neq_primary_eligible",
              "development_validation_eq_add_mod_primary_eligible",
              "development_validation_neq_add_mod_primary_eligible"}
@@ -600,6 +634,7 @@ def _validate_four_cohort_proxy(proxy: dict | None) -> None:
     cohorts = proxy["cohorts"]
     if not isinstance(cohorts, dict) or set(cohorts) != names:
         raise ValueError("four-cohort proxy cohort map malformed")
+    threshold = 1 if fixture_policy is not None else 10
     for cohort in cohorts.values():
         if (not isinstance(cohort, dict) or set(cohort) != {"group_count", "groups_by_cell",
                 "common_cell_groups", "mass_fraction", "pass"} or
@@ -613,8 +648,15 @@ def _validate_four_cohort_proxy(proxy: dict | None) -> None:
                 not set(cohort["common_cell_groups"]).issubset(_CELLS) or
                 any(not _nonnegative_integer(count) for count in cohort["common_cell_groups"].values())):
             raise ValueError("four-cohort proxy cohort values malformed")
-        expected_pass = bool(cohort["group_count"] and cohort["common_cell_groups"] and
-                             cohort["mass_fraction"] >= 0.8)
+        common = {c: cohort["groups_by_cell"][c] for c in _CELLS
+                  if all(item["groups_by_cell"][c] >= threshold for item in cohorts.values())}
+        expected_mass = sum(common.values()) / cohort["group_count"] if cohort["group_count"] else 0.0
+        expected_pass = bool(cohort["group_count"] and common and expected_mass >= 0.8)
+        if cohort["groups_by_cell"] and sum(cohort["groups_by_cell"].values()) > cohort["group_count"]:
+            raise ValueError("four-cohort cell counts exceed cohort size")
+        if cohort["common_cell_groups"] != common or not math.isclose(
+                cohort["mass_fraction"], expected_mass, rel_tol=0, abs_tol=1e-12):
+            raise ValueError("four-cohort membership or mass disagrees with cell counts")
         if cohort["pass"] is not expected_pass:
             raise ValueError("four-cohort proxy pass flag disagrees with mass")
     if proxy["pass"] is not all(cohort["pass"] for cohort in cohorts.values()):
@@ -655,6 +697,18 @@ def _verify_source_closure(closure: dict, output: Path, config: ProbeConfig,
             not isinstance(support["cells"], dict) or set(support["cells"]) != set(_CELLS) or
             type(support["cell_min_pass"]) is not bool or type(support["mass_pass"]) is not bool):
         raise ValueError("source closure support nested schema mismatch")
+    if closure["source_quota_closed"] is not (counts == expected_targets):
+        raise ValueError("source closure flag disagrees with quota counts")
+    if projection is not None and support is not None:
+        _, support_pass = _source_floors(projection, fixture_policy)
+        expected_minimum = 1 if fixture_policy is not None else 10
+        expected_cell_pass = (projection["eligible_groups_by_cell"].get("C", 0) >= 1
+            if fixture_policy is not None and fixture_policy.source_only else
+            all(v >= expected_minimum for v in projection["eligible_groups_by_cell"].values()))
+        if (support["cells"] != projection["eligible_groups_by_cell"] or
+                support["cell_min_pass"] is not expected_cell_pass or
+                support["mass_pass"] is not (projection["four_cell_mass"]["fraction"] >= 0.8)):
+            raise ValueError("source closure support labels disagree with numeric projection")
     resource = closure["resource_snapshot"]
     if (not isinstance(resource, dict) or set(resource) != {"wall_seconds", "cpu_seconds", "peak_rss_bytes"} or
             any(value is not None and (type(value) not in (int, float) or not math.isfinite(value) or value < 0)
@@ -669,9 +723,11 @@ def _verify_source_closure(closure: dict, output: Path, config: ProbeConfig,
             _prefix_sha256(output / "accepted_records.jsonl", closure["record_prefix_bytes"]) != closure["record_prefix_sha256"]):
         raise ValueError("source closure prefix hash mismatch")
     if closure["status"] == "PASS_SOURCE_CLOSURE":
+        floor_pass, support_pass = _source_floors(projection, fixture_policy)
         if (closure["reason"] is not None or closure["source_quota_closed"] is not True or
                 counts != expected_targets or projection is None or support is None or
-                support["cell_min_pass"] is not True or support["mass_pass"] is not True):
+                support["cell_min_pass"] is not True or support["mass_pass"] is not True or
+                not floor_pass or not support_pass):
             raise ValueError("passing source closure lacks closed quotas, projection, or support")
     elif closure["status"] == "NO_GO_SOURCE_CLOSURE":
         if closure["reason"] not in ("SOURCE_QUOTA_SHORTFALL", "SOURCE_TRAIN_FLOOR_FAILED",
@@ -679,6 +735,13 @@ def _verify_source_closure(closure: dict, output: Path, config: ProbeConfig,
             raise ValueError("source no-go reason is not registered")
         if closure["reason"] == "SOURCE_QUOTA_SHORTFALL" and closure["source_quota_closed"]:
             raise ValueError("source shortfall claims closed quotas")
+        if closure["reason"] in ("SOURCE_TRAIN_FLOOR_FAILED", "SOURCE_SUPPORT_FAILED"):
+            if projection is None or not closure["source_quota_closed"]:
+                raise ValueError("source floor no-go lacks complete assessed evidence")
+            floor_pass, support_pass = _source_floors(projection, fixture_policy)
+            if ((closure["reason"] == "SOURCE_TRAIN_FLOOR_FAILED" and floor_pass) or
+                    (closure["reason"] == "SOURCE_SUPPORT_FAILED" and (not floor_pass or support_pass))):
+                raise ValueError("source no-go reason contradicts numeric evidence")
     elif not isinstance(closure["reason"], str) or not closure["reason"]:
         raise ValueError("unassessed source closure needs a typed reason")
 
@@ -744,10 +807,17 @@ def _verify_replay_document(replay: dict, output: Path, config: ProbeConfig,
             denominator_digest is None or any(replay[key] is None for pair in prefixes for key in pair[:2]) or
             closed["source"] is None or any(value is None for value in closed["development"].values())):
         raise ValueError("passing replay is missing completed closure evidence")
+    if replay["status"] == "PASS_REPLAY":
+        expected_closed = {
+            "source": counts["source"] == expected_targets["source"],
+            "development": {profile: counts["development"][profile] == targets
+                            for profile, targets in expected_targets["development"].items()}}
+        if closed != expected_closed:
+            raise ValueError("replay quota closure booleans disagree with quota counts")
 
 
 def _verify_audit_document(audit: dict, output: Path, config: ProbeConfig,
-                           source: dict, producer: list[dict]) -> None:
+                           source: dict, producer: list[dict], fixture_policy=None) -> None:
     fields = {"audit_version", "status", "config_sha256", "source", "producer", "replay_sha256",
         "source_closure_sha256", "public_projection", "integrity", "resource_snapshot"}
     if set(audit) != fields or audit["audit_version"] != AUDIT_VERSION:
@@ -770,7 +840,7 @@ def _verify_audit_document(audit: dict, output: Path, config: ProbeConfig,
         raise ValueError("independent audit development projection profile set mismatch")
     for value in dev.values():
         _validate_profile_projection(value)
-    _validate_four_cohort_proxy(projection["four_cohort_proxy"])
+    _validate_four_cohort_proxy(projection["four_cohort_proxy"], fixture_policy)
     integrity = audit["integrity"]
     if (not isinstance(integrity, dict) or set(integrity) != {"status", "failures"} or
             integrity["status"] not in ("pass", "fail", "not_assessed") or
@@ -825,19 +895,30 @@ def _ensure_failure_artifacts(output: Path, config: ProbeConfig, source: dict,
     audit_path = output / ARTIFACTS[5]
     if not audit_path.exists():
         source_closure = strict_json_loads(closure_path.read_text(encoding="utf-8"))
-        dev_attempted = manifest["partitions"]["development"]["attempts"] > 0
-        dev_status = "not_assessed" if dev_attempted else "not_attempted"
-        dev_fields = {"status": dev_status, "eligible_groups": None,
-            "unique_oracle_groups": None, "eligible_signatures": None,
+        attempted = set()
+        try:
+            durable_outcomes = _read_jsonl(outcomes_path)
+            durable_records = _read_jsonl(records_path)
+            attempted = {tuple(row["profile"]) for row in durable_outcomes
+                         if row.get("partition") == "development"}
+            projection = audit_records(durable_records, durable_outcomes, config,
+                _fixture_targets=state._fixture_policy.quotas if state._fixture_policy else None)
+            dev_projection = projection["development_validation_by_profile"]
+        except Exception:
+            dev_projection = {}
+        dev_fields = {key: dev_projection.get(_profile_key(profile), {
+            "status": "not_assessed" if profile in attempted else "not_attempted",
+            "eligible_groups": None, "unique_oracle_groups": None, "eligible_signatures": None,
             "scientifically_eligible_groups": None, "scientific_eligibility_fraction": None,
             "eligible_envelope_groups": None, "envelope_yield": None,
-            "groups_by_cell": None, "eligible_groups_by_cell": None}
+            "groups_by_cell": None, "eligible_groups_by_cell": None})
+            for profile in state.profiles_for("development")
+            for key in (_profile_key(profile),)}
         audit = {"audit_version": AUDIT_VERSION, "status": "NOT_ASSESSED",
             "config_sha256": config.config_sha256, "source": source, "producer": producer,
             "replay_sha256": sha256_file(replay_path), "source_closure_sha256": sha256_file(closure_path),
             "public_projection": {"source_train": source_closure["train_projection"],
-                "development_validation_by_profile": {
-                    _profile_key(profile): dict(dev_fields) for profile in state.profiles_for("development")},
+                "development_validation_by_profile": dev_fields,
                 "four_cohort_proxy": None},
             "integrity": {"status": "not_assessed", "failures": ["audit_not_completed"]},
             "resource_snapshot": {"wall_seconds": None, "cpu_seconds": None, "peak_rss_bytes": None}}
@@ -909,10 +990,11 @@ def _development_floors(state: ProbeState, projection: dict) -> dict[str, str]:
     for profile in state.profiles_for("development"):
         key = _profile_key(profile)
         metric = projection.get("development_validation_by_profile", {}).get(key)
-        if not state.partition_closed("development") and not all(
+        profile_closed = all(
                 state.quota_counts["development"][profile][cell] == state.quota_for("development", profile, cell)
-                for cell in _CELLS):
-            results[key] = "not_assessed"
+                for cell in _CELLS)
+        if not profile_closed:
+            results[key] = "not_assessed" if profile in state.attempted_dev_profiles else "not_attempted"
             continue
         denom = state.denominators["development_validation"][key]
         accepted = sum(state.quota_counts["development"][profile].values())
@@ -1143,11 +1225,21 @@ def _verify_terminal_report(report: dict, config: ProbeConfig, source: dict,
         if metric["status"] == "complete":
             if floor["status"] not in ("pass", "fail") or floor["values"] != metric:
                 raise ValueError("terminal report completed development floor mismatch")
+            counts = quota["development_validation_by_profile_cell"][key]
+            targets = replay["quota_targets"]["development"][key]
+            signature_floor = 1 if fixture_policy is not None else 12
+            metric_pass = (metric["eligible_signatures"] >= signature_floor and
+                metric["unique_oracle_groups"] > 0 and
+                metric["scientific_eligibility_fraction"] >= 0.25 and
+                metric["envelope_yield"] >= 0.25 and counts == targets)
+            if (floor["status"] == "pass") is not metric_pass:
+                raise ValueError("terminal development floor status disagrees with numeric evidence")
         else:
             expected_status = "not_attempted" if metric["status"] == "not_attempted" else "not_assessed"
             if floor != {"status": expected_status, "values": None}:
                 raise ValueError("terminal report incomplete development floor mismatch")
     proxy = audit["public_projection"]["four_cohort_proxy"]
+    _validate_four_cohort_proxy(proxy, fixture_policy)
     if (report["four_cohort_proxy"] != proxy or
             floors["four_cohort_proxy"]["values"] != proxy or
             floors["four_cohort_proxy"]["status"] != (
@@ -1198,6 +1290,36 @@ def _validate_terminal_acceptance(report: dict, closure: dict, replay: dict, aud
                     report["public_floors"]["development_validation_by_profile"].values()) or
                 report["public_floors"]["four_cohort_proxy"]["status"] != "pass"):
             raise ValueError("terminal PASS has a failed or unassessed public floor")
+        source_floor, source_support_pass = _source_floors(closure["train_projection"], fixture_policy)
+        source_projection = closure["train_projection"]
+        expected_minimum = 1 if fixture_policy is not None else 10
+        expected_cell_pass = all(v >= expected_minimum
+                                 for v in source_projection["eligible_groups_by_cell"].values())
+        support = closure["source_support"]
+        if (not source_floor or not source_support_pass or
+                support.get("cells") != source_projection["eligible_groups_by_cell"] or
+                support.get("cell_min_pass") is not expected_cell_pass or
+                support.get("mass_pass") is not (source_projection["four_cell_mass"]["fraction"] >= 0.8)):
+            raise ValueError("terminal PASS source floors/support disagree with numeric projection")
+        cohorts = projection["four_cohort_proxy"]["cohorts"]
+        source_cohort = cohorts["source_train_eligible"]
+        if (source_cohort["group_count"] != source_projection["accepted_groups"] or
+                source_cohort["groups_by_cell"] != source_projection["groups_by_cell"]):
+            raise ValueError("terminal source proxy differs from accepted source cohort")
+        for key, metric in dev.items():
+            cohort_name = "development_validation_" + key.replace("/", "_") + "_primary_eligible"
+            cohort = cohorts[cohort_name]
+            if (cohort["group_count"] != metric["eligible_groups"] or
+                    cohort["groups_by_cell"] != metric["eligible_groups_by_cell"]):
+                raise ValueError("terminal proxy differs from development projection")
+            counts = replay["quota_counts"]["development"][key]
+            targets = replay["quota_targets"]["development"][key]
+            signature_floor = 1 if fixture_policy is not None else 12
+            if (metric["eligible_signatures"] < signature_floor or
+                    metric["unique_oracle_groups"] == 0 or
+                    metric["scientific_eligibility_fraction"] < 0.25 or
+                    metric["envelope_yield"] < 0.25 or counts != targets):
+                raise ValueError("terminal PASS development numeric floor failed")
         resource = report["resource_snapshot"]
         if (resource["wall_seconds"] is None or resource["wall_seconds"] >= 900 or
                 resource["peak_rss_bytes"] is None or resource["peak_rss_bytes"] > 1073741824):
@@ -1220,6 +1342,11 @@ def _validate_terminal_acceptance(report: dict, closure: dict, replay: dict, aud
                 closure.get("status") == "NO_GO_SOURCE_CLOSURE" and
                 closure.get("reason") == reason and closure.get("train_projection") is not None):
             raise ValueError("source floor no-go lacks assessed source evidence")
+        if reason in ("SOURCE_TRAIN_FLOOR_FAILED", "SOURCE_SUPPORT_FAILED"):
+            floor_pass, support_pass = _source_floors(closure["train_projection"], fixture_policy)
+            if ((reason == "SOURCE_TRAIN_FLOOR_FAILED" and floor_pass) or
+                    (reason == "SOURCE_SUPPORT_FAILED" and (not floor_pass or support_pass))):
+                raise ValueError("source no-go reason contradicts numeric floors")
         if reason == "DEVELOPMENT_VALIDATION_QUOTA_SHORTFALL" and not (
                 source_pass and replay_pass and
                 not all(replay.get("quota_closed", {}).get("development", {}).values())):
@@ -1340,6 +1467,11 @@ def _verify_terminal_manifest(terminal: dict, initial: dict, config: ProbeConfig
              any(partitions[part]["status"] != "complete" for part in ("source", "development"))) or
             (report["status"] == "NOT_ASSESSED" and terminal["exit_code"] != 1)):
         raise ValueError("terminal manifest error and report decision disagree")
+    snapshot = report["resource_snapshot"]
+    if (snapshot["wall_seconds"] != terminal["elapsed_wall_seconds"] or
+            snapshot["cpu_seconds"] != terminal["cpu_seconds"] or
+            snapshot["peak_rss_bytes"] != terminal["peak_resident_bytes"]):
+        raise ValueError("terminal report and manifest accounting boundary differ")
 
 
 def _not_assessed_report(config: ProbeConfig, source: dict, initial_path: Path,
@@ -1355,17 +1487,19 @@ def _not_assessed_report(config: ProbeConfig, source: dict, initial_path: Path,
                      "fail" if source_values is not None else "not_assessed")
     dev_projection = (audit.get("public_projection", {}).get("development_validation_by_profile", {})
                      if audit is not None else {})
-    derived_floors = _development_floors(state, dev_projection) if dev_projection else {}
+    derived_floors = (_development_floors(state, audit.get("public_projection", {}))
+                      if dev_projection else {})
     dev = {}
     for profile in config.development_profiles:
         key = _profile_key(profile)
         metric = dev_projection.get(key)
         if metric is not None and metric.get("status") == "complete":
             dev[key] = {"status": derived_floors.get(key, "not_assessed"), "values": metric}
-        elif not development_attempts:
-            dev[key] = {"status": "not_attempted", "values": None}
         else:
-            status = "not_attempted" if metric is not None and metric.get("status") == "not_attempted" else "not_assessed"
+            status = ("not_attempted" if metric is not None and metric.get("status") == "not_attempted"
+                      else "not_assessed" if key in derived_floors and derived_floors[key] == "not_assessed"
+                      else "not_attempted" if key in derived_floors and derived_floors[key] == "not_attempted"
+                      else "not_assessed" if development_attempts else "not_attempted")
             dev[key] = {"status": status, "values": None}
     proxy = audit.get("public_projection", {}).get("four_cohort_proxy") if audit is not None else None
     proxy_status = "not_assessed" if proxy is None else "pass" if proxy.get("pass") else "fail"
@@ -1425,6 +1559,7 @@ def _run_controller_body(config_path: Path, output_dir: Path, command: list[str]
     output_dir.mkdir(parents=True)
     initial = _initial_manifest(config, config_path, output_dir, command or sys.argv[:], root, producer, source,
                                 _fixture_policy)
+    guard.dwr_active_initial = initial
     initial_path = output_dir / ARTIFACTS[0]
     guard.check()
     initial_path.write_text(stable_json(initial) + "\n", encoding="utf-8", newline="\n")
@@ -1432,6 +1567,7 @@ def _run_controller_body(config_path: Path, output_dir: Path, command: list[str]
     _verify_initial_binding(strict_json_loads(initial_path.read_text(encoding="utf-8")),
                             config, source, producer, config_path, _fixture_policy)
     state = ProbeState(config, capture_rows=False, _fixture_policy=_fixture_policy)
+    guard.dwr_active_state = state
     cpu_started = time.process_time()
     source_closure = None
     source_status = "NOT_ASSESSED"
@@ -1559,7 +1695,7 @@ def _run_controller_body(config_path: Path, output_dir: Path, command: list[str]
             "source_closure_sha256": sha256_file(output_dir / ARTIFACTS[3]),
             "public_projection": public_projection,
             "integrity": {"status": "pass", "failures": []}, "resource_snapshot": _resource_snapshot(guard)}
-        _verify_audit_document(audit_doc, output_dir, config, initial["source"], producer)
+        _verify_audit_document(audit_doc, output_dir, config, initial["source"], producer, _fixture_policy)
         atomic_json(output_dir / ARTIFACTS[5], audit_doc)
         audit_ref = _artifact_ref(output_dir / ARTIFACTS[5])
         replay_ref = _artifact_ref(output_dir / ARTIFACTS[4])
@@ -1635,7 +1771,7 @@ def _run_controller_body(config_path: Path, output_dir: Path, command: list[str]
         replay_doc = strict_json_loads(replay_path.read_text(encoding="utf-8"))
         audit_doc = strict_json_loads(audit_path.read_text(encoding="utf-8"))
         _verify_replay_document(replay_doc, output_dir, config, initial["source"], producer, _fixture_policy)
-        _verify_audit_document(audit_doc, output_dir, config, initial["source"], producer)
+        _verify_audit_document(audit_doc, output_dir, config, initial["source"], producer, _fixture_policy)
         report_path = output_dir / ARTIFACTS[6]
         report = strict_json_loads(report_path.read_text(encoding="utf-8"))
         if report_status == "NOT_ASSESSED":
@@ -1672,42 +1808,56 @@ def _run_controller_body(config_path: Path, output_dir: Path, command: list[str]
         if path.exists():
             terminal_artifacts[name] = _artifact_ref(path)
     initial["artifacts"] = terminal_artifacts
+    guard.dwr_primary_error = error
     guard.check()
     terminal_path = output_dir / ARTIFACTS[-1]
     atomic_json(terminal_path, initial)
     terminal_replay = strict_json_loads((output_dir / ARTIFACTS[4]).read_text(encoding="utf-8"))
     terminal_report = strict_json_loads((output_dir / ARTIFACTS[6]).read_text(encoding="utf-8"))
-    _verify_terminal_manifest(strict_json_loads(terminal_path.read_text(encoding="utf-8")),
-        strict_json_loads(initial_path.read_text(encoding="utf-8")), config, output_dir,
-        terminal_replay, terminal_report, _fixture_policy)
+    cap_error = None
     try:
         guard.check()
-    except (TimeoutError, MemoryError, RuntimeError):
+    except (TimeoutError, MemoryError, RuntimeError) as exc:
+        cap_error = exc
+    boundary = _resource_snapshot(guard)
+    if cap_error is not None:
         report_status = "NOT_ASSESSED"
         reason = "NOT_ASSESSED_RESOURCE_CAP"
-        error = {"type": "ResourceCap", "message": reason,
+        original_error = error
+        error = {"type": type(cap_error).__name__,
+            "message": reason if original_error is None else reason + "; prior=" + stable_json(original_error),
             "phase": "post_terminal_write", "partition": None,
             "candidate_index": None, "reason": reason}
         initial["status"] = "not_assessed"
         initial["exit_code"] = 1
         initial["error"] = error
-        # One bounded accounting/status flush; the guard is not reset.
         revoked = strict_json_loads((output_dir / ARTIFACTS[6]).read_text(encoding="utf-8"))
         revoked["status"] = "NOT_ASSESSED"
         revoked["reason"] = "NOT_ASSESSED_RESOURCE_CAP"
         revoked["g2_status"] = "not_assessed"
-        boundary = _resource_snapshot(guard)
-        revoked["resource_snapshot"] = boundary
-        atomic_json(output_dir / ARTIFACTS[6], revoked)
-        initial["artifacts"][ARTIFACTS[6]] = _artifact_ref(output_dir / ARTIFACTS[6])
-        initial["finished_utc"] = datetime.now(timezone.utc).isoformat()
-        initial["elapsed_wall_seconds"] = boundary["wall_seconds"]
-        initial["cpu_seconds"] = boundary["cpu_seconds"]
-        initial["peak_resident_bytes"] = boundary["peak_rss_bytes"]
-        atomic_json(terminal_path, initial)
-        _verify_terminal_manifest(strict_json_loads(terminal_path.read_text(encoding="utf-8")),
-            strict_json_loads(initial_path.read_text(encoding="utf-8")), config, output_dir,
-            terminal_replay, revoked, _fixture_policy)
+        terminal_report = revoked
+    terminal_report["resource_snapshot"] = boundary
+    initial["status"] = ("not_assessed" if report_status == "NOT_ASSESSED" else
+        "scientific_no_go" if report_status == "NO_GO_PROPOSAL" else
+        "fixture_complete" if report_status == "FIXTURE_PASS" else "complete")
+    initial["error"] = error
+    initial["exit_code"] = 0 if report_status in ("PASS_DEVELOPMENT_PROPOSAL", "FIXTURE_PASS") else 1
+    initial["finished_utc"] = datetime.now(timezone.utc).isoformat()
+    initial["elapsed_wall_seconds"] = boundary["wall_seconds"]
+    initial["cpu_seconds"] = boundary["cpu_seconds"]
+    initial["peak_resident_bytes"] = boundary["peak_rss_bytes"]
+    atomic_json(output_dir / ARTIFACTS[6], terminal_report)
+    initial["artifacts"][ARTIFACTS[6]] = _artifact_ref(output_dir / ARTIFACTS[6])
+    atomic_json(terminal_path, initial)
+    _verify_terminal_report(terminal_report, config, initial["source"],
+        sha256_file(initial_path), sha256_file(output_dir / ARTIFACTS[3]),
+        strict_json_loads((output_dir / ARTIFACTS[3]).read_text(encoding="utf-8")),
+        {**terminal_replay, "artifact_sha256": sha256_file(output_dir / ARTIFACTS[4])},
+        {**audit_doc, "artifact_sha256": sha256_file(output_dir / ARTIFACTS[5])},
+        _fixture_policy, error)
+    _verify_terminal_manifest(strict_json_loads(terminal_path.read_text(encoding="utf-8")),
+        strict_json_loads(initial_path.read_text(encoding="utf-8")), config, output_dir,
+        terminal_replay, terminal_report, _fixture_policy)
     return 0 if report_status in ("PASS_DEVELOPMENT_PROPOSAL", "FIXTURE_PASS") else 1
 
 
@@ -1724,14 +1874,14 @@ def _emergency_failure_flush(config_path: Path, output_dir: Path, command: list[
     producer = _producer_identity(config, root)
     initial_path = output / ARTIFACTS[0]
     if initial_path.exists():
-        initial = strict_json_loads(initial_path.read_text(encoding="utf-8"))
+        initial = getattr(guard, "dwr_active_initial", None) or strict_json_loads(initial_path.read_text(encoding="utf-8"))
         source = initial["source"]
         producer = initial["producer"]
     else:
         initial = _initial_manifest(config, Path(config_path).resolve(), output,
             command or sys.argv[:], root, producer, source, fixture_policy)
         initial_path.write_text(stable_json(initial) + "\n", encoding="utf-8", newline="\n")
-    state = ProbeState(config, capture_rows=False, _fixture_policy=fixture_policy)
+    state = getattr(guard, "dwr_active_state", None) or ProbeState(config, capture_rows=False, _fixture_policy=fixture_policy)
     for part in ("source", "development"):
         for profile_key, cells in initial["partitions"][part]["quota_counts"].items():
             profile = tuple(profile_key.split("/"))
@@ -1744,6 +1894,20 @@ def _emergency_failure_flush(config_path: Path, output_dir: Path, command: list[
         path = output / name
         if not path.exists():
             path.write_text("", encoding="utf-8", newline="\n")
+    # A write may fail after an outcome row reached disk but before the stage
+    # advanced its in-memory attempt counter. Reconcile only durable validated
+    # row indices; no proposal work or replay is restarted here.
+    try:
+        durable_rows = _read_jsonl(output / ARTIFACTS[1])
+        observed = {"source": [], "development": []}
+        for row in durable_rows:
+            validate_outcome(row)
+            observed[row["partition"]].append(row["candidate_index"])
+        if all(indices == list(range(len(indices))) for indices in observed.values()):
+            for part in ("source", "development"):
+                initial["partitions"][part]["attempts"] = len(observed[part])
+    except Exception:
+        pass
     if isinstance(exc, ProbeFailure):
         reason = exc.code
         phase, partition, candidate_index = exc.phase, exc.partition, exc.candidate_index
@@ -1758,6 +1922,9 @@ def _emergency_failure_flush(config_path: Path, output_dir: Path, command: list[
             "NOT_ASSESSED_IO_OR_SERIALIZATION_ERROR", "terminal_finalization", None, None)
     error = {"type": type(exc).__name__, "message": reason, "phase": phase,
              "partition": partition, "candidate_index": candidate_index, "reason": reason}
+    primary = getattr(guard, "dwr_primary_error", None)
+    if primary is not None and primary.get("reason") != reason:
+        error["message"] += "; prior=" + stable_json(primary)
     _ensure_failure_artifacts(output, config, source, producer, state, initial, guard)
     closure_path, replay_path, audit_path, report_path = (output / name for name in ARTIFACTS[3:7])
     closure = strict_json_loads(closure_path.read_text(encoding="utf-8"))
@@ -1788,15 +1955,32 @@ def _emergency_failure_flush(config_path: Path, output_dir: Path, command: list[
     initial["artifacts"] = {name: _artifact_ref(output / name) for name in ARTIFACTS[:-1]}
     terminal_path = output / ARTIFACTS[-1]
     atomic_json(terminal_path, initial)
-    # The resource boundary is sampled immediately after the first durable terminal.
+    cap_exc = None
+    try:
+        guard.check()
+    except (TimeoutError, MemoryError, RuntimeError) as caught:
+        cap_exc = caught
     snapshot = _resource_snapshot(guard)
+    if cap_exc is not None:
+        prior_error = error
+        reason = "NOT_ASSESSED_RESOURCE_CAP"
+        error = {"type": type(cap_exc).__name__,
+            "message": reason + ("; prior=" + stable_json(prior_error)
+                                 if prior_error.get("reason") != reason else ""),
+            "phase": "post_terminal_write", "partition": None,
+            "candidate_index": None, "reason": reason}
     report["resource_snapshot"] = snapshot
+    report["status"] = "NOT_ASSESSED"
+    report["reason"] = reason
+    report["g2_status"] = "not_assessed"
     atomic_json(report_path, report)
     initial["artifacts"][ARTIFACTS[6]] = _artifact_ref(report_path)
     initial["elapsed_wall_seconds"] = round(snapshot["wall_seconds"], 6)
     initial["cpu_seconds"] = round(snapshot["cpu_seconds"], 6)
     initial["peak_resident_bytes"] = snapshot["peak_rss_bytes"]
     initial["error"] = error
+    initial["status"] = "not_assessed"
+    initial["exit_code"] = 1
     atomic_json(terminal_path, initial)
     return 1
 

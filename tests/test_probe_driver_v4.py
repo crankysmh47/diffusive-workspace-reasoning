@@ -380,12 +380,15 @@ class ProbeDriverV4Tests(unittest.TestCase):
             altered = copy.deepcopy(replay)
             altered["quota_targets"]["development"]["unexpected"] = {}
             replay_mutations.append(("unknown-nested-profile", altered))
+            altered = copy.deepcopy(replay)
+            altered["quota_closed"]["development"]["eq/neq"] = False
+            replay_mutations.append(("profile-closure-disagrees-with-counts", altered))
             for name, altered in replay_mutations:
                 with self.subTest(document="replay", mutation=name), self.assertRaises(ValueError):
                     _verify_replay_document(altered, output, self.config, source, producer, policy)
 
             audit = read("independent_audit.json")
-            _verify_audit_document(audit, output, self.config, source, producer)
+            _verify_audit_document(audit, output, self.config, source, producer, policy)
             audit_mutations = []
             for key, value in (("audit_version", "wrong-version"),
                                ("config_sha256", "5" * 64),
@@ -400,7 +403,7 @@ class ProbeDriverV4Tests(unittest.TestCase):
             audit_mutations.append(("nested-projection-fields", altered))
             for name, altered in audit_mutations:
                 with self.subTest(document="audit", mutation=name), self.assertRaises(ValueError):
-                    _verify_audit_document(altered, output, self.config, source, producer)
+                    _verify_audit_document(altered, output, self.config, source, producer, policy)
 
             report = read("probe_report.json")
             closure_sha = sha256_file(output / "source_closure.json")
