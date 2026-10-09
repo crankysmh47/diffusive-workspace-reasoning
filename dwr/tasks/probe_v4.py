@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from .audit_probe_v4 import (AUDIT_VERSION, audit_records, read_jsonl,
-                             validate_accepted_record, validate_outcome)
+                             validate_accepted_record)
 from .canonical import content_id, development_split, source_split, structure_signature
 from .config_probe_v4 import ProbeConfig, load_probe_config
 from .generator_probe_v4 import (ProposalFatalError, ProposalResult,
@@ -895,19 +895,11 @@ def _ensure_failure_artifacts(output: Path, config: ProbeConfig, source: dict,
     audit_path = output / ARTIFACTS[5]
     if not audit_path.exists():
         source_closure = strict_json_loads(closure_path.read_text(encoding="utf-8"))
-        attempted = set()
-        try:
-            durable_outcomes = _read_jsonl(outcomes_path)
-            durable_records = _read_jsonl(records_path)
-            attempted = {tuple(row["profile"]) for row in durable_outcomes
-                         if row.get("partition") == "development"}
-            projection = audit_records(durable_records, durable_outcomes, config,
-                _fixture_targets=state._fixture_policy.quotas if state._fixture_policy else None)
-            dev_projection = projection["development_validation_by_profile"]
-        except Exception:
-            dev_projection = {}
+        projection = getattr(guard, "dwr_assessed_public_projection", None)
+        dev_projection = (projection.get("development_validation_by_profile", {})
+                          if isinstance(projection, dict) else {})
         dev_fields = {key: dev_projection.get(_profile_key(profile), {
-            "status": "not_assessed" if profile in attempted else "not_attempted",
+            "status": "not_assessed" if profile in state.attempted_dev_profiles else "not_attempted",
             "eligible_groups": None, "unique_oracle_groups": None, "eligible_signatures": None,
             "scientifically_eligible_groups": None, "scientific_eligibility_fraction": None,
             "eligible_envelope_groups": None, "envelope_yield": None,
@@ -917,9 +909,11 @@ def _ensure_failure_artifacts(output: Path, config: ProbeConfig, source: dict,
         audit = {"audit_version": AUDIT_VERSION, "status": "NOT_ASSESSED",
             "config_sha256": config.config_sha256, "source": source, "producer": producer,
             "replay_sha256": sha256_file(replay_path), "source_closure_sha256": sha256_file(closure_path),
-            "public_projection": {"source_train": source_closure["train_projection"],
+            "public_projection": {"source_train": (projection.get("source_train")
+                    if isinstance(projection, dict) else source_closure["train_projection"]),
                 "development_validation_by_profile": dev_fields,
-                "four_cohort_proxy": None},
+                "four_cohort_proxy": projection.get("four_cohort_proxy")
+                    if isinstance(projection, dict) else None},
             "integrity": {"status": "not_assessed", "failures": ["audit_not_completed"]},
             "resource_snapshot": {"wall_seconds": None, "cpu_seconds": None, "peak_rss_bytes": None}}
         atomic_json(audit_path, audit)
@@ -947,15 +941,21 @@ def _stage_partition(partition: str, config: ProbeConfig, state: ProbeState,
                                            _proposal_provider=_proposal_provider)
         except ProposalFatalError as exc:
             row = state.last_outcome
+            part_manifest["attempts"] = index + 1
+            part_manifest["quota_counts"] = {_profile_key(p): dict(state.quota_counts[partition][p])
+                                              for p in state.profiles_for(partition)}
+            guard.dwr_primary_error = {"type": type(exc).__name__,
+                "message": "NOT_ASSESSED_SOLVER_OR_ORACLE_ERROR", "phase": "generation",
+                "partition": partition, "candidate_index": index,
+                "reason": "NOT_ASSESSED_SOLVER_OR_ORACLE_ERROR"}
             _dump_jsonl(outcomes_stream, row)
-            part_manifest["attempts"] += 1
             raise ProbeFailure("NOT_ASSESSED_SOLVER_OR_ORACLE_ERROR", "proposal", partition, index, exc.reason) from exc
+        part_manifest["attempts"] = index + 1
+        part_manifest["quota_counts"] = {_profile_key(p): dict(state.quota_counts[partition][p])
+                                          for p in state.profiles_for(partition)}
         _dump_jsonl(outcomes_stream, row)
         if record is not None:
             _dump_jsonl(records_stream, record)
-        part_manifest["attempts"] += 1
-        part_manifest["quota_counts"] = {_profile_key(p): dict(state.quota_counts[partition][p])
-                                          for p in state.profiles_for(partition)}
         guard.check()
     part_manifest["status"] = "complete" if state.partition_closed(partition) else "quota_shortfall"
     return part_manifest["status"]
@@ -1643,20 +1643,30 @@ def _run_controller_body(config_path: Path, output_dir: Path, command: list[str]
                         part["status"] = "not_assessed"
                 reason = "NOT_ASSESSED_RESOURCE_CAP" if isinstance(exc, (TimeoutError, MemoryError)) else "NOT_ASSESSED_RESOURCE_CAP"
                 if error is None:
+                    last = state.last_outcome
+                    last_part = last.get("partition") if isinstance(last, dict) else None
+                    last_index = last.get("candidate_index") if isinstance(last, dict) else None
                     error = {"type": type(exc).__name__, "message": reason, "phase": "generation",
-                             "partition": None, "candidate_index": None, "reason": reason}
+                             "partition": last_part, "candidate_index": last_index, "reason": reason}
+                    guard.dwr_primary_error = error
             except Exception as exc:
                 for part in initial["partitions"].values():
                     if part["status"] == "running":
                         part["status"] = "not_assessed"
                 reason = "NOT_ASSESSED_IO_OR_SERIALIZATION_ERROR"
                 if error is None:
-                    error = {"type": type(exc).__name__, "message": reason, "phase": "generation",
-                             "partition": None, "candidate_index": None, "reason": reason}
+                    last = state.last_outcome
+                    last_part = last.get("partition") if isinstance(last, dict) else None
+                    last_index = last.get("candidate_index") if isinstance(last, dict) else None
+                    error = {"type": type(exc).__name__, "message": str(exc) or reason, "phase": "generation",
+                             "partition": last_part, "candidate_index": last_index, "reason": reason}
+                    guard.dwr_primary_error = error
     except Exception as exc:
         reason = "NOT_ASSESSED_IO_OR_SERIALIZATION_ERROR"
         error = {"type": type(exc).__name__, "message": reason, "phase": "artifact_open",
                  "partition": None, "candidate_index": None, "reason": reason}
+    if error is not None:
+        guard.dwr_primary_error = error
 
     if not (output_dir / ARTIFACTS[3]).exists() and outcomes_path.exists() and records_path.exists():
         source_closure = _write_closure(output_dir, config, initial, state,
@@ -1696,6 +1706,7 @@ def _run_controller_body(config_path: Path, output_dir: Path, command: list[str]
             "public_projection": public_projection,
             "integrity": {"status": "pass", "failures": []}, "resource_snapshot": _resource_snapshot(guard)}
         _verify_audit_document(audit_doc, output_dir, config, initial["source"], producer, _fixture_policy)
+        guard.dwr_assessed_public_projection = public_projection
         atomic_json(output_dir / ARTIFACTS[5], audit_doc)
         audit_ref = _artifact_ref(output_dir / ARTIFACTS[5])
         replay_ref = _artifact_ref(output_dir / ARTIFACTS[4])
@@ -1873,41 +1884,30 @@ def _emergency_failure_flush(config_path: Path, output_dir: Path, command: list[
     source = _source_identity(root, None if fixture_policy is None else fixture_policy.fixture_id)
     producer = _producer_identity(config, root)
     initial_path = output / ARTIFACTS[0]
+    active_initial = getattr(guard, "dwr_active_initial", None)
     if initial_path.exists():
-        initial = getattr(guard, "dwr_active_initial", None) or strict_json_loads(initial_path.read_text(encoding="utf-8"))
+        initial = active_initial or strict_json_loads(initial_path.read_text(encoding="utf-8"))
         source = initial["source"]
         producer = initial["producer"]
     else:
         initial = _initial_manifest(config, Path(config_path).resolve(), output,
             command or sys.argv[:], root, producer, source, fixture_policy)
         initial_path.write_text(stable_json(initial) + "\n", encoding="utf-8", newline="\n")
-    state = getattr(guard, "dwr_active_state", None) or ProbeState(config, capture_rows=False, _fixture_policy=fixture_policy)
-    for part in ("source", "development"):
-        for profile_key, cells in initial["partitions"][part]["quota_counts"].items():
-            profile = tuple(profile_key.split("/"))
-            if profile in state.quota_counts[part]:
-                for cell in _CELLS:
-                    value = cells.get(cell, 0)
-                    if type(value) is int and 0 <= value <= state.quota_for(part, profile, cell):
-                        state.quota_counts[part][profile][cell] = value
+    active_state = getattr(guard, "dwr_active_state", None)
+    state = active_state or ProbeState(config, capture_rows=False, _fixture_policy=fixture_policy)
+    if active_state is None:
+        for part in ("source", "development"):
+            for profile_key, cells in initial["partitions"][part]["quota_counts"].items():
+                profile = tuple(profile_key.split("/"))
+                if profile in state.quota_counts[part]:
+                    for cell in _CELLS:
+                        value = cells.get(cell, 0)
+                        if type(value) is int and 0 <= value <= state.quota_for(part, profile, cell):
+                            state.quota_counts[part][profile][cell] = value
     for name in (ARTIFACTS[1], ARTIFACTS[2]):
         path = output / name
         if not path.exists():
             path.write_text("", encoding="utf-8", newline="\n")
-    # A write may fail after an outcome row reached disk but before the stage
-    # advanced its in-memory attempt counter. Reconcile only durable validated
-    # row indices; no proposal work or replay is restarted here.
-    try:
-        durable_rows = _read_jsonl(output / ARTIFACTS[1])
-        observed = {"source": [], "development": []}
-        for row in durable_rows:
-            validate_outcome(row)
-            observed[row["partition"]].append(row["candidate_index"])
-        if all(indices == list(range(len(indices))) for indices in observed.values()):
-            for part in ("source", "development"):
-                initial["partitions"][part]["attempts"] = len(observed[part])
-    except Exception:
-        pass
     if isinstance(exc, ProbeFailure):
         reason = exc.code
         phase, partition, candidate_index = exc.phase, exc.partition, exc.candidate_index
@@ -1923,8 +1923,10 @@ def _emergency_failure_flush(config_path: Path, output_dir: Path, command: list[
     error = {"type": type(exc).__name__, "message": reason, "phase": phase,
              "partition": partition, "candidate_index": candidate_index, "reason": reason}
     primary = getattr(guard, "dwr_primary_error", None)
-    if primary is not None and primary.get("reason") != reason:
-        error["message"] += "; prior=" + stable_json(primary)
+    if isinstance(primary, dict):
+        error = dict(primary)
+        error["message"] = (primary["message"] + "; emergency finalizer=" +
+                             type(exc).__name__ + ": " + str(exc))
     _ensure_failure_artifacts(output, config, source, producer, state, initial, guard)
     closure_path, replay_path, audit_path, report_path = (output / name for name in ARTIFACTS[3:7])
     closure = strict_json_loads(closure_path.read_text(encoding="utf-8"))

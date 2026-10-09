@@ -127,7 +127,10 @@ class ProbeDriverV4ReviewFixTests(unittest.TestCase):
             code = _run_controller(CONFIG, output, ["internal-fixture", "io-after-final-dev"],
                 _fixture_policy=_FixturePolicy("io-after-final-dev"),
                 _proposal_provider=_fixed_semantic_fixture_provider)
+            initial = json.loads((output / ARTIFACTS[0]).read_text(encoding="utf-8"))
             report = json.loads((output / ARTIFACTS[6]).read_text(encoding="utf-8"))
+            replay = json.loads((output / ARTIFACTS[4]).read_text(encoding="utf-8"))
+            audit = json.loads((output / ARTIFACTS[5]).read_text(encoding="utf-8"))
             terminal = json.loads((output / ARTIFACTS[-1]).read_text(encoding="utf-8"))
             outcomes = [json.loads(line) for line in (output / ARTIFACTS[1]).read_text(encoding="utf-8").splitlines()]
             self.assertEqual(code, 1)
@@ -135,6 +138,54 @@ class ProbeDriverV4ReviewFixTests(unittest.TestCase):
                 ("NOT_ASSESSED", "NOT_ASSESSED_IO_OR_SERIALIZATION_ERROR"))
             self.assertEqual(outcomes[-1]["candidate_index"], 11)
             self.assertEqual(terminal["error"]["reason"], "NOT_ASSESSED_IO_OR_SERIALIZATION_ERROR")
+            self.assertEqual(terminal["error"]["type"], "OSError")
+            self.assertEqual(terminal["error"]["phase"], "generation")
+            self.assertEqual(terminal["error"]["partition"], "development")
+            self.assertEqual(terminal["error"]["candidate_index"], 11)
+            self.assertIn("injected post-row write failure", terminal["error"]["message"])
+            for part in ("source", "development"):
+                self.assertEqual(terminal["partitions"][part]["attempts"], replay["partition_attempts"][part])
+                self.assertEqual(terminal["partitions"][part]["quota_counts"], replay["quota_counts"][part])
+            from dwr.tasks.probe_v4 import (_verify_audit_document, _verify_replay_document,
+                _verify_source_closure, _verify_terminal_manifest, _verify_terminal_report)
+            from dwr.tasks.run_support import sha256_file
+            closure = json.loads((output / ARTIFACTS[3]).read_text(encoding="utf-8"))
+            policy = _FixturePolicy("io-after-final-dev")
+            _verify_source_closure(closure, output, self.config, initial["source"], initial["producer"], policy)
+            _verify_replay_document(replay, output, self.config, initial["source"], initial["producer"], policy)
+            _verify_audit_document(audit, output, self.config, initial["source"], initial["producer"], policy)
+            _verify_terminal_report(report, self.config, initial["source"], sha256_file(output / ARTIFACTS[0]),
+                sha256_file(output / ARTIFACTS[3]), closure,
+                {**replay, "artifact_sha256": sha256_file(output / ARTIFACTS[4])},
+                {**audit, "artifact_sha256": sha256_file(output / ARTIFACTS[5])}, policy, terminal["error"])
+            _verify_terminal_manifest(terminal, initial, self.config, output, replay, report, policy)
+
+    def test_failure_placeholder_does_not_read_or_semantically_audit_corpus(self):
+        from dwr.tasks import probe_v4
+        from dwr.tasks.probe_v4 import _producer_identity, _source_identity
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "bounded-flush"
+            output.mkdir()
+            (output / ARTIFACTS[1]).write_text("", encoding="utf-8")
+            (output / ARTIFACTS[2]).write_text("", encoding="utf-8")
+            source = _source_identity(Path(__file__).parents[1], "bounded-flush-test")
+            producer = _producer_identity(self.config, Path(__file__).parents[1])
+            state = ProbeState(self.config, _fixture_policy=_FixturePolicy("bounded-flush-test"))
+            state.attempted_dev_profiles.add(("eq", "neq"))
+            manifest = _initial_manifest(self.config, CONFIG, output, ["internal-fixture"],
+                Path(__file__).parents[1], producer, source, state._fixture_policy)
+            exhausted_guard = PersistentFailureGuard()
+            exhausted_guard.fail = True
+            with patch.object(probe_v4, "_read_jsonl", wraps=probe_v4._read_jsonl) as read_rows, \
+                 patch.object(probe_v4, "audit_records", wraps=probe_v4.audit_records) as audit_rows:
+                probe_v4._ensure_failure_artifacts(output, self.config, source, producer, state,
+                    manifest, exhausted_guard)
+                read_rows.assert_not_called()
+                audit_rows.assert_not_called()
+            audit = json.loads((output / ARTIFACTS[5]).read_text(encoding="utf-8"))
+            dev = audit["public_projection"]["development_validation_by_profile"]
+            self.assertEqual(dev["eq/neq"]["status"], "not_assessed")
+            self.assertEqual(dev["eq/add_mod"]["status"], "not_attempted")
 
     def test_four_cohort_proxy_denominator_includes_eligible_out_of_envelope_groups(self):
         grouped = {("source",): [], ("development", "eq", "neq"): [],
