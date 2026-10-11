@@ -172,6 +172,45 @@ class ProbeOperationalFollowupTests(unittest.TestCase):
         self.assertEqual(len(captured), 1)
         self.assertEqual(captured[0].wall_seconds, 1800)
 
+    def test_audit_setup_time_is_charged_to_the_default_guard(self):
+        followup_path = ROOT / "configs" / "tasks" / "constraint_probe_cpu_followup.json"
+        config = load_probe_config(followup_path)
+        clock = {"now": 10.0}
+        captured = []
+
+        class TimedGuard(ResourceGuard):
+            def __init__(self, wall, memory):
+                super().__init__(wall, memory, clock=lambda: clock["now"], memory_reader=lambda: 1024)
+                captured.append(self)
+
+        with tempfile.TemporaryDirectory(dir=ROOT / "data") as temp:
+            output = Path(temp)
+            initial = {"config_path": str(followup_path.resolve()),
+                       "config_sha256": hashlib.sha256(_followup_bytes()).hexdigest(),
+                       "output_dir": str(output)}
+            initial_path = output / ARTIFACTS[0]
+            initial_path.write_text(json.dumps(initial), encoding="utf-8")
+            for name in ARTIFACTS[1:]:
+                (output / name).write_text("{}", encoding="utf-8")
+            original_read_text = Path.read_text
+
+            def advance_during_manifest(path, *args, **kwargs):
+                value = original_read_text(path, *args, **kwargs)
+                if path == initial_path:
+                    clock["now"] = 1810.0
+                return value
+
+            with patch("dwr.tasks.run_support.ResourceGuard", TimedGuard), \
+                 patch.object(Path, "read_text", advance_during_manifest), \
+                 patch("dwr.tasks.probe_v4._source_identity") as source_identity:
+                with self.assertRaises(TimeoutError):
+                    audit_run(output, config)
+            source_identity.assert_not_called()
+        self.assertEqual(len(captured), 1)
+        self.assertEqual(captured[0].wall_seconds, 1800)
+        self.assertEqual(captured[0].started, 10.0)
+        self.assertGreaterEqual(captured[0].elapsed, 1800.0)
+
     def test_terminal_pass_at_followup_cap_is_rejected_and_timeout_stays_operational(self):
         followup_path = ROOT / "configs" / "tasks" / "constraint_probe_cpu_followup.json"
         config = load_probe_config(followup_path)
@@ -188,6 +227,10 @@ class ProbeOperationalFollowupTests(unittest.TestCase):
             audit = json.loads((output / ARTIFACTS[5]).read_text(encoding="utf-8"))
             replay["artifact_sha256"] = sha256_file(output / ARTIFACTS[4])
             audit["artifact_sha256"] = sha256_file(output / ARTIFACTS[5])
+            report["resource_snapshot"]["wall_seconds"] = 1000.0
+            _verify_terminal_report(report, config, initial["source"],
+                sha256_file(output / ARTIFACTS[0]), sha256_file(output / ARTIFACTS[3]),
+                closure, replay, audit, fixture_policy=_FixturePolicy("followup-pass-boundary"))
             report["resource_snapshot"]["wall_seconds"] = 1800.0
             with self.assertRaisesRegex(ValueError, "resource accounting"):
                 _verify_terminal_report(report, config, initial["source"],

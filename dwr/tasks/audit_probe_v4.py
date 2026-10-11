@@ -593,6 +593,9 @@ def audit_run(output_dir: Path, config, *, guard=None) -> dict:
         replay_prefix)
     from .run_support import ResourceGuard, sha256_file, strict_json_loads
 
+    if guard is None:
+        guard = ResourceGuard(config.wall_seconds, 1024)
+    guard.check()
     output_dir = Path(output_dir).resolve()
     if (output_dir / "fixture_identity.json").exists():
         raise ValueError("fixture artifacts are not valid production audit input")
@@ -600,26 +603,31 @@ def audit_run(output_dir: Path, config, *, guard=None) -> dict:
     if not initial_path.is_file():
         raise ValueError("production audit requires a closed initial manifest")
     initial = strict_json_loads(initial_path.read_text(encoding="utf-8"))
+    guard.check()
     if "fixture_id" in initial.get("source", {}):
         raise ValueError("fixture source identity is not valid production audit input")
     if {path.name for path in output_dir.iterdir() if path.is_file()} != set(ARTIFACTS):
         raise ValueError("production terminal artifact set is incomplete or has unexpected files")
+    guard.check()
     root = Path(__file__).resolve().parents[2]
     try:
         output_dir.relative_to((root / "data").resolve())
     except ValueError as exc:
         raise ValueError("production audit artifacts must be under the ignored data directory") from exc
+    guard.check()
     current_source = _source_identity(root)
+    guard.check()
     current_producer = _producer_identity(config, root)
+    guard.check()
     config_path = Path(initial.get("config_path", "")).resolve()
     actual_config = load_probe_config(config_path)
+    guard.check()
     if actual_config.config_sha256 != config.config_sha256:
         raise ValueError("production audit config differs from the approved caller config")
     if initial.get("output_dir") != str(output_dir):
         raise ValueError("production audit output path differs from the initial manifest")
-    if guard is None:
-        guard = ResourceGuard(config.wall_seconds, 1024)
     _verify_initial_binding(initial, config, current_source, current_producer, config_path)
+    guard.check()
     source_doc = strict_json_loads((output_dir / ARTIFACTS[3]).read_text(encoding="utf-8"))
     replay_doc = strict_json_loads((output_dir / ARTIFACTS[4]).read_text(encoding="utf-8"))
     audit_doc = strict_json_loads((output_dir / ARTIFACTS[5]).read_text(encoding="utf-8"))
