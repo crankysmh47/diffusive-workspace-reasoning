@@ -4,6 +4,7 @@
   "task_schema_version": "constraint-task-v1",
   "root_seed": 20261011,
   "rng": "sha256-prefix64-certificate-sixvar-v1-random.Random-version2",
+  "source_neq_anchor_only_constraints": false,
   "source_profiles": ["eq", "neq", "add_mod"],
   "development_profiles": ["eq/neq", "eq/add_mod", "neq/add_mod"],
   "strata": [

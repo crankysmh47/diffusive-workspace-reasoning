@@ -5,10 +5,10 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 ## Six-variable constructive study — 2026-10-11
 
 - [x] Specify the broader certificate constructor, fixed source/development attempt counts, unchanged split/support floors, raw-attempt accounting, local-propagation diagnostic and stop rule. See [prospective study](docs/constructive_sixvar_study.md), [registration](configs/tasks/certificate_sixvar_v1.json) and [execution plan](docs/constructive_sixvar_execution_plan.md). Root document/config consistency checks passed; this is not implementation or scientific evidence.
-- [ ] Implement and review constructor and synchronous propagation diagnostic with Luna, then the bounded runner and independent checks.
+- [x] Implement and review constructor and synchronous propagation diagnostic with Luna, then the bounded runner and independent checks. Fresh controller command `python -m unittest discover -s tests -v` passed 347 tests in 40.625 seconds on 2026-10-12; full release review was `READY_FOR_CPU_STUDY`. Exact commands, hashes and logs are retained in ignored `.superpowers/sdd/sixvar/`; see the [execution plan](docs/constructive_sixvar_execution_plan.md).
 - [ ] Freeze clean reviewed source and execute the single registered study; qualify full G2 separately only if it passes.
 
-Current blocker: both Luna implementers hit a tool-reported usage limit before production code or verified tests. One partial test draft is preserved in ignored scratch, outside discovery. No candidate/run allowance was consumed. Resume implementation when Luna is available; no alternate model was substituted.
+The 2026-10-11 service interruption is preserved: both Luna implementers hit usage limits before production code or verified tests; one partial draft remains in ignored scratch. The owner's 2026-10-12 retry succeeded and Luna implementation/review resumed. The registered study allowance remains unused; no alternate model was substituted.
 
 ## Subsequent constructive design check — 2026-10-11
 
