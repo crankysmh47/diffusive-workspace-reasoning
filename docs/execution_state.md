@@ -1,4 +1,29 @@
-# Execution state: transfer v4
+# Execution state: CPU follow-up
+
+Updated: 2026-10-11. Branch: `research/transfer-cpu-v1`. Worktree: `C:\sem5\diffusive-workspace-reasoning\.worktrees\transfer-cpu-v1`.
+
+## Current terminal state
+
+The sole separately registered [CPU operational follow-up](cpu_operational_followup.md) is closed at `NO_GO_PROPOSAL` / `SOURCE_TRAIN_FLOOR_FAILED`. It completed source closure, terminal replay (`PASS_REPLAY`) and independent audit (`PASS_AUDIT`) before its 1,800-second cap. Source sensitivity 893/4,499 = 0.1984885530 and usable-envelope yield 795/4,499 = 0.1767059347 both fail the unchanged 0.25 floors. Other source floors and four-cell support passed. There are 795 accepted source-train groups and 493 structures, with 1,000 total source quota rows after 20,299 attempts. Development had zero attempts; final tasks were never sampled. G2 is unassessed, no preflight was emitted, and no model/training/transfer result exists. See [result](task_suitability_cpu_followup.md) and [compact manifest](../configs/splits/constraint-cpu-followup-nogo.json).
+
+Frozen clean scientific source: `4c8abbad7f390dce193b847b62124c988bdfb4e4`. Config SHA-256: `ccc85523929ce00c15d482df4d32c3d06e639b70ab6df7b74619203cf16a1a32`. The full CPU suite passed 288 tests in 39.772 seconds; strongest final production review was READY. Run: `data/constraint-probe-cpu-followup-20261011T131547326403Z`. Authoritative resources: 951.718 seconds wall, 950.09375 seconds CPU, 533,737,472 peak resident bytes at `post_first_terminal_write_resource_check`. External wrapper: 951.9774164 seconds, exit 1, no watchdog timeout.
+
+Root verified all eight artifact hashes, current 17 producer hashes and typed metadata/linkage against the clean source before documentation edits. Root did not parse task rows or repeat semantic replay/audit. The run's semantic checks are agent-run independent algorithm checks, not independent reproduction. Local ignored artifacts have no verified archival backup. Receipts, test output and review are retained in `.superpowers/sdd/cpu-performance/`; `controller-observation.json` binds their hashes. The recorded outcomes/accepted-record bytes equal the original v4 prefix; this does not reclassify v4, which remains `NOT_ASSESSED_RESOURCE_CAP`.
+
+The next real blocker is task suitability, not resource exhaustion. Preserve the NO-GO and fixed floors; no retry, automatic redesign, full corpus/G2 invocation or model work follows. A future bounded constructive task-generation design needs its own prospective registration. The exchangeable workspace hypothesis is still untested.
+
+## Durable CPU follow-up decisions — 2026-10-11
+
+| Decision | Rationale and evidence boundary |
+| --- | --- |
+| Use Luna for implementation while the controller selects the optimization and operational allowance. | Carries out explicit owner authorization; scientific gates remain binding. |
+| Keep exhaustive canonical permutations but compare exact normalized tuples and serialize only the winner. | Fixture profiling justified the local change; independent legacy equivalence and five identical semantic fixture hashes protect identities. No cache, RNG, solver or admission shortcut was introduced. |
+| Preserve the imperfect sole baseline and add qualified retrospective provenance instead of rerunning. | Initial helper omitted hashes and used an in-memory JSONL read; original artifacts remain intact. Corrected helper tests supersede the earlier three ineffective finalization checks. See the diagnosis record. |
+| Register exactly one new identity with an 1,800-second cap, preserving every scientific setting. | Provides finite engineering headroom; the original v4 allowance/result is not extended or rewritten. Exact two-config admission is fail-closed. |
+| Stop at the verified source scientific failure. | Both registered 25% floors fail despite adequate diversity/support counts. No development/final outcomes inform the decision. |
+| Retain ignored evidence, branch boundaries and concise README updates. | No merge/push or large-artifact commit. README Writer's unavailable humanizer subskill is replaced by manual prose review, following the recorded earlier fallback. |
+
+## Historical execution state: transfer v4
 
 Updated: 2026-10-10. Branch: `research/transfer-cpu-v1`. Worktree: `C:\sem5\diffusive-workspace-reasoning\.worktrees\transfer-cpu-v1`.
 

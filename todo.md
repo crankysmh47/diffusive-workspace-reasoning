@@ -2,7 +2,18 @@
 
 Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_v2.md), amended by the binding [v2.2 protocol](docs/research_protocol.md); the terminal v4 proposal record is [v4](docs/task_spec_v4.md). This is the sole live checklist. Check an item only when its output and recorded verification exist. Planning does not count as implementing a gate.
 
-## Current v4 proposal status — 2026-10-10
+## Current CPU follow-up status — 2026-10-11
+
+- [x] Diagnose the bounded source-fixture CPU path and implement exact canonical tuple ranking. An independent exhaustive legacy reference covers 4,509 tiny tasks plus larger fixtures; all five post-change fixture semantic hashes match the preserved baseline. This is engineering evidence, not a production speedup claim. See [diagnosis](docs/cpu_performance_diagnosis.md).
+- [x] Register, implement and review the separately identified operational follow-up: only config identity and combined wall cap (900 to 1,800 seconds) changed. Frozen source `4c8abbad7f390dce193b847b62124c988bdfb4e4` passed 288 CPU tests in 39.772 seconds and final review was READY.
+- [x] Execute the sole follow-up and preserve its eight artifacts and root metadata/hash receipt. Replay and independent audit passed; the run ended `NO_GO_PROPOSAL` / `SOURCE_TRAIN_FLOOR_FAILED` in 951.718 seconds, within budget. See [result](docs/task_suitability_cpu_followup.md) and [compact manifest](configs/splits/constraint-cpu-followup-nogo.json).
+- [ ] Pass source suitability. Sensitivity 893/4,499 = 19.85% and usable-envelope yield 795/4,499 = 17.67% both failed the fixed 25% floors. The study is closed without retry or threshold changes.
+- [ ] Assess held-out development composition support and complete a passing five-cohort G2 audit. Development had zero attempts; final tasks were never sampled. Both remain unassessed.
+- [ ] Implement fixed-size EX/IDX or select/train a model. These remain conditional on G2; training additionally needs its own complete registration.
+
+Next research decision: a bounded constructive generation design and prospective registration, using only allowed source-train/development-validation evidence. No new experiment or model work is authorized by this NO-GO.
+
+## Historical v4 proposal status — 2026-10-10
 
 - [x] Implement and review the pinned v4 development-probe machinery. At clean source `169740fb7c1c4f995526ba18c28a8c82797df6fe`, the fresh CPU suite passed 275 tests in 46.451 seconds; the scoped final review was READY. These establish implementation/review evidence only.
 - [x] Execute and preserve the single registered development probe and its root receipt. It recorded the source quota of 1,000 rows after 20,299 attempts, then exited 1 at the 900-second resource cap. The root rehashed all eight artifacts and cross-bound small public metadata; source verification, semantic replay, and audit remain `NOT_ASSESSED`.
@@ -131,4 +142,4 @@ Gate G7: a reproducible technical report, not guaranteed venue acceptance. Choos
 
 See [spare_research_ideas.md](docs/spare_research_ideas.md) for task-structure theory, persistent repair, learned slot allocation, flow distillation and adaptive stopping. These are not active milestones. Public datasets and larger backbones also require a new evidence-backed scope decision; preserve problem-level grouping and usage-term checks if activated.
 
-At this revision, the v2 CPU task-generation, orchestration, replay, and audit implementation is complete and one feasibility attempt is preserved. G2 is not assessed and remains unchecked. Workspace/model implementation, backbone selection, training, fixed-size transfer, variable-slot-count experiments, reporting, archival backup, and independent reproduction remain incomplete.
+At this revision, CPU task-generation, orchestration, replay/audit, exact canonicalization and the separately registered operational follow-up are implemented and verified. The follow-up's source suitability NO-GO and all historical attempts are preserved. G2 is not assessed and remains unchecked. Workspace/model implementation, backbone selection, training, fixed-size transfer, variable-slot-count experiments, paper reporting, archival backup, and independent reproduction remain incomplete.

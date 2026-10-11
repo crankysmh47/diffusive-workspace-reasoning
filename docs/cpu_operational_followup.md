@@ -1,6 +1,6 @@
 # Prospective CPU operational follow-up
 
-Date: 2026-10-10. Status: registered execution contract; implementation/review/equivalence gates must pass before the sole invocation. This is a new study, not a resumed or reclassified v4 run. The owner's instruction authorizes the bounded diagnosis, operational amendment and continuation until a genuine gate. The controller owns this decision.
+Date: 2026-10-10. Terminal status recorded 2026-10-11: closed, `NO_GO_PROPOSAL` / `SOURCE_TRAIN_FLOOR_FAILED`; replay and independent audit passed. The prospective contract below is preserved. This is a new study, not a resumed or reclassified v4 run. The owner's instruction authorized the bounded diagnosis, operational amendment and continuation until a genuine gate. The controller owns this decision.
 
 ## Rationale and affected comparisons
 
@@ -31,3 +31,11 @@ Write the resolved manifest before drawing the first candidate. Bind the new con
 Use the original source closure rules before any development candidate; use the original development floors and four-cohort proxy after full replay and independent audit. A required scientific floor/support failure or quota shortfall at exactly its attempt cap is `NO_GO_PROPOSAL`. Resource, I/O, solver/oracle disagreement, replay or audit failure is `NOT_ASSESSED` with its original typed cause. Do not call an operational failure a scientific negative.
 
 Only a complete `PASS_DEVELOPMENT_PROPOSAL` permits the separately reviewed full-corpus schema/consumer/linkage task and one registered full G2 invocation. Probe PASS does not pass G2. A complete passing actual five-cohort G2 audit remains required before model implementation/backbone selection; training additionally needs its own non-null registration and memory/resume/gradient gates. At any failed scientific gate or exhausted allowance, preserve evidence and report the concrete blocker.
+
+## Sole attempt and terminal ruling — 2026-10-11
+
+Release conditions passed at clean source `4c8abbad7f390dce193b847b62124c988bdfb4e4`: 288 CPU tests in 39.772 seconds, independent final review READY, and all five fixed-fixture semantic hashes equal the preserved baseline. The exact admitted config SHA-256 is `ccc85523929ce00c15d482df4d32c3d06e639b70ab6df7b74619203cf16a1a32`.
+
+The single invocation at `data/constraint-probe-cpu-followup-20261011T131547326403Z` completed in 951.718 seconds wall / 950.09375 seconds CPU, with 533,737,472 peak resident bytes. Replay and audit passed. Source sensitivity 893/4,499 = 19.85% and usable-envelope yield 795/4,499 = 17.67% failed the original 25% floors; other source floors/support passed. Development and final were not sampled. No preflight, full G2, model or training followed. See [result and evidence boundaries](task_suitability_cpu_followup.md) and [compact manifest](../configs/splits/constraint-cpu-followup-nogo.json).
+
+The real blocker is source task suitability. Preserve this NO-GO and close the allowance: no retry or floor reduction. Any future constructive generation design must be separately bounded and prospectively registered. The original v4 outcome remains operationally unassessed.
