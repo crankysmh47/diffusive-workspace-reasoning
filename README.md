@@ -6,6 +6,8 @@ Studying whether exchangeable latent workspaces learn reusable computation that 
 
 The main question is whether one trained workspace and decoder interface can transfer without task-specific retraining. Exchangeability is the central architectural hypothesis. Variable slot count is a supporting experiment after a fixed-size transfer study; diffusion and other alternatives are parked.
 
+A subsequent [constructive design check](docs/constructive_task_design.md) verified necessity certificates on 12 total four-variable variants, including six fixed base fixtures. The checker suite passed 15 tests. This is mechanism evidence only: the fixed motifs provide too little variety to serve as the research dataset, and six-variable capacity/difficulty remain unassessed. The source suitability NO-GO above remains unchanged.
+
 ## Start here
 
 - [Research plan v2](docs/diffusive_workspace_reasoning_project_plan_v2.md) and [binding v2.2 protocol](docs/research_protocol.md): scientific scope, experiment design and evidence gates.
@@ -75,7 +77,7 @@ Keep dataset splits and decoder access matched. Check exchangeable updates for p
 
 Every experiment must capture source/configuration/model/data identities, environment, RNG streams, per-example outcomes, parameter counts and full costs. Confirmatory effects require a preregistered comparison, at least three training seeds, suitable uncertainty analysis and a fixed test-access policy. Preserve failed and negative runs. See the protocol for exact requirements.
 
-**Next decision:** a bounded task-construction design that improves constraint sensitivity and usable-envelope yield, followed by a new prospective registration. Preserve the failed study and its thresholds; it has no retry allowance. Workspace/model work requires a complete passing five-cohort G2 audit, and training requires a separate study registration.
+**Next decision:** specify a broader six-variable constructor using the checked necessity-certificate principle, with capacity, raw-attempt yield and difficulty diagnostics registered before any population run. The fixed fixture motifs are correctness examples. Preserve the failed study and its thresholds; it has no retry allowance. Workspace/model work requires a complete passing five-cohort G2 audit, and training requires a separate study registration.
 
 ## Licensing
 

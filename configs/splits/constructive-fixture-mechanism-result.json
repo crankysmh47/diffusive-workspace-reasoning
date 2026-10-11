@@ -1,0 +1,197 @@
+{
+  "artifact_sha256": {
+    "initial-manifest.json": "a0e1afcd399f6f68a5644eec02a6badeaff12ebdaa33d4a83dac6a4949418073",
+    "profiles.jsonl": "6f0c2e50e3fc317994e00dbc246e835dea077a200a101e173c209e73b8490577",
+    "progress.json": "b5e3742748e0a11a6e02c24c7490fba44e4806aefec4a4da72820be989eebe50",
+    "result.json": "b08d18caf739b0bfbdd03e985ae0c89d5372f4fc7fcda5016e886311b27beb90",
+    "terminal.json": "40f0d17f32d05fde5820055b0c48df8342e855599281c0482dada04b40647299",
+    "variants.jsonl": "de90c112454c0fe5e9b757e45908194adb694d7a6eccc8aaed79bc5c929f2f39"
+  },
+  "command": [
+    "C:\\Users\\Hank47\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+    "C:\\sem5\\diffusive-workspace-reasoning\\.worktrees\\transfer-cpu-v1\\.superpowers\\sdd\\constructive-design\\check_design.py",
+    "--run"
+  ],
+  "corrected_wrapper": {
+    "core_boundary": "post_terminal_write_resource_check_then_bounded_accounting_flush",
+    "cpu_seconds": 0.0625,
+    "exit_code": 0,
+    "rss_peak_bytes": 24313856,
+    "wall_seconds": 0.125,
+    "wrapper_wall_seconds": 0.1720000000004802
+  },
+  "environment": {
+    "PYTHONPATH": "C:\\sem5\\diffusive-workspace-reasoning\\.worktrees\\transfer-cpu-v1",
+    "external_watchdog_seconds": 124,
+    "rng": "none; deterministic enumeration",
+    "rss_cap_bytes": 1073741824,
+    "wall_cap_seconds": 120,
+    "workers": 1
+  },
+  "fixture_definition_sha256": "6d43368ab8b4815d81f200d6d0367c2c198f4b2c3be1e87fa5d21733acbaa0fd",
+  "helper_sha256": {
+    "check_design.py": "9876fcee8767c9bafacac7b9fe94a52fc479c9f848a38cc77e59cad8dde1868e",
+    "controller_env.py": "d9c04e7568e27ac2413a9ee44636ed4d2631a833cf29702f18e331e551e0443d",
+    "controller_run.py": "58f3875f3fb55825fb451b945848addf721da59e9bba480d6f080cb59ceb955b",
+    "test_check_design.py": "a5f5583fbe53a9aacb342352eb64c7faa2d4b58370418da81f2afd446650b970"
+  },
+  "limits_on_interpretation": [
+    "Six fixed four-variable motifs do not establish production-data suitability or n=6 capacity.",
+    "Twelve syntactic structures do not establish task-family variety or difficulty.",
+    "All recorded first-solution node counts were 3; this is not a learned-performance metric.",
+    "Mechanism correctness does not pass G2, the 0.25 source/accepted-envelope floors, or the 0.8 common-support floor.",
+    "The certificate principle may inform a broader six-variable constructor; do not promote this fixed motif library."
+  ],
+  "next_design_requirement": "Prospectively design and register an n=6 capacity and difficulty evaluation before any population run; preserve the existing 0.25 source and accepted-envelope floors, the 0.8 common-support floor, canonical family grouping, and the original failed-study record.",
+  "producer_hashes": [
+    {
+      "path": "dwr/tasks/config_probe_v4.py",
+      "sha256": "80bdb36a54b31fe7e00e53b538855c07860c9917c53fc5a44f06be30dda46d37"
+    },
+    {
+      "path": "dwr/tasks/generator_probe_v4.py",
+      "sha256": "8cf18e00d995ae5f0a55bfa49b268e00a962ed7621f4e34d78ea0fe5a3839afb"
+    },
+    {
+      "path": "dwr/tasks/probe_v4.py",
+      "sha256": "bbad4e018377bb683c81343271c2eaade607dd19275a567da4e2100ea4ef119f"
+    },
+    {
+      "path": "dwr/tasks/probe_cli_v4.py",
+      "sha256": "c548ee43c056d09c7bc7e4e099c105b827ddea6b16a7a6231a13ea65348e6bae"
+    },
+    {
+      "path": "dwr/tasks/audit_probe_v4.py",
+      "sha256": "4541b46b440036fd71a77fc3578eeba1491955bc3921947e48ce3d0e27512e62"
+    },
+    {
+      "path": "dwr/tasks/schema.py",
+      "sha256": "112daa4949907da49b1d71aadee76a363a5b3fe4234f45f26231ef6333a34129"
+    },
+    {
+      "path": "dwr/tasks/canonical.py",
+      "sha256": "36fbf3e54a60c69697c68657d04d07ebaca7d95744847cd78eecdd0bba6589c5"
+    },
+    {
+      "path": "dwr/tasks/generator_v2.py",
+      "sha256": "b7ca157ee18dde651217063fad0d5c9d2016a038dc25a4b5bdf0fbea9fdf600c"
+    },
+    {
+      "path": "dwr/tasks/solver.py",
+      "sha256": "aef1f74a4cedec827c3123b8627605b8af57cb6d3c592cdba08b2b64ba04a9ac"
+    },
+    {
+      "path": "dwr/tasks/oracle.py",
+      "sha256": "227088aabfb979036b8bc8ab1a89a35ebd4aaa4eb5af4ee8a853fcf45c61f217"
+    },
+    {
+      "path": "dwr/tasks/audit.py",
+      "sha256": "9084a0d201e8a9b2623aaae273d6d0818b86c0b11cb875d7fa33000691f47b59"
+    },
+    {
+      "path": "dwr/tasks/run_support.py",
+      "sha256": "d7e124b543ad0ccb2883d45e0e93ff58bd260c80c0a6d3338666eab633d56d05"
+    },
+    {
+      "path": "dwr/tasks/generator.py",
+      "sha256": "9558be045f9f72fd102d4a4188e7b158a0f577ebc3abd39b0fac17223f4f902e"
+    },
+    {
+      "path": "dwr/tasks/dataset.py",
+      "sha256": "48ba181e51595e6894045ebeaddb01eda9acaaa1c0f7e6a5efe6cd5ec1aea024"
+    },
+    {
+      "path": "dwr/tasks/verifier.py",
+      "sha256": "4ef99a2f2b55d28d35b568f7eed884aaab97bdfb10580701499e1f41d6925c11"
+    },
+    {
+      "path": "dwr/tasks/__init__.py",
+      "sha256": "34d430e998e267f4544f4a302c307dd52f5a6b951f8655450d9a924284c0eec5"
+    },
+    {
+      "path": "dwr/__init__.py",
+      "sha256": "ff8027ef48e5a98aacc1fa04f55066bcfd92abf34c7fc27d14ea5cdf5fc60a13"
+    }
+  ],
+  "run_directory": "runs/constructive-design-20261011T155036971219Z",
+  "schema_version": 1,
+  "scope": "Fixed n=4 correctness fixtures only; not a production generator, corpus capacity, difficulty, or model result.",
+  "source_commit": "f1893b952077fb785904a3ce84e1940d8b2a776d",
+  "startup_attempts": {
+    "import_only_diagnostics": [
+      {
+        "PYTHONPATH": null,
+        "exit_code": 1,
+        "found": false
+      },
+      {
+        "PYTHONPATH": "C:\\sem5\\diffusive-workspace-reasoning\\.worktrees\\transfer-cpu-v1",
+        "exit_code": 0,
+        "found": true
+      }
+    ],
+    "initial_standalone_launch": {
+      "exit_code": 1,
+      "failure": "ModuleNotFoundError: No module named dwr; occurred before fixture work or output directory creation"
+    },
+    "replacement_launches": 1
+  },
+  "status": "MECHANISM_CHECK_PASS",
+  "summary": {
+    "all_evaluated_variants_unique_certified_eligible": true,
+    "evaluated_variants": 12,
+    "first_solution_nodes": [
+      3
+    ],
+    "profiles": [
+      {
+        "evaluated_variants": 2,
+        "filler_pool_count": 1,
+        "possible_variants": 2,
+        "profile": "EQ",
+        "structure_count": 2
+      },
+      {
+        "evaluated_variants": 1,
+        "filler_pool_count": 0,
+        "possible_variants": 1,
+        "profile": "NEQ",
+        "structure_count": 1
+      },
+      {
+        "evaluated_variants": 2,
+        "filler_pool_count": 1,
+        "possible_variants": 2,
+        "profile": "ADD",
+        "structure_count": 2
+      },
+      {
+        "evaluated_variants": 2,
+        "filler_pool_count": 1,
+        "possible_variants": 2,
+        "profile": "EQ/NEQ",
+        "structure_count": 2
+      },
+      {
+        "evaluated_variants": 1,
+        "filler_pool_count": 0,
+        "possible_variants": 1,
+        "profile": "EQ/ADD",
+        "structure_count": 1
+      },
+      {
+        "evaluated_variants": 4,
+        "filler_pool_count": 2,
+        "possible_variants": 4,
+        "profile": "NEQ/ADD",
+        "structure_count": 4
+      }
+    ],
+    "unique_content_ids": 12,
+    "unique_structures": 12
+  },
+  "unit_tests": {
+    "result": "15 passed in 0.058s",
+    "source_commit": "f1893b952077fb785904a3ce84e1940d8b2a776d"
+  }
+}

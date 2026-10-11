@@ -18,21 +18,21 @@ Review alternative assignments that change givens, equal the original solution, 
 
 ## Task 1: Luna helper and meaningful checks
 
-- [ ] Add ignored `check_design.py` and `test_check_design.py` under `.superpowers/sdd/constructive-design/`; start from failing tests and retain red/green output.
-- [ ] Implement the exact fixture/certificate/filler specification and independent counts; retain all failures and typed causes.
-- [ ] Test invalid certificate/padding/cross-kind inputs, bounded enumeration and independent-count disagreement; use separate 60-second test allowance.
-- [ ] Review design and implementation for compliance and correctness before invoking the design check. No run matrix or pilot is authorized.
+- [x] Add ignored `check_design.py` and `test_check_design.py` under `.superpowers/sdd/constructive-design/`; retain the full test history. Initial failing tests contained expectation mistakes and are not evidence of implementation regressions. Subsequent corruption/finalization regressions and the final 15-test pass are recorded.
+- [x] Implement the exact fixture/certificate/filler specification and independent counts; retain all failures and typed causes.
+- [x] Test invalid certificate/padding/cross-kind inputs, bounded enumeration and independent-count disagreement; use separate 60-second test allowance.
+- [x] Review design and implementation for compliance and correctness before invoking the design check. No run matrix or pilot is authorized.
 
-## Task 2: controller's sole fixture invocation
+## Task 2: controller's fixture invocation and explicit startup amendment
 
-- [ ] Freeze clean tracked source, helper/test/fixture/producer identities and unique output location; initial resolved manifest must precede fixture computation.
-- [ ] Invoke once under the registered limits; retain terminal status and partial artifacts on failure. Do not retry to obtain a passing design.
-- [ ] Verify hashes and small public results; distinguish six unique base checks, bounded variant observations and n=6 population evidence that is absent.
+- [x] Freeze clean tracked source, helper/test/fixture/producer identities and unique output location; initial resolved manifest must precede fixture computation.
+- [x] Preserve the first pre-fixture startup failure; apply the dated prospective amendment for exactly two import-only diagnostics and one replacement invocation. Complete the single corrected fixture check under unchanged scientific limits; retain all receipts. No outcome-driven retry occurred.
+- [x] Verify hashes and small public results; distinguish six unique base checks, bounded variant observations and n=6 population evidence that is absent.
 
 ## Task 3: evidence and next decision
 
-- [ ] Append actual outcomes, costs, commands and limitations to the design note and a compact tracked result; update the current design milestone only when verified.
-- [ ] If mechanism checks agree, write the exact next capacity/difficulty design requirement. If they disagree, preserve the correctness blocker. Neither result passes G2 or starts a production corpus.
-- [ ] Review and commit small documentation/result metadata on the current research branch; preserve ignored evidence and leave main/remote untouched.
+- [x] Append actual outcomes, costs, commands and limitations to the design note and a compact tracked result; update the current design milestone only when verified.
+- [x] If mechanism checks agree, write the exact next capacity/difficulty design requirement. If they disagree, preserve the correctness blocker. Neither result passes G2 or starts a production corpus.
+- [x] Review and commit small documentation/result metadata on the current research branch; preserve ignored evidence and leave main/remote untouched. Final evidence review was READY; root compact-record/hash agreement and `git diff --check` passed. No experiments were repeated for documentation review.
 
 Rulings: owner delegation covers this small fixture design check without repeated creative/approval questions. It does not authorize a production corpus study or training. Native Python/PowerShell and the existing isolated worktree are used. Retain scratch evidence because research failure preservation takes precedence over generic cleanup.

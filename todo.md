@@ -2,7 +2,16 @@
 
 Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_v2.md), amended by the binding [v2.2 protocol](docs/research_protocol.md); the terminal v4 proposal record is [v4](docs/task_spec_v4.md). This is the sole live checklist. Check an item only when its output and recorded verification exist. Planning does not count as implementing a gate.
 
-## Current CPU follow-up status — 2026-10-11
+## Subsequent constructive design check — 2026-10-11
+
+- [x] Compare pruning, fixed motifs and alternative-assignment certificates; record the preferred mechanism and prospective fixture limits in [the design](docs/constructive_task_design.md).
+- [x] Implement and review the ignored throwaway checker with independent scalar solution/deletion checks and corruption/finalization regressions. The final controller suite passed 15 tests in 0.058 seconds; launch review was READY.
+- [x] Execute and preserve the amended single successful fixture invocation and the original pre-fixture startup failure. At clean source `f1893b952077fb785904a3ce84e1940d8b2a776d`, all 12 evaluated n=4 variants, including six fixed bases, passed mechanism checks. Root verified six artifacts and metadata/hashes. See [result manifest](configs/splits/constructive-fixture-mechanism-result.json).
+- [ ] Establish production six-variable construction capacity, raw-attempt yield and meaningful difficulty in a separately specified prospective study. The toy motifs yield only 12 content/structure identities and all have three first-solution nodes; they do not constitute a suitable corpus.
+
+This fixture check does not pass source suitability, development support or G2. No production generator, task split, model, slot count or training changed. Controller can handle the next construction design; owner creative input is useful if the grammar/task/transfer claim needs to change.
+
+## Current CPU follow-up scientific gate — 2026-10-11
 
 - [x] Diagnose the bounded source-fixture CPU path and implement exact canonical tuple ranking. An independent exhaustive legacy reference covers 4,509 tiny tasks plus larger fixtures; all five post-change fixture semantic hashes match the preserved baseline. This is engineering evidence, not a production speedup claim. See [diagnosis](docs/cpu_performance_diagnosis.md).
 - [x] Register, implement and review the separately identified operational follow-up: only config identity and combined wall cap (900 to 1,800 seconds) changed. Frozen source `4c8abbad7f390dce193b847b62124c988bdfb4e4` passed 288 CPU tests in 39.772 seconds and final review was READY.
@@ -11,7 +20,7 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 - [ ] Assess held-out development composition support and complete a passing five-cohort G2 audit. Development had zero attempts; final tasks were never sampled. Both remain unassessed.
 - [ ] Implement fixed-size EX/IDX or select/train a model. These remain conditional on G2; training additionally needs its own complete registration.
 
-Next research decision: a bounded constructive generation design and prospective registration, using only allowed source-train/development-validation evidence. No new experiment or model work is authorized by this NO-GO.
+Next research decision: specify a six-variable constructor using the checked certificate principle, with a separately bounded capacity/difficulty study and prospective registration. Use only allowed source-train/development-validation evidence; a fixture pass does not authorize a population run or model work.
 
 ## Historical v4 proposal status — 2026-10-10
 
