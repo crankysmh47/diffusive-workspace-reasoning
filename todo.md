@@ -2,6 +2,14 @@
 
 Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_v2.md), amended by the binding [v2.2 protocol](docs/research_protocol.md); the terminal v4 proposal record is [v4](docs/task_spec_v4.md). This is the sole live checklist. Check an item only when its output and recorded verification exist. Planning does not count as implementing a gate.
 
+## Six-variable constructive study — 2026-10-11
+
+- [x] Specify the broader certificate constructor, fixed source/development attempt counts, unchanged split/support floors, raw-attempt accounting, local-propagation diagnostic and stop rule. See [prospective study](docs/constructive_sixvar_study.md), [registration](configs/tasks/certificate_sixvar_v1.json) and [execution plan](docs/constructive_sixvar_execution_plan.md). Root document/config consistency checks passed; this is not implementation or scientific evidence.
+- [ ] Implement and review constructor and synchronous propagation diagnostic with Luna, then the bounded runner and independent checks.
+- [ ] Freeze clean reviewed source and execute the single registered study; qualify full G2 separately only if it passes.
+
+Current blocker: both Luna implementers hit a tool-reported usage limit before production code or verified tests. One partial test draft is preserved in ignored scratch, outside discovery. No candidate/run allowance was consumed. Resume implementation when Luna is available; no alternate model was substituted.
+
 ## Subsequent constructive design check — 2026-10-11
 
 - [x] Compare pruning, fixed motifs and alternative-assignment certificates; record the preferred mechanism and prospective fixture limits in [the design](docs/constructive_task_design.md).

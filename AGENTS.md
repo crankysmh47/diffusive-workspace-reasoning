@@ -4,6 +4,7 @@ Read `README.md`, `todo.md`, `docs/research_protocol.md`, and relevant v2 plan s
 
 - When implementation is requested, implement the next unchecked milestone; a planning/review request does not authorize training. Do not introduce diffusion, posterior encoders, dependency-gated optimization, or public datasets before their prerequisites.
 - Read `docs/constructive_task_design.md` for the subsequent fixture-only certificate check. Its mechanism PASS does not pass corpus suitability or authorize a population run; six-variable capacity/difficulty need a new prospective specification.
+- The next authorized study is specified in `docs/constructive_sixvar_study.md` and `docs/constructive_sixvar_execution_plan.md`. Its registration is unexecuted; Luna usage limits blocked implementation before candidate draws. Complete implementation/reviews and freeze clean source before its single invocation; do not treat the design or config as a passing gate.
 - Keep changes small. Use Python's standard library for generation, reference solving, manifests, and logging where practical. Add ML dependencies only when needed.
 - Put implementation in `dwr/`; create modules as they become real, not placeholder architectures.
 - Preserve matched prompt encoding, stochastic initialization, decoder interfaces, splits, and reporting across comparisons.

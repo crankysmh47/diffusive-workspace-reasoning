@@ -1,0 +1,47 @@
+{
+  "config_version": "dwr-certificate-sixvar-study-v1",
+  "generator_id": "dwr-certificate-sixvar-v1",
+  "task_schema_version": "constraint-task-v1",
+  "root_seed": 20261011,
+  "rng": "sha256-prefix64-certificate-sixvar-v1-random.Random-version2",
+  "source_profiles": ["eq", "neq", "add_mod"],
+  "development_profiles": ["eq/neq", "eq/add_mod", "neq/add_mod"],
+  "strata": [
+    {"id": "A", "n": 6, "given_count": 2, "constraint_count": 8},
+    {"id": "B", "n": 6, "given_count": 3, "constraint_count": 6},
+    {"id": "C", "n": 6, "given_count": 3, "constraint_count": 7},
+    {"id": "D", "n": 6, "given_count": 3, "constraint_count": 8}
+  ],
+  "attempts": {"source": 3600, "development": 2400, "final": 0},
+  "limits": {"active_wall_seconds": 1800, "max_rss_bytes": 1073741824, "workers": 1, "external_watchdog_seconds": 1805},
+  "support": {"prompt_byte_bin": 4, "first_solution_node_bin": 2, "cell_min": 10, "cohort_mass_min": 0.8},
+  "source_floors": {
+    "train_groups": 100, "train_signatures": 12, "primitives": 3,
+    "value_fraction_each": 0.1, "given_counts": [2, 3],
+    "sensitivity": 0.25, "eligible_envelope_fraction": 0.25,
+    "sensitive_per_accepted_signature": 1,
+    "eligible_envelope_train_per_profile_cell": 10,
+    "accepted_signatures_per_profile": 12,
+    "eligible_envelope_train_per_all_raw_attempts": 0.02
+  },
+  "development_floors": {
+    "eligible_envelope_groups_per_profile": 100,
+    "eligible_signatures_per_profile": 12,
+    "scientific_eligibility_fraction": 0.25,
+    "eligible_envelope_fraction": 0.25,
+    "eligible_per_represented_eligible_signature": 1
+  },
+  "difficulty": {
+    "diagnostic": "synchronous-generalized-arc-consistency-v1",
+    "source_gate": false,
+    "development_stalled_groups_min": 10,
+    "development_stalled_fraction_min": 0.1,
+    "development_profiles_with_stall_min": 2,
+    "denominator": "all-first-seen-oracle-unique-scientifically-eligible-development-validation-content-groups-before-envelope"
+  },
+  "producer_hash_scope": "sorted-all-dwr-tasks-py-plus-dwr-init",
+  "artifact_names": ["manifest.initial.json", "outcomes.jsonl", "replay.json", "report.json", "manifest.json"],
+  "retries": 0,
+  "g2_status": "not_assessed",
+  "preflight_emitted": false
+}
