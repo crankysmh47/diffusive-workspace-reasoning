@@ -49,9 +49,9 @@ Interface: python -m dwr.tasks.certificate_study --config configs/tasks/certific
 
 ## Task 4: controller execution and decision
 
-- [ ] Record exact invocation/command budget and launch ONE production study under the separate watchdog; no standalone ignored launcher import path.
-- [ ] Verify hashes/identities, permitted aggregates, actual costs and replay outcome without using protected rows for decisions.
-- [ ] Publish a compact tracked result and update todo/execution state only for verified milestones. Preserve negative/partial outcomes. If PASS, specify next full G2 study; if failure, stop at that genuine blocker without changing floors or seed.
+- [x] Record exact invocation/command budget and launch ONE production study under the separate watchdog; no standalone ignored launcher import path.
+- [x] Verify hashes/identities, permitted aggregates, actual costs and replay outcome without using protected rows for decisions.
+- [x] Publish a compact tracked result and update todo/execution state only for verified milestones. Preserve negative/partial outcomes. If PASS, specify next full G2 study; if failure, stop at that genuine blocker without changing floors or seed.
 
 
 ## Verified implementation release — 2026-10-12
@@ -67,3 +67,12 @@ The original service interruption, import-only runner RED, intermediate fixture 
 Before any scientific draw on 2026-10-12, the clean-freeze controller check found CRLF/LF differences in four pre-existing files: dwr/tasks/audit_cli_v3.py, tests/canonical_reference.py, tests/test_canonical_equivalence.py and tests/test_task_generator_v2.py. Normalizing CRLF to LF yields their exact committed blobs; no token, scientific behavior, setting or comparison changes. Luna normalizes those files to the repository's declared LF convention, preserving old/new hashes in ignored eol-normalization.json. The first passing full-suite receipt remains intact; a second full suite binds the exact normalized bytes under a 70-second watchdog within the remaining combined 120-second test allowance. Freeze provenance is not accepted until that verification finishes.
 
 The normalized-byte controller suite passed 347 tests in 39.921 seconds (40.062 seconds wrapper, exit 0, no watchdog timeout). Its authoritative receipts are controller-tests-lf-command.initial.json/controller-tests-lf-command.json and controller-tests-lf.txt. Both full-suite wrappers total 80.827 seconds; recorded scoped test executions add less than 10 seconds, within the combined 120-second allowance. Independent review confirmed all four normalized files equal the exact HEAD blobs and recorded old/new hashes; refreshing their index stat entries left no tracked content changes. The new constructor/propagation/runner bytes and config hash are unchanged from release. Bind the normalized-byte receipt to the final clean scientific source; preserve the original failed freeze check and first suite as historical evidence.
+
+
+## Closed scientific execution — 2026-10-12
+
+Final clean scientific source: fdb77b9a8082492b98ad1e7ac473e88564be2be8. The one module invocation at runs/certificate-sixvar-20261011T193232440835Z completed 3,600 source and 2,400 development attempts, re-derived all 6,000 saved outcomes and passed persisted replay/integrity checks. Source floors all pass (1,101 usable train groups, 874 structures); the local difficulty gate passes (60/569 eligible validation stalls, two pair profiles). Terminal NO_GO_DEVELOPMENT_CAPACITY: EQ/NEQ has 57 usable groups versus 100, cell B has 5 versus 10, and eligible-signature envelope representation fails. All four support-mass floors pass.
+
+Authoritative cost: 404.094 seconds wall, 403.390625 CPU seconds, 35,024,896 sampled RSS bytes; wrapper 404.187 seconds, exit 1/no watchdog. Root rehashed five artifacts and checked 33 frozen/current producers plus command/config/test bindings before later documentation/code edits, without parsing private task rows or rerunning semantic checks. Evidence: ignored controller-observation.json/controller-result-checks.json; tracked [result](task_suitability_sixvar.md) and [compact manifest](../configs/splits/certificate-sixvar-study-result.json). Final targets, full G2 and models were unattempted. This genuine scientific blocker closes the population allowance without retry or changed floors.
+
+A narrow post-study display bug was corrected: eligible_per_signature_min now includes missing eligible signatures with zero, matching the already-correct failing gate. The targeted RED observed 1 instead of 0; scoped GREEN passed 32 tests in 0.511 seconds (0.6377524 seconds wrapper), py_compile/diff-check passed. Logs/meta: ignored poststudy-report-min-red/green files. No original artifact or terminal decision was edited; the scientific result remains bound to fdb77b9. This additional scoped check remains within the 120-second testing allowance. No post-study full suite or new experiment was run.

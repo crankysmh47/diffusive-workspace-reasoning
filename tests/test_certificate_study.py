@@ -295,6 +295,28 @@ class CertificateStudyTests(unittest.TestCase):
         self.assertFalse(empty["floors"]["profile_scientific_eligibility"])
         self.assertFalse(empty["floors"]["profile_envelope_fraction"])
 
+    def test_display_minimum_includes_eligible_signatures_with_zero_envelope_rows(self):
+        cfg = load_study_config(CONFIG).resolved
+        cfg["development_floors"] = {key: 0 for key in cfg["development_floors"]}
+        cfg["support"] = dict(cfg["support"])
+        cfg["support"].update({"cell_min": 0, "cohort_mass_min": 0})
+        cfg["difficulty"] = dict(cfg["difficulty"])
+        cfg["difficulty"].update({"development_stalled_groups_min": 0,
+            "development_stalled_fraction_min": 0, "development_profiles_with_stall_min": 0})
+        profile = cfg["development_profiles"][0]
+        rows = [
+            row("env-row", "development_validation", cohort="development_validation",
+                profile=profile, eligible=True, envelope=True, signature="sig-with-envelope"),
+            row("outside-row", "development_validation", cohort="development_validation",
+                profile=profile, eligible=True, envelope=False, signature="sig-without-envelope"),
+        ]
+        for item in rows:
+            item["gac"] = {"stalled": False}
+        _, _, result = _development_gate(rows, cfg)
+        self.assertEqual(result["profile_results"][profile]["eligible_signatures"], 2)
+        self.assertEqual(result["profile_results"][profile]["eligible_per_signature_min"], 0)
+        self.assertEqual(result["profile_results"][cfg["development_profiles"][1]]["eligible_per_signature_min"], 0)
+
     def test_public_candidate_failure_does_not_reveal_cause_text(self):
         failure = _save_fatal_attempt(io.BytesIO(), "source", 7, "opaque_audit",
                                       RuntimeError("PROTECTED_METRIC=999"))
