@@ -2,6 +2,14 @@
 
 Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_v2.md), amended by the binding [v2.2 protocol](docs/research_protocol.md); the terminal v4 proposal record is [v4](docs/task_spec_v4.md). This is the sole live checklist. Check an item only when its output and recorded verification exist. Planning does not count as implementing a gate.
 
+## Retained coverage diagnosis — 2026-10-12
+
+- [x] Register one retained-data analysis of the closed six-variable study, with permitted split routing, exact artifact/source binding, fixed resource/test budgets and no new candidates. See [scope](docs/coverage_diagnosis.md), [registration](configs/tasks/certificate_coverage_diagnosis_v1.json) and [plan](docs/superpowers/plans/2026-10-12-coverage-diagnosis.md). Read-only contract review distinguishes inherited accepted-population occupancy from the stronger frozen six-variable guarantee; it does not reclassify the original NO-GO.
+- [ ] Implement/review the diagnostic with Luna using canned fixtures, run the full CPU suite, freeze clean source and execute the single registered retained-data invocation.
+- [ ] Use its capacity and pooled-difficulty evidence to choose one justified prospective design. Preserve the current NO-GO, every numeric floor and untouched final/test boundaries; any supported-population scope change requires an explicit dated claim/contract decision.
+
+The owner delegated the next design step to the controller. Implementation review is in progress; no real outcome-row analysis or new population has occurred. A mathematical mechanism review proposes that all unique mixed EQ/NEQ tasks in the fixed six-variable/two-or-three-given regime are GAC-solvable; the proof has a controller review but no exhaustive program validation. This is a scoped analytical result, not a workspace or corpus PASS.
+
 ## Six-variable constructive study — 2026-10-11
 
 - [x] Specify the broader certificate constructor, fixed source/development attempt counts, unchanged split/support floors, raw-attempt accounting, local-propagation diagnostic and stop rule. See [prospective study](docs/constructive_sixvar_study.md), [registration](configs/tasks/certificate_sixvar_v1.json) and [execution plan](docs/constructive_sixvar_execution_plan.md). Root document/config consistency checks passed; this is not implementation or scientific evidence.

@@ -1,0 +1,37 @@
+{
+  "artifact_names": [
+    "manifest.initial.json",
+    "permitted_rows.jsonl",
+    "report.json",
+    "manifest.json"
+  ],
+  "candidate_generation": false,
+  "config_version": "dwr-certificate-coverage-diagnosis-v1",
+  "final_access": false,
+  "input_artifact_sha256": {
+    "manifest.initial.json": "25f32f4c64e2539dc009c0d526c90a047fef5497e74c93c283b0e57eda8e59c1",
+    "manifest.json": "01f64cd6de300ca0e7600ca3e181599ab406b763a2b87d3a11bb9ed85b286675",
+    "outcomes.jsonl": "d245d29708efb4a3095da979effc90ca5c29a27ed8717aee1ec0144bf3608201",
+    "replay.json": "5497d70b31bbba2e6b6418e5077a76e48c56af749e272545387d39a8af756e77",
+    "report.json": "aebe8bc19237fc9212f2b408fe5f2c7a99633bf04ea8f7155a52b29747a1c8ee"
+  },
+  "input_config_sha256": "4f8b76404295828afe7b2079784fca1a2cbf2c782bfe9378f5571383ffe089e6",
+  "input_run_path": "runs/certificate-sixvar-20261011T193232440835Z",
+  "input_scientific_source_commit": "fdb77b9a8082492b98ad1e7ac473e88564be2be8",
+  "limits": {
+    "active_wall_seconds": 60,
+    "external_watchdog_seconds": 65,
+    "max_rss_bytes": 268435456,
+    "workers": 1
+  },
+  "permitted_splits": [
+    "source_train",
+    "development_validation"
+  ],
+  "registered_attempts": {
+    "development": 2400,
+    "final": 0,
+    "source": 3600
+  },
+  "test_allowance_seconds": 120
+}
