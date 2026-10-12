@@ -1,10 +1,12 @@
-# Execution state: sampler v2 mechanism qualification
+# Execution state: sampler v2 hard-cell coverage NO-GO
 
 Updated: 2026-10-12. Branch: `research/transfer-cpu-v1`. Worktree: `C:\sem5\diffusive-workspace-reasoning\.worktrees\transfer-cpu-v1`.
 
 ## Current terminal state
 
-Active work: implement/review the separately registered [sampler v2 mechanism fixture](certificate_sampler_v2_design.md) using Luna, then clean-source verification and the sole 288-attempt development-only run. It selects a supported eligible-envelope estimand prospectively, necessary EQ/NEQ filters and an alternating no-unary ADD branch. No fixture/replacement population has run; source/final fixture attempts are zero. A fixture PASS would still precede separate capacity/difficulty registration and full G2. See [plan](superpowers/plans/2026-10-12-certificate-sampler-v2.md).
+Current fixture terminal state: **NO_GO_MECHANISM**, hard-cell coverage failure. Clean source `5418b5c8ea6bf06e9af12ffc0332b2f2ad86a5d4` completed the sole288-attempt development-only fixture and PASS_REPLAY in6.688 seconds (CPU6.609375, sampledRSS30,441,472 bytes; wrapper6.765, exit1/no timeout). Permitted hard EQ/ADD cell C and NEQ/ADD cell B have zero qualifying groups, versus floor1. EQ/NEQ coverage and core diversity passed. Root verified all five artifacts and runtime/frozen producer/config/command bindings; no protected payloads were inspected. This proposal is closed without retry or replacement population. See [result](certificate_sampler_v2_fixture_result.md), [compact manifest](../configs/splits/certificate-sampler-v2-fixture-result.json) and [plan](superpowers/plans/2026-10-12-certificate-sampler-v2.md). Source/final fixture attempts are zero; G2/workspace/training remain unattempted. Local artifacts are not independent reproduction or archival backup.
+
+Next research decision: justify unique hard-case construction across every registered cell before proposing a new bounded design. The owner delegated routine decisions, but this fixture's terminal stop rule blocks its capacity study; no automatic seed/prefix/mixture tuning follows. The supported eligible-envelope estimand is prospective and the original stronger six-variable NO-GO remains unchanged.
 
 The [retained diagnosis](coverage_diagnosis_result.md) completed PASS_DIAGNOSIS at clean `3e16ca3`, after 370 full CPU tests and final-byte scoped checks. It reproduced the original allowed counts in 0.688 seconds and identifies EQ/NEQ nonuniqueness as the main capacity loss (512/609 permitted constructed attempts). It makes no suitability/model claim. Root verified all four output/five input hashes; all protected-choice and final boundaries remain intact. The diagnosis is closed without retry and local artifacts are not archival backup or independent reproduction.
 

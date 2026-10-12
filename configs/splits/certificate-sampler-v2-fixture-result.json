@@ -1,0 +1,117 @@
+{
+  "claim": "Agent-run bounded mechanism fixture only. Local artifacts are not archival backup or independent reproduction.",
+  "config_sha256": "0543c10c6028758c8c36cd4f24f295fb9a11b3801c0bb53444e74151f450418b",
+  "exit_code": 1,
+  "g2_status": "not_assessed",
+  "output_dir": "runs/certificate-sampler-v2-fixture-20261012T133204014786Z",
+  "preflight_emitted": false,
+  "producer_count": 36,
+  "protected_task_fields_inspected_by_controller": false,
+  "replay": {
+    "allowed_aggregate_recomputed": true,
+    "allowed_core_linkage_recomputed": true,
+    "attempts_rederived": 288,
+    "permitted_choice_digest": "8a6458b06bc16fb2ac37a158975b5681267fe865b91b754af621a4061c2d4a84",
+    "status": "PASS_REPLAY"
+  },
+  "report": {
+    "accounting_boundary": "after_first_terminal_manifest_write_and_guard_check",
+    "accounting_excludes": "final report hash and bounded report_manifest accounting flush",
+    "attempts": 288,
+    "choice_aggregates": {
+      "core_signatures_by_profile_given_count": {
+        "eq/add_mod": {
+          "2": 4,
+          "3": 4
+        },
+        "neq/add_mod": {
+          "2": 2,
+          "3": 2
+        }
+      },
+      "descriptive_envelope_count": 52,
+      "eqneq_eligible_by_cell": {
+        "A": 3,
+        "B": 2,
+        "C": 4,
+        "D": 5
+      },
+      "floors": {
+        "core_signatures_each_add_profile_given_count": true,
+        "eqneq_each_cell": true,
+        "no_unary_each_add_profile_cell": false
+      },
+      "no_unary_eligible_by_profile_cell": {
+        "eq/add_mod/A": 4,
+        "eq/add_mod/B": 2,
+        "eq/add_mod/C": 0,
+        "eq/add_mod/D": 2,
+        "neq/add_mod/A": 2,
+        "neq/add_mod/B": 0,
+        "neq/add_mod/C": 1,
+        "neq/add_mod/D": 3
+      },
+      "passed": false,
+      "permitted_unique_eligible_count": 63
+    },
+    "cpu_seconds": 6.609375,
+    "development_only": true,
+    "elapsed_seconds": 6.6879999999998745,
+    "envelope": "descriptive_only",
+    "final_attempts": 0,
+    "g2_status": "not_assessed",
+    "peak_rss_bytes": 30441472,
+    "preflight_emitted": false,
+    "source_attempts": 0,
+    "status": "NO_GO_MECHANISM"
+  },
+  "source_commit": "5418b5c8ea6bf06e9af12ffc0332b2f2ad86a5d4",
+  "status": "NO_GO_MECHANISM",
+  "verified_artifacts": {
+    "manifest.initial.json": "08c704bf4e72406c748cf8d2ca7b81a0cd238f7b2edfa1ddd7d423c0540a1754",
+    "manifest.json": "49a42633bc4add999561b6ab533892d8e4afac6ec39157bc7141d59bc1d22097",
+    "outcomes.jsonl": "135ded9fb35ea8188d9c09e9a273225fca4876101d42667e9b67287858b26b43",
+    "replay.json": "78937bb0061db150755f186141f5753148c6a53e100d69e545a2be0531ebcc92",
+    "report.json": "0b02ff2b105b7910b3b3b69b79c5a642baff112bdbcb054c5905bb14000379d2"
+  },
+  "verified_producer_sha256": {
+    "dwr/__init__.py": "ff8027ef48e5a98aacc1fa04f55066bcfd92abf34c7fc27d14ea5cdf5fc60a13",
+    "dwr/tasks/__init__.py": "34d430e998e267f4544f4a302c307dd52f5a6b951f8655450d9a924284c0eec5",
+    "dwr/tasks/audit.py": "9084a0d201e8a9b2623aaae273d6d0818b86c0b11cb875d7fa33000691f47b59",
+    "dwr/tasks/audit_cli_v2.py": "6c5f71d307ea1c24421160abd38666fa155f0ec61ef8e7056fc09b64f7a084cb",
+    "dwr/tasks/audit_cli_v3.py": "2abcf4f9d5c258ad0431d13701838bcd89400db9409f2d5b9d8809833635e813",
+    "dwr/tasks/audit_probe_v4.py": "4541b46b440036fd71a77fc3578eeba1491955bc3921947e48ce3d0e27512e62",
+    "dwr/tasks/audit_v2.py": "1189e3df2ef820809f410f222863ba80f929574812e69e1cbc245cd6b2025531",
+    "dwr/tasks/canonical.py": "36fbf3e54a60c69697c68657d04d07ebaca7d95744847cd78eecdd0bba6589c5",
+    "dwr/tasks/certificate_diagnosis.py": "f7cf96bb63fdf0555908b170a3cc81c61769785aa4b0c21ee5c5082372e988c1",
+    "dwr/tasks/certificate_fixture_v2.py": "40d602b8e66e6d0b045cdee6e3a63bea11a4ddad3980dd79b5319f9038c75f08",
+    "dwr/tasks/certificate_generator.py": "a92d3a2e7940bb191228529e142d7564f40051d0b7e3ced77f6a2edf10852308",
+    "dwr/tasks/certificate_generator_v2.py": "4fe6516855315556b873e3fb974ecd3a0e7a1e26eb3579b1e9df073925d63d7d",
+    "dwr/tasks/certificate_study.py": "46974cbd18fdd26379aa601bcfa5bd4c4e5c334f97213941b1dcf6275c2067d1",
+    "dwr/tasks/cli.py": "79e1609798f4f586718cd2f00c645452c4655c1fde251cd3f938992a4116d823",
+    "dwr/tasks/cli_v2.py": "79538fdc53b28fbd5814fa7b424f5e03f3c8283ef1f0e5b4752e894ce61f6d38",
+    "dwr/tasks/cli_v3.py": "74afa8f0600dd4677fbfc668353e1c5eaecbd08329971ec69c03212dda1d972e",
+    "dwr/tasks/config_probe_v4.py": "80bdb36a54b31fe7e00e53b538855c07860c9917c53fc5a44f06be30dda46d37",
+    "dwr/tasks/config_v2.py": "31fd4b9d5c086f68b93dd0cc480171b565d4d02c2a9b6d82573c44aacd539fba",
+    "dwr/tasks/config_v3.py": "15dfaaac9d548e90e1cd6fa8e3ff2c3994a5ec7f21b338590e62cbef28bba151",
+    "dwr/tasks/dataset.py": "48ba181e51595e6894045ebeaddb01eda9acaaa1c0f7e6a5efe6cd5ec1aea024",
+    "dwr/tasks/dataset_v2.py": "03aeb55fda0e33ecb648c51aaf35097a1201c667d077065e45846506cc2911ad",
+    "dwr/tasks/generator.py": "9558be045f9f72fd102d4a4188e7b158a0f577ebc3abd39b0fac17223f4f902e",
+    "dwr/tasks/generator_probe_v4.py": "8cf18e00d995ae5f0a55bfa49b268e00a962ed7621f4e34d78ea0fe5a3839afb",
+    "dwr/tasks/generator_v2.py": "b7ca157ee18dde651217063fad0d5c9d2016a038dc25a4b5bdf0fbea9fdf600c",
+    "dwr/tasks/generator_v3.py": "67861a0b06fe2a8cc9840c67325982f25dec270a8d64a42bf3dc89c6eb3ea8c9",
+    "dwr/tasks/local_propagation.py": "ea25b19a116a73dbda68415fc1a8f21f4d761572e7ee286f76d2300650dcb5c6",
+    "dwr/tasks/manifest_v2.py": "35f6789684038d52bac2681296d28194097f1d32a66d56114f5410c81b6bdcbc",
+    "dwr/tasks/oracle.py": "227088aabfb979036b8bc8ab1a89a35ebd4aaa4eb5af4ee8a853fcf45c61f217",
+    "dwr/tasks/probe_cli_v4.py": "c548ee43c056d09c7bc7e4e099c105b827ddea6b16a7a6231a13ea65348e6bae",
+    "dwr/tasks/probe_v4.py": "bbad4e018377bb683c81343271c2eaade607dd19275a567da4e2100ea4ef119f",
+    "dwr/tasks/replay_v2.py": "555472be8e2c976b1e85bef6e1e3f883ca90dc1eb0886a970ba88477f76973f1",
+    "dwr/tasks/run_support.py": "d7e124b543ad0ccb2883d45e0e93ff58bd260c80c0a6d3338666eab633d56d05",
+    "dwr/tasks/schema.py": "112daa4949907da49b1d71aadee76a363a5b3fe4234f45f26231ef6333a34129",
+    "dwr/tasks/solver.py": "aef1f74a4cedec827c3123b8627605b8af57cb6d3c592cdba08b2b64ba04a9ac",
+    "dwr/tasks/stream_contract.py": "a71eb7c34a7586804bef59051c8fab301911ad22a120fb994cf91b34b7459c57",
+    "dwr/tasks/verifier.py": "4ef99a2f2b55d28d35b568f7eed884aaab97bdfb10580701499e1f41d6925c11"
+  },
+  "watchdog_timeout": false,
+  "wrapper_wall_seconds": 6.7650000000001
+}

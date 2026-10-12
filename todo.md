@@ -14,8 +14,8 @@ The owner delegated the next design step to the controller. Retained diagnosis i
 
 - [x] Register the prospective constructor/estimand, fixed 288-attempt development-only fixture, actual-GAC checks and irreducible-core diversity floor before code or draws. See [design](docs/certificate_sampler_v2_design.md), [closed config](configs/tasks/certificate_sampler_v2_fixture.json) and [plan](docs/superpowers/plans/2026-10-12-certificate-sampler-v2.md).
 - [x] Implement/review the versioned constructor and bounded fixture with Luna; controller full CPU suite passed404 tests in41.097 seconds; final branch release review is READY_FOR_SINGLE_FIXTURE. All new runtime/test files equal staged LF blobs, closed config SHA unchanged; freeze this verified checkpoint before the sole run. See [plan/evidence](docs/superpowers/plans/2026-10-12-certificate-sampler-v2.md).
-- [ ] Execute the sole mechanism fixture, preserve all attempts/replay/costs and adjudicate its exact gate. Source/final attempts are zero; diagnostic-test rows never guide choices.
-- [ ] Only after mechanism PASS, register a complete prospective capacity/difficulty study. No fixture result passes corpus suitability or G2; fixed-N model work remains conditional.
+- [x] Execute the sole mechanism fixture, preserve all attempts/replay/costs and adjudicate its exact gate. Clean source `5418b5c` completed288 attempts and PASS_REPLAY in6.688 seconds; result NO_GO_MECHANISM because permitted hard EQ/ADD cell C and NEQ/ADD cell B have zero qualifying groups. EQ/NEQ cell coverage and irreducible-core signature floors pass. Source/final attempts are zero; diagnostic-test rows never guide choices. See [result](docs/certificate_sampler_v2_fixture_result.md) and [compact manifest](configs/splits/certificate-sampler-v2-fixture-result.json).
+- [ ] Only after mechanism PASS, register a complete prospective capacity/difficulty study. **Blocked by the closed fixture's hard-cell coverage NO-GO**; no retry, prefix extension or new seed. No fixture result passes corpus suitability or G2; fixed-N model work remains conditional.
 
 ## Six-variable constructive study — 2026-10-11
 
