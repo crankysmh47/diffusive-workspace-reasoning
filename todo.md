@@ -5,10 +5,17 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 ## Retained coverage diagnosis — 2026-10-12
 
 - [x] Register one retained-data analysis of the closed six-variable study, with permitted split routing, exact artifact/source binding, fixed resource/test budgets and no new candidates. See [scope](docs/coverage_diagnosis.md), [registration](configs/tasks/certificate_coverage_diagnosis_v1.json) and [plan](docs/superpowers/plans/2026-10-12-coverage-diagnosis.md). Read-only contract review distinguishes inherited accepted-population occupancy from the stronger frozen six-variable guarantee; it does not reclassify the original NO-GO.
-- [ ] Implement/review the diagnostic with Luna using canned fixtures, run the full CPU suite, freeze clean source and execute the single registered retained-data invocation.
-- [ ] Use its capacity and pooled-difficulty evidence to choose one justified prospective design. Preserve the current NO-GO, every numeric floor and untouched final/test boundaries; any supported-population scope change requires an explicit dated claim/contract decision.
+- [x] Implement/review the diagnostic with Luna using canned fixtures, run the full CPU suite, freeze clean source and execute the single registered retained-data invocation. Controller passed 370 CPU tests in 38.495 seconds and final-byte 22 scoped tests in 0.114 seconds. Clean source `3e16ca3` completed PASS_DIAGNOSIS in 0.688 seconds; original NO-GO unchanged. See [result](docs/coverage_diagnosis_result.md) and [compact manifest](configs/splits/certificate-coverage-diagnosis-result.json).
+- [x] Use its capacity and pooled-difficulty evidence to choose one justified prospective design. [Sampler v2 design](docs/certificate_sampler_v2_design.md) selects supported eligible-envelope transfer and necessary EQ/NEQ filters plus a fixed no-unary ADD branch. It preserves numerical research floors and untouched final/test boundaries; the claim/contract departure is explicit and prospective.
 
-The owner delegated the next design step to the controller. Implementation review is in progress; no real outcome-row analysis or new population has occurred. A mathematical mechanism review proposes that all unique mixed EQ/NEQ tasks in the fixed six-variable/two-or-three-given regime are GAC-solvable; the proof has a controller review but no exhaustive program validation. This is a scoped analytical result, not a workspace or corpus PASS.
+The owner delegated the next design step to the controller. Retained diagnosis is complete; no replacement population has occurred. An independently hand-reviewed argument shows that all unique mixed EQ/NEQ tasks in the fixed six-variable/two-or-three-given regime are GAC-solvable; no exhaustive program validation of that theorem occurred. This is a scoped analytical result, not a workspace or corpus PASS.
+
+## Sampler v2 mechanism fixture — 2026-10-12
+
+- [x] Register the prospective constructor/estimand, fixed 288-attempt development-only fixture, actual-GAC checks and irreducible-core diversity floor before code or draws. See [design](docs/certificate_sampler_v2_design.md), [closed config](configs/tasks/certificate_sampler_v2_fixture.json) and [plan](docs/superpowers/plans/2026-10-12-certificate-sampler-v2.md).
+- [ ] Implement/review the versioned constructor and bounded fixture with Luna; verify CPU tests and clean source/config identity.
+- [ ] Execute the sole mechanism fixture, preserve all attempts/replay/costs and adjudicate its exact gate. Source/final attempts are zero; diagnostic-test rows never guide choices.
+- [ ] Only after mechanism PASS, register a complete prospective capacity/difficulty study. No fixture result passes corpus suitability or G2; fixed-N model work remains conditional.
 
 ## Six-variable constructive study — 2026-10-11
 

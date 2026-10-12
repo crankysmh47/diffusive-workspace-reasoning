@@ -45,14 +45,16 @@ Pre-freeze byte check found CRLF in the new module while Git's staged blob was L
 ## Task 2: review, verification and sole diagnosis
 
 - [x] Review spec/implementation/config/privacy/denominator/resource closure with a fresh reviewer; resolve concrete findings with Luna and regression checks.
-- [ ] Controller runs the full CPU suite under the separate test allowance; verify exact file/config identities, freeze clean source and record the one invocation.
-- [ ] Execute the bound retained-data diagnostic under the watchdog; verify output/input hashes, actual costs and permitted aggregate linkage without reading protected tasks.
-- [ ] Save a small tracked diagnosis/result note and decision. Distinguish observed associations, conditional arithmetic, formal guarantees and unknowns; no independent reproduction/backup claim from local artifacts.
+- [x] Controller runs the full CPU suite under the separate test allowance; verify exact file/config identities, freeze clean source and record the one invocation.
+- [x] Execute the bound retained-data diagnostic under the watchdog; verify output/input hashes, actual costs and permitted aggregate linkage without reading protected tasks.
+- [x] Save a small tracked diagnosis/result note and decision. Distinguish observed associations, conditional arithmetic, formal guarantees and unknowns; no independent reproduction/backup claim from local artifacts.
+
+Sole invocation: clean `3e16ca31abf843bbf76e45e5890bba8845028eb1`, output `runs/certificate-coverage-diagnosis-20261012T013816950316Z`, PASS_DIAGNOSIS, 0.688 seconds internal wall / 0.609375 CPU / 24,981,504 sampled RSS bytes; controller wrapper0.781 seconds, exit0, no timeout. All four output/five input hashes verified. See [result](../../coverage_diagnosis_result.md) and [compact manifest](../../../configs/splits/certificate-coverage-diagnosis-result.json). Original scientific NO-GO unchanged.
 
 ## Task 3: prospective research decision
 
-- [ ] Explicitly choose universal family-envelope coverage or the supported eligible-envelope estimand, with inherited-contract rationale and narrower claim if changed. Preserve the old study's strict representation failure.
-- [ ] Use the capacity and pooled-difficulty diagnosis jointly to select one mechanism and bounded analytical/fixture question. Register any next diagnostic or population before code/execution, with fixed sample/seed/cost/stop settings and untouched test/final boundaries.
+- [x] Explicitly choose universal family-envelope coverage or the supported eligible-envelope estimand, with inherited-contract rationale and narrower claim if changed. Preserve the old study's strict representation failure.
+- [x] Use the capacity and pooled-difficulty diagnosis jointly to select one mechanism and bounded analytical/fixture question. Register any next diagnostic or population before code/execution, with fixed sample/seed/cost/stop settings and untouched test/final boundaries.
 - [ ] Continue only along a justified reviewed path. A passing new capacity/difficulty study would still lead to separate complete G2 qualification before fixed-N EX/IDX implementation; no immediate training.
 
 The owner's continuous-work delegation covers controller decisions/reviews; it does not reopen the closed six-variable population or permit an outcome-selected retry. Record any ruling and its scientific cost before proceeding.

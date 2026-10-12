@@ -1,0 +1,33 @@
+{
+  "config_version": "dwr-certificate-sampler-v2-fixture-v1",
+  "generator_id": "dwr-certificate-sixvar-v2",
+  "task_schema_version": "constraint-task-v1",
+  "root_seed": 20261012,
+  "rng": "sha256-prefix64-certificate-sixvar-v2-random.Random-version2",
+  "source_rng": "unchanged-v1-delegation-no-source-fixture-draws",
+  "development_profiles": ["eq/neq", "eq/add_mod", "neq/add_mod"],
+  "strata": [
+    {"id": "A", "n": 6, "given_count": 2, "constraint_count": 8},
+    {"id": "B", "n": 6, "given_count": 3, "constraint_count": 6},
+    {"id": "C", "n": 6, "given_count": 3, "constraint_count": 7},
+    {"id": "D", "n": 6, "given_count": 3, "constraint_count": 8}
+  ],
+  "attempts": {"source": 0, "development": 288, "final": 0},
+  "eqneq_witness_filter": "all-three-colors-and-at-least-two-distinct-given-values",
+  "eqneq_first_alternative_filter": "rejects-a-witness-true-eq-pair",
+  "add_branch_schedule": "ordinary-if-floor-index-over-12-even-otherwise-no-unary",
+  "no_unary_tuple_rule": "initial-unknown-operand-count-not-equal-to-one",
+  "permitted_choice_split": "development_validation",
+  "core_rule": "canonical-full-valued-task-first-one-pass-uniqueness-only-deletion",
+  "mechanism_floors": {
+    "eligible_eqneq_per_cell": 1,
+    "eligible_no_unary_per_add_profile_cell": 1,
+    "core_signatures_per_add_profile_given_count": 2
+  },
+  "limits": {"active_wall_seconds": 180, "max_rss_bytes": 536870912, "workers": 1, "external_watchdog_seconds": 185},
+  "test_allowance_seconds": 120,
+  "artifact_names": ["manifest.initial.json", "outcomes.jsonl", "replay.json", "report.json", "manifest.json"],
+  "retries": 0,
+  "g2_status": "not_assessed",
+  "preflight_emitted": false
+}
