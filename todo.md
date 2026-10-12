@@ -2,6 +2,17 @@
 
 Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_v2.md), amended by the binding [v2.2 protocol](docs/research_protocol.md); the terminal v4 proposal record is [v4](docs/task_spec_v4.md). This is the sole live checklist. Check an item only when its output and recorded verification exist. Planning does not count as implementing a gate.
 
+## Rank-certified qualification — 2026-10-12
+
+- [x] Register the prospective rank/nullspace pair constructor, explicit unary-permitted final grammar and integrated source/development qualification plus conditional full-G2 path. Independent mathematical and contract reviews are READY_FOR_IMPLEMENTATION. See [design](docs/certificate_rank_design.md), [plan](docs/superpowers/plans/2026-10-12-certificate-rank.md) and qualification/full configs under `configs/tasks/`. This is not a corpus PASS; all closed studies remain unchanged.
+- [ ] Implement/review finite F3 arithmetic, strict pair outcomes and frozen final grammar with Luna and meaningful canned regression checks.
+- [ ] Implement/review integrated U/E/A ledgers, independent semantic replay, protected routing and exact qualification/full five-cohort audit. Freeze verified clean source before any population.
+- [ ] Execute the single registered qualification (root20261014,3600 source/4800 development/final0). Source failure prevents development; no retry or prefix extension.
+- [ ] Only qualification PASS: execute the frozen independently seeded full study and five-cohort G2 once. Full failure is preserved and blocks model work.
+- [ ] Only complete G2 PASS: implement fixed-N exchangeable workspace and indexed control with meaningful gradient/mask/permutation/resume/cost verification. Training remains separately preregistered.
+
+Current work is implementation/review of this new design, not an extension of the closed sampler-v2 fixture. Root handles research decisions; Luna implements.
+
 ## Retained coverage diagnosis — 2026-10-12
 
 - [x] Register one retained-data analysis of the closed six-variable study, with permitted split routing, exact artifact/source binding, fixed resource/test budgets and no new candidates. See [scope](docs/coverage_diagnosis.md), [registration](configs/tasks/certificate_coverage_diagnosis_v1.json) and [plan](docs/superpowers/plans/2026-10-12-coverage-diagnosis.md). Read-only contract review distinguishes inherited accepted-population occupancy from the stronger frozen six-variable guarantee; it does not reclassify the original NO-GO.

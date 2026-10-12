@@ -4,6 +4,8 @@ Decision date: 2026-10-07. User selected reusable computation across tasks as th
 
 ## Central question
 
+Current continuation: the new [rank-certified constructor and integrated qualification](certificate_rank_design.md) is being implemented under prospectively frozen source/development/final rules. This replaces no historical result and grants no model stage before the complete five-cohort G2 gate.
+
 Can one trained, exchangeable latent workspace attached to a frozen language model reuse learned constraint computation on unseen compositions and task structures without task-specific retraining?
 
 Exchangeability is the main architectural hypothesis supporting this question. Removing fixed slot identities may encourage content-dependent binding and reusable operations instead of position-specific roles. This is a testable hypothesis, not a consequence of permutation equivariance. IDX may transfer equally well; preserve that outcome.

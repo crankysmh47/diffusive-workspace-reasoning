@@ -4,6 +4,8 @@ Date: 2026-10-08. Status updated 2026-10-12: binding protocol; the [six-variable
 
 This is the binding amendment to the [v2 plan](diffusive_workspace_reasoning_project_plan_v2.md). It resolves the ambiguities identified in the [research review](research_review.md). Where the original narrative differs, this protocol takes precedence; [todo.md](../todo.md) is the sole progress checklist. Changes below are deliberate scientific decisions, not experimental findings.
 
+2026-10-12 continuation: the prospective [rank-certified qualification](certificate_rank_design.md) is now being implemented after independent mathematical/contract review. It preserves numerical research floors and all negative predecessor evidence; its explicit population/estimand/resource departures apply only to that registered path. No new population or G2/model result is implied by implementation. Follow the current [execution state](execution_state.md).
+
 ## 1. Research objective and claim boundaries
 
 **2026-10-07 focus decision:** [Transferable computation with exchangeable workspaces](transfer_research_direction.md) is the active scientific objective and specifies its task/transfer contract. Train one shared workspace/interface across source tasks, then freeze it for unseen compositions and structures. Exchangeable slots are the central architectural hypothesis; variable slot count is a staged supporting study. Other directions are [parked](spare_research_ideas.md). This deliberately replaces the single-Sudoku-first research study; all reproducibility safeguards below still apply.
