@@ -2,6 +2,12 @@
 
 Updated: 2026-10-12. Branch: `research/transfer-cpu-v1`. Worktree: `C:\sem5\diffusive-workspace-reasoning\.worktrees\transfer-cpu-v1`.
 
+## GitHub handoff — 2026-10-13
+
+Owner requested all source/planning changes pushed and a detailed account of the project. The [project history](project_history_and_status.md) and [small handoff manifest](../configs/splits/github-handoff-20261013.json) distinguish completed evidence from the interrupted draft. Fresh current-tree verification ran457 tests in42.125 seconds (wrapper42.391, exit1):456 passed; one unary-filler fixture errored with StopIteration. Open scientific reviews remain, and final construction/qualification/full G2/model/training have not run. The eight rank source/test files are preserved as WIP, not an executable scientific release. No study is reopened by this handoff.
+
+The original checkout's ten earlier planning files are preserved separately on `backup/bootstrap-planning-20261013` at `aa99a78bc981a3f3950d069ad5fc35c038d8d6a0`, with its original working files/status unchanged. Source/code/docs/configs go to the existing private GitHub repository; ignored raw data, weights/checkpoints, credentials and run/review logs remain local. Source backup does not establish raw-artifact archival preservation or independent reproduction.
+
 ## Active work
 
 The owner authorized continued autonomous development. A new [rank-certified design](certificate_rank_design.md) has independent mathematical/contract reviews and a [concrete plan](superpowers/plans/2026-10-12-certificate-rank.md). Luna implements; root reviews and decides. Qualification config SHA256 `8fa592fe2bedc012a1a10fb5ecd74bbd871df2f0cedcf5026562f5b518c2d601`; conditional full config `c01056ece9e4d63981301b2cff2c224df952499a54d8b746ac1d73b2df15be6f`. No new population has run. The prior fixture remains closed NO_GO_MECHANISM, and G2/model/training remain unassessed. New source/development/final seeds, counts, bounded resources and departures are prospective; no automatic positive-seeking retry follows a scientific failure.

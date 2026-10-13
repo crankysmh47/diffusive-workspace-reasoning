@@ -13,6 +13,8 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 
 Current work is implementation/review of this new design, not an extension of the closed sampler-v2 fixture. Root handles research decisions; Luna implements.
 
+2026-10-13 handoff: interrupted rank source/tests are preserved as WIP. Fresh full-suite check ran457 tests:456 pass, one unary-filler fixture errors. Final construction and qualification have not run; the milestones above remain unchecked. See [detailed project history](docs/project_history_and_status.md) and [verification manifest](configs/splits/github-handoff-20261013.json). The GitHub handoff is source preservation, not a research gate or raw-artifact backup.
+
 ## Retained coverage diagnosis — 2026-10-12
 
 - [x] Register one retained-data analysis of the closed six-variable study, with permitted split routing, exact artifact/source binding, fixed resource/test budgets and no new candidates. See [scope](docs/coverage_diagnosis.md), [registration](configs/tasks/certificate_coverage_diagnosis_v1.json) and [plan](docs/superpowers/plans/2026-10-12-coverage-diagnosis.md). Read-only contract review distinguishes inherited accepted-population occupancy from the stronger frozen six-variable guarantee; it does not reclassify the original NO-GO.
