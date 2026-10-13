@@ -2,7 +2,11 @@
 
 Updated: 2026-10-14. Branch `research/transfer-cpu-v1`; main unchanged. Clean source `41bd7846f8435d02616a526ef6dbdbae9663271d` completed the sole3600-source/4800-development/final0 qualification, with PASS_REPLAY8400 and **NO_GO_DEVELOPMENT**. Source and development capacity/diversity/difficulty/core floors passed; EQ/ADD support mass0.779089 and NEQ/ADD0.702532 missed the fixed0.8 floor. See [result](certificate_rank_qualification_result.md) and [compact manifest](../configs/splits/certificate-rank-qualification-result.json). G2 is not assessed. No full/final/model/training ran; no retry allowance remains.
 
-Controller474 CPU tests passed in40.367 seconds on stable bytes; independent release review READY. Terminal artifact/config/command/producer bindings were independently checked using public aggregates and opaque hashes only. The registered decision is a scientific blocker to full/model work. Preserve all ignored artifacts and negative evidence; archival backup and independent reproduction remain incomplete. The owner-requested [PR #1](https://github.com/crankysmh47/diffusive-workspace-reasoning/pull/1) is open from `research/transfer-cpu-v1` to `main`; no merge was performed.
+Controller474 CPU tests passed in40.367 seconds on stable bytes; independent release review READY. Terminal artifact/config/command/producer bindings were independently checked using public aggregates and opaque hashes only. The registered decision is a scientific blocker to full/model work. Preserve all ignored artifacts and negative evidence; archival backup and independent reproduction remain incomplete. The owner-requested [PR #1](https://github.com/crankysmh47/diffusive-workspace-reasoning/pull/1) was merged by the owner at2026-10-13T19:25:44Z, remote main62c450f. No agent merge was performed; original local main edits remain untouched.
+
+## Active retained diagnosis — 2026-10-14
+
+Owner resumed autonomous work. Root selected and registered [retained rank support diagnosis](rank_support_diagnosis.md); Luna implementation follows independent scope review. Only source_train/development_validation annotations of the closed qualification may be analyzed; no new tasks, protected/final choices, threshold selection or G2/model execution. Config SHA63145f650d17dc5bd205bfd1dc0db38b7c2b68dadc8ea445ddf8805e296bd394; sole60s/256MiB run after reviewed clean source. Original NO_GO remains unchanged. Owner mergedPR#1; next verified checkpoint gets a new PR.
 
 ## Historical execution state: prospective rank-certified qualification implementation
 

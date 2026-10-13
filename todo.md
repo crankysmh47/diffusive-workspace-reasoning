@@ -2,6 +2,13 @@
 
 Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_v2.md), amended by the binding [v2.2 protocol](docs/research_protocol.md); the terminal v4 proposal record is [v4](docs/task_spec_v4.md). This is the sole live checklist. Check an item only when its output and recorded verification exist. Planning does not count as implementing a gate.
 
+## Retained rank support diagnosis — 2026-10-14
+
+- [x] Register one bounded retained-data diagnosis before another population design. See [scope](docs/rank_support_diagnosis.md), [plan](docs/superpowers/plans/2026-10-14-rank-support-diagnosis.md) and closed config. No raw rows/new tasks were inspected at registration; original NO_GO unchanged.
+- [ ] Luna implement and independently review permitted-only bin/branch/stall inventories and strict bounded runner; pass stable-byte CPU suite and freeze clean source.
+- [ ] Execute once (60s/256MiB/oneworker/watchdog65), verify exact retained input/public linkage, record descriptive result. No generation or protected/final choices.
+- [ ] Decide a justified prospective support-population design from complete unselected inventories, or stop on substantive lack of overlap; no automatic new population, model or floor change.
+
 ## Rank-certified qualification — 2026-10-12
 
 - [x] Register the prospective rank/nullspace pair constructor, explicit unary-permitted final grammar and integrated source/development qualification plus conditional full-G2 path. Independent mathematical and contract reviews are READY_FOR_IMPLEMENTATION. See [design](docs/certificate_rank_design.md), [plan](docs/superpowers/plans/2026-10-12-certificate-rank.md) and qualification/full configs under `configs/tasks/`. This is not a corpus PASS; all closed studies remain unchanged.
@@ -13,7 +20,7 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 
 The rank qualification is closed scientific NO-GO. Full/model milestones remain blocked; no registered allowance remains. Root handles research decisions; Luna implements. A new bounded prospective support-population design is the next research decision, not an automatic retry.
 
-- [x] Owner-requested [PR #1 to `main`](https://github.com/crankysmh47/diffusive-workspace-reasoning/pull/1) created at the reviewed rank implementation/474-pass CPU suite/recorded qualification terminal checkpoint. NO_GO is preserved. PR remains open; no merge or unregistered retry is authorized.
+- [x] Owner-requested [PR #1 to `main`](https://github.com/crankysmh47/diffusive-workspace-reasoning/pull/1) created at the reviewed rank implementation/474-pass CPU suite/recorded qualification terminal checkpoint. NO_GO is preserved. Owner merged it externally at2026-10-13T19:25:44Z; no agent merge or unregistered retry was performed.
 
 2026-10-13 handoff: interrupted rank source/tests are preserved as WIP. Fresh full-suite check ran457 tests:456 pass, one unary-filler fixture errors. Final construction and qualification have not run; the milestones above remain unchecked. See [detailed project history](docs/project_history_and_status.md) and [verification manifest](configs/splits/github-handoff-20261013.json). The GitHub handoff is source preservation, not a research gate or raw-artifact backup.
 
