@@ -1,0 +1,75 @@
+{
+  "manifest_version": "dwr-github-handoff-v1",
+  "date": "2026-10-13",
+  "status": "WIP_NOT_SCIENTIFICALLY_QUALIFIED",
+  "research_branch": "research/transfer-cpu-v1",
+  "base_registration_commit": "285875098b41b1ebb3259d29d4d2584d2ba94479",
+  "original_checkout_snapshot": {
+    "branch": "backup/bootstrap-planning-20261013",
+    "commit": "aa99a78bc981a3f3950d069ad5fc35c038d8d6a0",
+    "original_working_files_and_status_unchanged": true
+  },
+  "verification": {
+    "command": [
+      "python",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-v"
+    ],
+    "exit_code": 1,
+    "wall_seconds": 42.39100000000002,
+    "log_sha256": "cc7a9e3771d8be97bfc5d0c39b1b6500986cdb967abfb958a71f372a75b1fa67",
+    "scope": "current interrupted working tree; unit checks only, not corpus/model validation",
+    "tests_run": 457,
+    "tests_passed": 456,
+    "test_errors": 1,
+    "test_runner_seconds": 42.125,
+    "failure": "test_success_outcome_rejects_unary_add_filler_only_by_no_unary_guard: StopIteration locating unreserved ADD filler"
+  },
+  "draft_files_sha256": {
+    "dwr/tasks/f3.py": "fd16531bd548a40f5da7d18e1c65ed43206e1aadacd7e59bf5efdc7dafa8ad1b",
+    "dwr/tasks/certificate_rank_generator.py": "c38bd1d94389bb19f143ceb38df7937a9a085ec8f3383f6e1ed7f8c23713a1ec",
+    "dwr/tasks/certificate_rank_audit.py": "ec3257f211e038337acdeeca22fbc4a94a6dbb0ae85c2fbd80dd5c9c41b18bff",
+    "dwr/tasks/certificate_rank_study.py": "5b30363b8822c5b50fd983ef6a203bc78b952335614128b00a7a8d394a8dad9c",
+    "tests/test_f3.py": "80a5edd85ca03631df1578acc74c9971a51199cd0060b9954ea21578a53e0238",
+    "tests/test_certificate_rank_generator.py": "26c84e6785e75eaece67f642de891d4eec55b4f6a86fa2c3b37e890c971057c1",
+    "tests/test_certificate_rank_audit.py": "317eb23fce37b675351b9471eb8da75bd37f6b732c3a8a15cdd8b70c309b3bb3",
+    "tests/test_certificate_rank_study.py": "36f6b78db45411acedb59e1981210e84e82e7679bb3d6f5c985a1b27c8b0839d"
+  },
+  "g2_status": "not_assessed",
+  "rank_qualification_status": "not_attempted",
+  "final_constructor_status": "not_implemented",
+  "workspace_model_training_status": "not_implemented_or_attempted",
+  "raw_artifacts_archived": false,
+  "independent_reproduction": false,
+  "excluded_from_git": [
+    "generated datasets",
+    "run artifacts and ignored review logs",
+    "model weights and checkpoints",
+    "credentials"
+  ],
+  "known_open_review_items": [
+    "strict no-unary outcome admission and isolated fixture regression",
+    "first-seen A quota accounting",
+    "qualification link must reject absent floor maps",
+    "full single-invocation enforcement",
+    "frozen final constructor implementation and independent review",
+    "complete branch release review before scientific execution"
+  ],
+  "github_handoff": {
+    "research_push_commit": "065eb1895b689fa1d7c735b03aa03a6d4c4f42f1",
+    "backup_push_commit": "aa99a78bc981a3f3950d069ad5fc35c038d8d6a0",
+    "remote_main_commit_unchanged": "619b84270b7bcc70cc1277a24eddd310f7fa5aaf",
+    "both_remote_heads_independently_verified": true,
+    "visibility_before_push": "PRIVATE",
+    "visibility_after_push": "PUBLIC",
+    "direct_api_private_after_push": false,
+    "visibility_change_action_by_agent": false,
+    "visibility_change_cause": "not established",
+    "default_branch_changed": false,
+    "license_changed": false
+  }
+}

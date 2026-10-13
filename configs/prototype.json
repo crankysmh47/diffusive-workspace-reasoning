@@ -1,6 +1,7 @@
 {
   "status": "draft_specification_not_yet_consumed_by_code",
-  "plan_revision": "2026-10-04-v2",
+  "plan_revision": "2026-10-07-v2.2",
+  "protocol": "docs/research_protocol.md",
   "backbone": {
     "checkpoint": null,
     "revision": null,
@@ -15,7 +16,14 @@
     "initialization": "iid_standard_gaussian",
     "update": "Z_next = Z + F(LN(Z), X)",
     "shared_update_parameters": true,
-    "slot_identity": "exchangeable"
+    "slot_identity": "exchangeable",
+    "slot_count_protocol": {
+      "initial": "fixed_n_transfer",
+      "followup": "registered_variable_n_after_fixed_n_gate",
+      "train_counts": null,
+      "eval_counts": null,
+      "learned_allocation": "parked"
+    }
   },
   "interface": {
     "type": "trainable_set_cross_attention",
@@ -23,30 +31,92 @@
     "matched_across_core_methods": true
   },
   "task": {
-    "family": "mini_sudoku",
-    "size": 4,
-    "subgrid_shape": [2, 2],
+    "family": "finite_domain_constraint_composition",
+    "status": "grammar_and_split_specification_pending",
+    "candidate_primitives": [
+      "equality",
+      "inequality",
+      "modular_addition"
+    ],
     "unique_solution": true,
-    "difficulty": "reference_solver_statistics",
-    "split_manifest": null
+    "split_unit": "canonical_constraint_structure_and_generation_lineage",
+    "split_manifest": null,
+    "suitability_gate_passed": false,
+    "sudoku_role": "optional_correctness_fixture"
   },
   "training": {
     "objective": "final_answer_cross_entropy",
-    "fixed_k_runs": [1, 2, 4, 8],
-    "variable_k_support": [1, 2, 4, 8],
+    "fixed_k_runs": [
+      1,
+      4
+    ],
+    "variable_k_support": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "variable_k_sampling": "uniform_per_batch",
+    "pilot_methods": [
+      "adapter_noise_k0",
+      "exchangeable_k1",
+      "exchangeable_k4"
+    ],
     "batch_size": null,
     "optimizer": null,
     "learning_rate": null,
-    "seeds": [0, 1, 2]
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "deferred_fixed_k_grid": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "variable_k_status": "deferred_secondary_diagnostic"
   },
   "evaluation": {
-    "seen_k": [1, 2, 4, 8],
-    "unseen_k": [12, 16],
+    "seen_k": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "unseen_k": [
+      12,
+      16
+    ],
     "primary_metric": "valid_solution_rate",
+    "primary_contrast": "exchangeable_minus_indexed_heldout_composition_macro_valid_solution_rate",
+    "decoding": "greedy",
+    "workspace_noise_draws_per_example": 1,
+    "max_new_tokens": null,
     "exact_solution_match_when_unique": true,
     "report_difficulty_buckets": true,
     "report_latency": true,
     "report_flops": true,
-    "report_peak_memory": true
+    "report_peak_memory": true,
+    "primary_k": 4,
+    "target_checkpoint_policy": "one_source_validation_selected_checkpoint_per_method",
+    "report_transfer_groups_separately": true
+  },
+  "registration": {
+    "status": "blocked_until_task_and_hardware_gates_pass",
+    "practical_effect_percentage_points": null,
+    "sample_and_group_counts": null,
+    "training_steps": null,
+    "tuning_trials_per_method": null,
+    "max_gpu_hours": null,
+    "max_diagnostic_reruns": null,
+    "uncertainty_method": null
+  },
+  "research": {
+    "main_direction": "transferable_computation_with_exchangeable_workspace",
+    "direction_document": "docs/transfer_research_direction.md",
+    "shared_workspace_and_interface_across_tasks": true,
+    "target_task_parameter_updates": false
   }
 }

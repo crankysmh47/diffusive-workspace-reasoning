@@ -1,0 +1,97 @@
+{
+  "manifest_version": "dwr-constraint-v2-feasibility-evidence-v1",
+  "date": "2026-10-08",
+  "decision": "NO_GO_ATTEMPT_CAP",
+  "g2_status": "not_assessed",
+  "run_id": "20261008T062621Z",
+  "source": {
+    "commit": "9f08efddb60537c61a89a90325bc9c832c32ca1c",
+    "dirty": false
+  },
+  "config": {
+    "path": "configs/tasks/constraint_v2.json",
+    "sha256": "cc9fb0a827d27e4f00425ca9364365026bb6c70c75dc8d6dc0eebcc1f6865222"
+  },
+  "runtime": {
+    "python": "3.11.9",
+    "platform": "Windows 64-bit",
+    "seed": 20261007,
+    "workers": 1
+  },
+  "limits": {
+    "attempts_per_partition": 30000,
+    "generation_plus_audit_seconds": 600,
+    "resident_memory_mib": 1024,
+    "changed_rule_retry": false
+  },
+  "commands": [
+    "python -m dwr.tasks.cli_v2 --config configs/tasks/constraint_v2.json --mode feasibility --out data/constraint-v2-feasibility-20261008T062621Z",
+    "python -m dwr.tasks.audit_cli_v2 --config configs/tasks/constraint_v2.json --mode feasibility --data data/constraint-v2-feasibility-20261008T062621Z"
+  ],
+  "result": {
+    "generation_exit_code": 1,
+    "generation_status": "incomplete",
+    "generation_error": "source partition reached its 30000-attempt cap at candidate index 29999",
+    "development": "not_attempted",
+    "final": "not_attempted",
+    "audit_exit_code": 1,
+    "audit_status": "complete",
+    "integrity_pass": true,
+    "replay_status": "partial_pass",
+    "g2_status": "not_assessed",
+    "support_proxy": "unavailable: development-validation cohorts were not generated",
+    "full_mode_invoked": false
+  },
+  "resource_actuals": {
+    "generation_wall_seconds": 47.375,
+    "generation_cpu_seconds": 47.125,
+    "generation_peak_resident_bytes": 25817088,
+    "audit_wall_seconds": 78.61,
+    "audit_cpu_seconds": 78.453125,
+    "combined_wall_seconds": 125.985,
+    "combined_cpu_seconds": 125.578125,
+    "combined_peak_resident_bytes": 183894016
+  },
+  "historical_cpu_boundary_note": "The recorded 47.125 generation CPU seconds omit setup before the timer and artifact hashing/terminal finalization after it. The 125.578125 combined CPU seconds sum that narrower generation interval with audit CPU measured across a broader boundary. Whole-command CPU was unavailable and cannot be reconstructed; all recorded values and artifact hashes remain unchanged.",
+  "artifacts": {
+    "data/constraint-v2-feasibility-20261008T062621Z/manifest.json": {
+      "bytes": 11909,
+      "sha256": "01b0d56c92223d7ffc8549cfb518fa2288d66379f95dc2b7cbb30ca39a46a52a"
+    },
+    "data/constraint-v2-feasibility-20261008T062621Z/outcomes.jsonl": {
+      "bytes": 17821835,
+      "sha256": "46ea64d5dc80bc271e5fbbf1e43678d74f8b14dffb47b87ed7492417a6ad4362"
+    },
+    "data/constraint-v2-feasibility-20261008T062621Z/records.jsonl": {
+      "bytes": 2045582,
+      "sha256": "7a990c434bfc3b7136819a00ae14830b86f33e83ebe3f31dc7d155cbe9243dbd"
+    },
+    "data/constraint-v2-feasibility-20261008T062621Z/audit_manifest.json": {
+      "bytes": 12381,
+      "sha256": "77142a02b9b311137935a2138fff32cf4516a5e88421e6249156e340fce14d3d"
+    },
+    "data/constraint-v2-feasibility-20261008T062621Z/audit_report.json": {
+      "bytes": 675924,
+      "sha256": "6c2cdfdcf415f78a68300b991480a502e4aa9602b2a9f6477f133fa378b95864"
+    },
+    "data/constraint-v2-feasibility-20261008T062621Z/audit_gate.json": {
+      "bytes": 786,
+      "sha256": "d0f3939760424972095b6f8ee4b8c26241da43cf4d5aa7b0f66be26074cee106"
+    }
+  },
+  "controller_evidence": {
+    ".superpowers/sdd/transfer-v2/actual-feasibility-generation.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    ".superpowers/sdd/transfer-v2/actual-feasibility-audit.txt": {
+      "bytes": 199,
+      "sha256": "bb60572a55f468daad41466cf7674b64252441046a3cc170042b7bdb6ec4121d"
+    },
+    ".superpowers/sdd/transfer-v2/controller-final-suite.txt": {
+      "bytes": 23564,
+      "sha256": "973aff16d92b76d747676896e1581b6b9d5e01369417e36a448ce7625097c5a6",
+      "result": "138 tests passed in 2.250 seconds at source commit"
+    }
+  }
+}

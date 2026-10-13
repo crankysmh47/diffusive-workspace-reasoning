@@ -1,10 +1,16 @@
 # Diffusive Workspace Reasoning
 ## Revised implementation-first research plan (v2)
 
-**Status:** Ready to implement  
-**Revision date:** 2026-10-04  
+**Status:** Task correctness work can begin; research runs require the v2.2 gates
+
+**Revision date:** 2026-10-04; amended 2026-10-07
+
 **Working title:** *Diffusive Workspace Reasoning: Testing Joint Latent Workspaces Against Sequential Latent Computation*  
 **Short name:** DWR
+
+**Current focus (v2.2):** [Transferable computation with exchangeable workspaces](transfer_research_direction.md) supersedes the single-task-first research objective. One shared workspace/interface must transfer without target-task retraining. Fixed-size transfer comes first; variable N follows as a registered supporting experiment. The original fixed-N-only and Sudoku/6×6 sequencing below is historical where it conflicts. Flow and alternative directions are [parked](spare_research_ideas.md).
+
+**Binding amendment:** Read [research_protocol.md](research_protocol.md) alongside this narrative. It takes precedence where the original v2 differs. The [research review](research_review.md) records the reasons: task suitability, fair controls, reproducibility, statistical discipline and explicit architectural choices. [todo.md](../todo.md) is the sole live checklist. Original narrative sections remain for context; they are not independent execution authorization.
 
 ---
 
@@ -202,7 +208,7 @@ Extract hidden states from an early or middle layer:
 X = E_{\text{frozen}}(x)
 \]
 
-Use the same \(X\) for all core methods.
+Use the same \(X\) for all core methods. In v2.1, extract it in a separate prompt-only pass with adapters disabled; answer tokens and changing adapter states never enter this representation.
 
 Do not give one method a better prompt encoder.
 
@@ -340,7 +346,7 @@ The correct claim is:
 
 # 10. Indexed recurrent variant
 
-Use the same recurrent architecture and same stochastic initialization, but add persistent learned slot identity embeddings:
+Use the same recurrent architecture and same stochastic initialization, but add learned slot identity embeddings once at initialization (v2.1 clarification; do not re-add them at each step):
 
 \[
 Z_0^{(i)} = \epsilon_i + e_i
@@ -479,7 +485,7 @@ Train separate checkpoints with:
 K=1,2,4,8
 \]
 
-This supports fair architecture-at-budget comparisons.
+This supplies fixed-K points for a data-exposure comparison. Equal steps/examples do not match training or inference compute; architecture-at-budget claims additionally require the measured controls and budget protocol in v2.1.
 
 ## Protocol B — variable-K checkpoint
 
@@ -489,7 +495,7 @@ Train one checkpoint where:
 K \sim \{1,2,4,8\}
 \]
 
-sampled per batch or according to a controlled schedule.
+sampled uniformly per batch, with final-answer loss only at the sampled terminal horizon and full backpropagation through all updates (v2.1 default).
 
 Evaluate the same checkpoint at:
 
@@ -522,12 +528,12 @@ Purpose:
 
 > Determine whether recurrence is a particularly effective use of additional computation.
 
-Construct a model that uses approximately comparable trainable parameters and inference FLOPs, but does not share weights recurrently.
+Construct an unshared residual model at comparable measured end-to-end inference FLOPs. Report parameter and training-compute differences; simultaneous exact matching is not assumed.
 
 For example:
 
 \[
-Z_1=F_1(Z_0,X),\quad Z_2=F_2(Z_1,X),\ldots
+Z_{j+1}=Z_j+F_j(\operatorname{LN}(Z_j),X)
 \]
 
 with unshared blocks.
@@ -587,6 +593,8 @@ A faithful LRT reproduction can be added separately as an external baseline.
 ---
 
 # 18. First task family
+
+**v2.1 task gate:** 4×4 Sudoku is a correctness/integration fixture. Assess generated 6×6/2×3 data for independent solution families and measured difficulty before model comparisons. This deliberately advances data suitability work from the later scaling phase; it does not presume the larger task is suitable. See the protocol for canonical grouping and split rules.
 
 Do not begin with several public reasoning datasets.
 
@@ -772,7 +780,7 @@ Run several random seeds.
 
 ## Step 12
 
-Only after a real iterative signal appears, add the feedforward and sequential baselines.
+After an interpretable pilot, add feedforward and sequential controls before making the corresponding recurrence-efficiency or joint-over-sequential claims. If a bounded negative pilot ends the study, report that limited result without those stronger claims. A positive signal is not a condition for recording useful evidence.
 
 ## Step 13
 
@@ -781,6 +789,8 @@ Only after the recurrent result is understood, implement flow matching.
 ---
 
 # 24. Minimum first experiment
+
+**v2.1 qualification:** This is a prototype scope, not a publication threshold. Complete data suitability and run-infrastructure gates first, include the separately trained K=0 noise-memory interface control, and distinguish exploratory pilots from registered confirmatory runs. Use at least three training seeds for confirmatory effects; otherwise label the study exploratory.
 
 The minimum experiment that justifies continuing is:
 
@@ -1028,6 +1038,8 @@ Do not allow the target interface to drift while fitting the flow.
 ---
 
 # 34. Conditional flow-matching target
+
+**v2.1 coupling:** Initially use paired endpoints `Z0 = epsilon`, `Z1 = R(x, epsilon)` from a frozen exchangeable teacher. Preserve slot correspondence; permute both endpoints together. This teacher-induced coupling is not OT. Freeze the pairing and target split in the later flow registration; independent endpoints are a separate ablation.
 
 Let:
 
@@ -1382,6 +1394,8 @@ One variable-\(K\) checkpoint evaluated across:
 
 # 46. Seeds and statistical discipline
 
+**v2.1 requirement:** At least three independent training seeds for confirmatory effects, with a development-only precision assessment; fewer is exploratory. Register the primary contrast, practical effect size, uncertainty method, checkpoint selection and test-access policy before confirmatory training. Report family-aware uncertainty and seed variation; three seeds alone do not establish power.
+
 For early debugging:
 
 - 1 seed is acceptable.
@@ -1473,6 +1487,8 @@ Earlier steps can still support a latent-workspace paper.
 
 # 49. Revised project decision tree
 
+**v2.1 reading:** “Rethink” means one of the preregistered bounded diagnostics, a new dated study, or stop and report. It never means indefinite retuning. “Extra compute explains gain” is only a candidate interpretation; comparable feedforward performance limits a recurrence-specific claim without proving a unique causal explanation.
+
 ```text
 Does iteration beat one-shot?
         │
@@ -1528,6 +1544,8 @@ This prevents the codebase from treating diffusion as inevitable.
 ---
 
 # 51. Suggested repository structure
+
+**v2.1 layout correction:** The historical sketch below is illustrative, not a scaffolding task. All generator/solver/model/analysis source belongs under `dwr/`, tests under `tests/`, small versioned split manifests under `configs/splits/`, and generated data under ignored `data/`. Do not place source or the only copy of split manifests inside ignored artifact paths.
 
 ```text
 dwr/
@@ -1623,7 +1641,9 @@ evaluation:
 
 ---
 
-# 53. Exact first-week implementation checklist
+# 53. Historical implementation outline
+
+Superseded as an execution schedule by [todo.md](../todo.md). The items below describe the original scope; do not maintain a second completion record or promise a one-week research result. In particular, research-task suitability, instrumentation and registration precede model comparisons.
 
 ## Data and verifier
 
@@ -1782,6 +1802,8 @@ Avoid:
 
 # 58. Final stop rule
 
+**v2.1 interpretation:** Use preregistered compute caps and a finite diagnostic allowance. Separate task/implementation failure, inconclusive evidence and controlled negatives. The cases below narrow claims or stop expansion; they do not invalidate an otherwise reproducible negative report. Do not require a positive result for the project to produce research.
+
 Do **not** stop simply because diffusion loses.
 
 Continue if the experiments reveal a robust and interesting workspace effect.
@@ -1799,7 +1821,7 @@ The mechanism that survives the experiments becomes the paper.
 
 # 59. Immediate next action
 
-The project is now ready for implementation.
+The task specification, verifier and independent reference-solver checks are ready to implement next. Training must wait for research-task suitability, reproducibility infrastructure and measured hardware feasibility in the live checklist.
 
 The immediate target is:
 

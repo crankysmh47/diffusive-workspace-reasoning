@@ -1,0 +1,30 @@
+{
+  "manifest_version": "constraint-v1-partial-evidence-1",
+  "source_commit": "800f9cdb0d44c2b0ca54fd54039c5383821a3c2b",
+  "source_clean": true,
+  "config_path": "configs/tasks/constraint_v1.json",
+  "config_sha256": "26e43360a005fc41fd00981d8ff8471ab9a4bbc90494f7ea312958c0e428e8f3",
+  "run_id": "constraint-v1-20261007220128",
+  "run_status": "incomplete",
+  "generation_exit_code": 1,
+  "generation_error": "PermissionError WinError 5 during atomic manifest replacement",
+  "attempts": {"source": 22450, "development": 0, "final": 0},
+  "accepted": {"source": 185, "development": 0, "final": 0},
+  "development_final_status": "not_attempted",
+  "audit_status": "incomplete_generation",
+  "g2_status": "not_assessed",
+  "audit_progress": {"records_integrity_and_interactions": 185, "candidate_replay": 22450},
+  "partial_metrics": {"unique_content_ids": 185, "structure_signatures": 137, "source_sensitive_examples": 120, "zero_sensitive_signatures": 51, "source_splits": {"train": 153, "validation": 13, "test": 19}},
+  "cost": {"generation_wall_s": 17.891, "generation_cpu_s": 17.640625, "generation_peak_rss_bytes": 379232256, "audit_wall_s": 19.875, "audit_cpu_s": 19.640625, "audit_peak_rss_bytes": 433459200, "combined_wall_s": 37.766, "registered_global_wall_cap_s": 600},
+  "local_ignored_artifacts": {
+    "manifest.json": {"bytes": 10513, "sha256": "3772de1f3cf216d52d0759b82ec07582da848d2095db96bc76e22f3a9b2a1d4a"},
+    "records.jsonl": {"bytes": 384616, "sha256": "8ce3619151b708d52d817d25126542f62bfba4eee13bf664df07806a1fc18f89"},
+    "outcomes.jsonl": {"bytes": 3656116, "sha256": "e2422d5b4882b045386049f8043aa770d2fb0cee82582fc47064155dc5dca737"},
+    "audit_manifest.json": {"bytes": 10101, "sha256": "378de05b6ff845669a9dc661a6f9d6c45e9ec0a89f2f9985bde85092873cc196"},
+    "audit_results.jsonl": {"bytes": 3274270, "sha256": "30e638731863b3b7e7f0770eea246196042bf28ac87806ebb9590b2b46763693"},
+    "audit_report.json": {"bytes": 94332, "sha256": "1368487de6470c2c54e9c5b1c8e4d142b04ccdf9f747158980c2b4215a7dc6f9"}
+  },
+  "data_archive_status": "local_ignored_only_not_archived",
+  "independent_reproduction": false,
+  "model_or_training_results": false
+}

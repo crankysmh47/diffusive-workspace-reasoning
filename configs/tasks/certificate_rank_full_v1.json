@@ -1,0 +1,141 @@
+{
+  "task_schema_version": "constraint-task-v1",
+  "source_profiles": [
+    "eq",
+    "neq",
+    "add_mod"
+  ],
+  "development_profiles": [
+    "eq/neq",
+    "eq/add_mod",
+    "neq/add_mod"
+  ],
+  "strata": [
+    {
+      "id": "A",
+      "n": 6,
+      "given_count": 2,
+      "constraint_count": 8
+    },
+    {
+      "id": "B",
+      "n": 6,
+      "given_count": 3,
+      "constraint_count": 6
+    },
+    {
+      "id": "C",
+      "n": 6,
+      "given_count": 3,
+      "constraint_count": 7
+    },
+    {
+      "id": "D",
+      "n": 6,
+      "given_count": 3,
+      "constraint_count": 8
+    }
+  ],
+  "support": {
+    "prompt_byte_bin": 4,
+    "first_solution_node_bin": 2,
+    "cell_min": 10,
+    "cohort_mass_min": 0.8
+  },
+  "source_floors": {
+    "train_groups": 100,
+    "train_signatures": 12,
+    "primitives": 3,
+    "value_fraction_each": 0.1,
+    "given_counts": [
+      2,
+      3
+    ],
+    "sensitivity": 0.25,
+    "eligible_envelope_fraction": 0.25,
+    "sensitive_per_accepted_signature": 1,
+    "eligible_envelope_train_per_profile_cell": 10,
+    "accepted_signatures_per_profile": 12,
+    "eligible_envelope_train_per_all_raw_attempts": 0.02
+  },
+  "difficulty": {
+    "diagnostic": "synchronous-generalized-arc-consistency-v1",
+    "source_gate": false,
+    "development_stalled_groups_min": 10,
+    "development_stalled_fraction_min": 0.1,
+    "development_profiles_with_stall_min": 2,
+    "denominator": "all-first-seen-oracle-unique-scientifically-eligible-development-validation-content-groups-before-envelope"
+  },
+  "config_version": "dwr-certificate-rank-study-v1",
+  "generator_id": "dwr-certificate-rank-sixvar-v1",
+  "rng": "registered-v1-source-v2-ordinary-and-eqneq-rank-v1-independent-streams",
+  "development_floors": {
+    "eligible_envelope_groups_per_profile": 100,
+    "accepted_signatures_per_profile": 12,
+    "scientific_eligibility_fraction": 0.25,
+    "eligible_envelope_fraction": 0.25,
+    "eligible_envelope_per_profile_cell": 10,
+    "core_signatures_per_profile_given_count": 2
+  },
+  "final_profiles": [
+    "eq/neq/add_mod"
+  ],
+  "retries": 0,
+  "producer_hash_scope": "sorted-all-dwr-tasks-py-plus-dwr-init",
+  "artifact_names": [
+    "manifest.initial.json",
+    "outcomes.jsonl",
+    "records.jsonl",
+    "replay.json",
+    "report.json",
+    "manifest.json"
+  ],
+  "hard_branch_fraction": 0.5,
+  "final_unary_allowed": true,
+  "full_floors": {
+    "source_quota": 1000,
+    "development_quota_per_profile": 600,
+    "final_quota": 600,
+    "accepted_groups_per_partition": 100,
+    "accepted_signatures_per_partition": 12,
+    "source_split_minima": {
+      "source_train": 100,
+      "source_validation": 20,
+      "source_test": 20
+    },
+    "development_split_minima": {
+      "development_validation": 80,
+      "development_diagnostic_test": 20
+    },
+    "development_split_minima_per_profile": {
+      "development_validation": 20,
+      "development_diagnostic_test": 5
+    },
+    "accepted_groups_per_mixed_profile": 100,
+    "accepted_signatures_per_mixed_profile": 12,
+    "mixed_eligibility_fraction": 0.25,
+    "value_fraction_each": 0.1,
+    "given_counts": [
+      2,
+      3
+    ]
+  },
+  "mode": "full",
+  "root_seed": 20261015,
+  "attempts": {
+    "source": 30000,
+    "development": 30000,
+    "final": 30000
+  },
+  "limits": {
+    "active_wall_seconds": 3600,
+    "max_rss_bytes": 1073741824,
+    "workers": 1,
+    "external_watchdog_seconds": 3605
+  },
+  "required_qualification": {
+    "config_path": "configs/tasks/certificate_rank_qualification_v1.json",
+    "config_sha256": "8fa592fe2bedc012a1a10fb5ecd74bbd871df2f0cedcf5026562f5b518c2d601",
+    "output_path": "runs/certificate-rank-qualification-20261012-v1"
+  }
+}

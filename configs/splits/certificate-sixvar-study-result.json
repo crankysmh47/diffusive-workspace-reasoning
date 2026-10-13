@@ -1,0 +1,410 @@
+{
+  "archival_backup_verified": false,
+  "artifact_sha256": {
+    "manifest.initial.json": "25f32f4c64e2539dc009c0d526c90a047fef5497e74c93c283b0e57eda8e59c1",
+    "manifest.json": "01f64cd6de300ca0e7600ca3e181599ab406b763a2b87d3a11bb9ed85b286675",
+    "outcomes.jsonl": "d245d29708efb4a3095da979effc90ca5c29a27ed8717aee1ec0144bf3608201",
+    "replay.json": "5497d70b31bbba2e6b6418e5077a76e48c56af749e272545387d39a8af756e77",
+    "report.json": "aebe8bc19237fc9212f2b408fe5f2c7a99633bf04ea8f7155a52b29747a1c8ee"
+  },
+  "attempts": {
+    "development": 2400,
+    "final": 0,
+    "source": 3600
+  },
+  "attempts_rederived": 6000,
+  "command": [
+    "C:\\Users\\Hank47\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+    "-m",
+    "dwr.tasks.certificate_study",
+    "--config",
+    "C:\\sem5\\diffusive-workspace-reasoning\\.worktrees\\transfer-cpu-v1\\configs\\tasks\\certificate_sixvar_v1.json",
+    "--output",
+    "C:\\sem5\\diffusive-workspace-reasoning\\.worktrees\\transfer-cpu-v1\\runs\\certificate-sixvar-20261011T193232440835Z"
+  ],
+  "config_path": "configs/tasks/certificate_sixvar_v1.json",
+  "config_sha256": "4f8b76404295828afe7b2079784fca1a2cbf2c782bfe9378f5571383ffe089e6",
+  "decision": "Stop this registered population at its development capacity/representation gate; no retry, floor change, full G2 or model stage.",
+  "derived_missing_eligible_signatures_in_envelope": {
+    "eq/add_mod": 55,
+    "eq/neq": 2,
+    "neq/add_mod": 30
+  },
+  "development": {
+    "common_support": {
+      "development_validation_eq/add_mod": {
+        "cell_floor_pass": true,
+        "common_cell_counts": {
+          "A": 76,
+          "B": 59,
+          "C": 78,
+          "D": 66
+        },
+        "common_cell_mass": 0.8303571428571429,
+        "eligible_denominator": 336
+      },
+      "development_validation_eq/neq": {
+        "cell_floor_pass": false,
+        "common_cell_counts": {
+          "A": 13,
+          "B": 5,
+          "C": 13,
+          "D": 26
+        },
+        "common_cell_mass": 0.9193548387096774,
+        "eligible_denominator": 62
+      },
+      "development_validation_neq/add_mod": {
+        "cell_floor_pass": true,
+        "common_cell_counts": {
+          "A": 36,
+          "B": 21,
+          "C": 33,
+          "D": 50
+        },
+        "common_cell_mass": 0.8187134502923976,
+        "eligible_denominator": 171
+      },
+      "source_train": {
+        "cell_floor_pass": true,
+        "common_cell_counts": {
+          "A": 235,
+          "B": 259,
+          "C": 252,
+          "D": 355
+        },
+        "common_cell_mass": 0.8655660377358491,
+        "eligible_denominator": 1272
+      }
+    },
+    "difficulty_denominator": 569,
+    "eligible_envelope_groups": 476,
+    "eligible_groups": 569,
+    "first_seen_oracle_validation_groups": 751,
+    "floors": {
+      "common_support_cell_floor": false,
+      "common_support_mass": true,
+      "envelope_fraction": true,
+      "envelope_groups": false,
+      "local_difficulty": true,
+      "profile_envelope_fraction": true,
+      "profile_scientific_eligibility": true,
+      "represented_signatures": false,
+      "scientific_eligibility": true,
+      "signatures": true
+    },
+    "profile_results": {
+      "eq/add_mod": {
+        "eligible_envelope_groups": 279,
+        "eligible_envelope_groups_by_cell": {
+          "A": 76,
+          "B": 59,
+          "C": 78,
+          "D": 66
+        },
+        "eligible_envelope_signatures": 271,
+        "eligible_envelope_yield": 0.5911016949152542,
+        "eligible_groups_by_cell": {
+          "A": 98,
+          "B": 74,
+          "C": 88,
+          "D": 76
+        },
+        "eligible_per_signature_min": 1,
+        "eligible_signatures": 326,
+        "first_seen_oracle_unique_groups": 472,
+        "scientific_eligibility_fraction": 0.711864406779661,
+        "scientifically_eligible_groups": 336,
+        "stalled_groups": 22
+      },
+      "eq/neq": {
+        "eligible_envelope_groups": 57,
+        "eligible_envelope_groups_by_cell": {
+          "A": 13,
+          "B": 5,
+          "C": 13,
+          "D": 26
+        },
+        "eligible_envelope_signatures": 56,
+        "eligible_envelope_yield": 0.7037037037037037,
+        "eligible_groups_by_cell": {
+          "A": 17,
+          "B": 5,
+          "C": 13,
+          "D": 27
+        },
+        "eligible_per_signature_min": 1,
+        "eligible_signatures": 58,
+        "first_seen_oracle_unique_groups": 81,
+        "scientific_eligibility_fraction": 0.7654320987654321,
+        "scientifically_eligible_groups": 62,
+        "stalled_groups": 0
+      },
+      "neq/add_mod": {
+        "eligible_envelope_groups": 140,
+        "eligible_envelope_groups_by_cell": {
+          "A": 36,
+          "B": 21,
+          "C": 33,
+          "D": 50
+        },
+        "eligible_envelope_signatures": 140,
+        "eligible_envelope_yield": 0.7070707070707071,
+        "eligible_groups_by_cell": {
+          "A": 56,
+          "B": 23,
+          "C": 35,
+          "D": 57
+        },
+        "eligible_per_signature_min": 1,
+        "eligible_signatures": 170,
+        "first_seen_oracle_unique_groups": 198,
+        "scientific_eligibility_fraction": 0.8636363636363636,
+        "scientifically_eligible_groups": 171,
+        "stalled_groups": 38
+      }
+    },
+    "stalled_fraction": 0.1054481546572935,
+    "stalled_groups": 60,
+    "stalled_profiles": [
+      "eq/add_mod",
+      "neq/add_mod"
+    ]
+  },
+  "evidence_path": ".superpowers/sdd/sixvar/",
+  "g2_status": "not_assessed",
+  "generator_id": "dwr-certificate-sixvar-v1",
+  "independent_reproduction": false,
+  "model_or_training_run": false,
+  "permitted_rejection_and_splitless_failure_counts": {
+    "development": {
+      "accepted_for_support": 476,
+      "duplicate_content": 38,
+      "no_feasible_mixed_second_alternative": 203,
+      "oracle_non_unique": 966,
+      "outside_registered_support_envelope": 93,
+      "scientifically_ineligible": 182
+    },
+    "source": {
+      "accepted_for_support": 1101,
+      "duplicate_content": 1010,
+      "no_feasible_source_alternative": 292,
+      "oracle_non_unique": 416,
+      "outside_registered_support_envelope": 171
+    }
+  },
+  "poststudy_display_fix": {
+    "behavior_red_observed": "minimum1 instead of0 for eligible signature with no envelope representative",
+    "controller_verification": {
+      "command": [
+        "python",
+        "-m",
+        "unittest",
+        "tests.test_certificate_study",
+        "-v"
+      ],
+      "evidence_path": ".superpowers/sdd/sixvar/controller-poststudy-display.json",
+      "original_five_artifacts_byte_identity_rechecked": true,
+      "tests_passed": 32,
+      "unittest_seconds": 0.5,
+      "wrapper_seconds": 0.61
+    },
+    "evidence_prefix": ".superpowers/sdd/sixvar/poststudy-report-min",
+    "producer_sha256": "46974cbd18fdd26379aa601bcfa5bd4c4e5c334f97213941b1dcf6275c2067d1",
+    "scope": "display minimum only; no gate, config or original artifact changes",
+    "scoped_tests_passed": 32,
+    "test_sha256": "d7ddf6564791b0010261b72840b7fc368df02cd8e1074e6a5be28a2f821ffc7f",
+    "unittest_seconds": 0.511,
+    "wrapper_seconds": 0.6377524
+  },
+  "preflight_emitted": false,
+  "producer_sha256": {
+    "dwr/__init__.py": "ff8027ef48e5a98aacc1fa04f55066bcfd92abf34c7fc27d14ea5cdf5fc60a13",
+    "dwr/tasks/__init__.py": "34d430e998e267f4544f4a302c307dd52f5a6b951f8655450d9a924284c0eec5",
+    "dwr/tasks/audit.py": "9084a0d201e8a9b2623aaae273d6d0818b86c0b11cb875d7fa33000691f47b59",
+    "dwr/tasks/audit_cli_v2.py": "6c5f71d307ea1c24421160abd38666fa155f0ec61ef8e7056fc09b64f7a084cb",
+    "dwr/tasks/audit_cli_v3.py": "2abcf4f9d5c258ad0431d13701838bcd89400db9409f2d5b9d8809833635e813",
+    "dwr/tasks/audit_probe_v4.py": "4541b46b440036fd71a77fc3578eeba1491955bc3921947e48ce3d0e27512e62",
+    "dwr/tasks/audit_v2.py": "1189e3df2ef820809f410f222863ba80f929574812e69e1cbc245cd6b2025531",
+    "dwr/tasks/canonical.py": "36fbf3e54a60c69697c68657d04d07ebaca7d95744847cd78eecdd0bba6589c5",
+    "dwr/tasks/certificate_generator.py": "a92d3a2e7940bb191228529e142d7564f40051d0b7e3ced77f6a2edf10852308",
+    "dwr/tasks/certificate_study.py": "072fec8951a4d91734cbe00d379921451a170af5777081ed0004597dbe7b0e75",
+    "dwr/tasks/cli.py": "79e1609798f4f586718cd2f00c645452c4655c1fde251cd3f938992a4116d823",
+    "dwr/tasks/cli_v2.py": "79538fdc53b28fbd5814fa7b424f5e03f3c8283ef1f0e5b4752e894ce61f6d38",
+    "dwr/tasks/cli_v3.py": "74afa8f0600dd4677fbfc668353e1c5eaecbd08329971ec69c03212dda1d972e",
+    "dwr/tasks/config_probe_v4.py": "80bdb36a54b31fe7e00e53b538855c07860c9917c53fc5a44f06be30dda46d37",
+    "dwr/tasks/config_v2.py": "31fd4b9d5c086f68b93dd0cc480171b565d4d02c2a9b6d82573c44aacd539fba",
+    "dwr/tasks/config_v3.py": "15dfaaac9d548e90e1cd6fa8e3ff2c3994a5ec7f21b338590e62cbef28bba151",
+    "dwr/tasks/dataset.py": "48ba181e51595e6894045ebeaddb01eda9acaaa1c0f7e6a5efe6cd5ec1aea024",
+    "dwr/tasks/dataset_v2.py": "03aeb55fda0e33ecb648c51aaf35097a1201c667d077065e45846506cc2911ad",
+    "dwr/tasks/generator.py": "9558be045f9f72fd102d4a4188e7b158a0f577ebc3abd39b0fac17223f4f902e",
+    "dwr/tasks/generator_probe_v4.py": "8cf18e00d995ae5f0a55bfa49b268e00a962ed7621f4e34d78ea0fe5a3839afb",
+    "dwr/tasks/generator_v2.py": "b7ca157ee18dde651217063fad0d5c9d2016a038dc25a4b5bdf0fbea9fdf600c",
+    "dwr/tasks/generator_v3.py": "67861a0b06fe2a8cc9840c67325982f25dec270a8d64a42bf3dc89c6eb3ea8c9",
+    "dwr/tasks/local_propagation.py": "ea25b19a116a73dbda68415fc1a8f21f4d761572e7ee286f76d2300650dcb5c6",
+    "dwr/tasks/manifest_v2.py": "35f6789684038d52bac2681296d28194097f1d32a66d56114f5410c81b6bdcbc",
+    "dwr/tasks/oracle.py": "227088aabfb979036b8bc8ab1a89a35ebd4aaa4eb5af4ee8a853fcf45c61f217",
+    "dwr/tasks/probe_cli_v4.py": "c548ee43c056d09c7bc7e4e099c105b827ddea6b16a7a6231a13ea65348e6bae",
+    "dwr/tasks/probe_v4.py": "bbad4e018377bb683c81343271c2eaade607dd19275a567da4e2100ea4ef119f",
+    "dwr/tasks/replay_v2.py": "555472be8e2c976b1e85bef6e1e3f883ca90dc1eb0886a970ba88477f76973f1",
+    "dwr/tasks/run_support.py": "d7e124b543ad0ccb2883d45e0e93ff58bd260c80c0a6d3338666eab633d56d05",
+    "dwr/tasks/schema.py": "112daa4949907da49b1d71aadee76a363a5b3fe4234f45f26231ef6333a34129",
+    "dwr/tasks/solver.py": "aef1f74a4cedec827c3123b8627605b8af57cb6d3c592cdba08b2b64ba04a9ac",
+    "dwr/tasks/stream_contract.py": "a71eb7c34a7586804bef59051c8fab301911ad22a120fb994cf91b34b7459c57",
+    "dwr/tasks/verifier.py": "4ef99a2f2b55d28d35b568f7eed884aaab97bdfb10580701499e1f41d6925c11"
+  },
+  "public_work": {
+    "development": {
+      "actual_permitted_work": {
+        "independent_gac_support_checks": 121358,
+        "independent_scalar_assignments": 425574,
+        "oracle_assignments_examined": 8800488,
+        "production_gac_support_checks": 244712,
+        "solver_nodes": 127590
+      },
+      "permitted_construction_work": {
+        "alternative_pool_scans": 276696,
+        "constraint_pool_scans": 7984440,
+        "count_vector_scans": 2442360,
+        "feasible_alternatives": 0,
+        "feasible_count_vectors": 307532,
+        "feasible_second_alternatives": 83210,
+        "given_position_scans": 21060,
+        "rng_calls": 49140,
+        "witness_pool_scans": 0
+      },
+      "splitless_construction_failure_work": {
+        "alternative_pool_scans": 31480,
+        "constraint_pool_scans": 963120,
+        "count_vector_scans": 18684,
+        "feasible_alternatives": 0,
+        "feasible_count_vectors": 0,
+        "feasible_second_alternatives": 0,
+        "given_position_scans": 2436,
+        "rng_calls": 3248,
+        "witness_pool_scans": 0
+      }
+    },
+    "source": {
+      "actual_permitted_work": {
+        "independent_gac_support_checks": 263872,
+        "independent_scalar_assignments": 1886598,
+        "oracle_assignments_examined": 35642268,
+        "production_gac_support_checks": 333052,
+        "solver_nodes": 184926
+      },
+      "permitted_construction_work": {
+        "alternative_pool_scans": 221184,
+        "constraint_pool_scans": 6477540,
+        "count_vector_scans": 0,
+        "feasible_alternatives": 104774,
+        "feasible_count_vectors": 0,
+        "feasible_second_alternatives": 0,
+        "given_position_scans": 32376,
+        "rng_calls": 36260,
+        "witness_pool_scans": 1922904
+      },
+      "splitless_construction_failure_work": {
+        "alternative_pool_scans": 16632,
+        "constraint_pool_scans": 321720,
+        "count_vector_scans": 0,
+        "feasible_alternatives": 0,
+        "feasible_count_vectors": 0,
+        "feasible_second_alternatives": 0,
+        "given_position_scans": 3504,
+        "rng_calls": 1348,
+        "witness_pool_scans": 399492
+      }
+    }
+  },
+  "replay_status": "PASS_REPLAY",
+  "report_display_caveat": "The immutable original per-profile eligible_per_signature_min omits zero-envelope eligible signatures. The representation gate already includes those zero counts and correctly fails. The code-only post-study display correction does not change this scientific result.",
+  "resources": {
+    "accounting_boundary": "after_initial_terminal_writes_and_guard_check_before_small_accounting_flush",
+    "accounting_excludes": "final report hash and bounded report/manifest accounting flush",
+    "cpu_seconds": 403.390625,
+    "elapsed_seconds": 404.09400000000096,
+    "peak_rss_bytes": 35024896
+  },
+  "result_version": "dwr-certificate-sixvar-study-result-v1",
+  "root_seed": 20261011,
+  "run_path": "runs/certificate-sixvar-20261011T193232440835Z",
+  "scientific_source_commit": "fdb77b9a8082492b98ad1e7ac473e88564be2be8",
+  "source": {
+    "common_support_mass": 0.8655660377358491,
+    "eligible_envelope_fraction": 0.8655660377358491,
+    "eligible_envelope_train_groups": 1101,
+    "eligible_envelope_train_groups_per_raw_attempt": 0.30583333333333335,
+    "first_seen_oracle_train_groups": 1272,
+    "floors": {
+      "cell_min": true,
+      "common_support_mass": true,
+      "eligible_envelope_fraction": true,
+      "given_counts": true,
+      "primitives": true,
+      "profile_cell_capacity": true,
+      "profile_signatures": true,
+      "raw_yield": true,
+      "sensitive_signatures": true,
+      "sensitivity": true,
+      "train_groups": true,
+      "train_signatures": true,
+      "value_mass": true
+    },
+    "profile_cell_counts": {
+      "add_mod/A": 133,
+      "add_mod/B": 188,
+      "add_mod/C": 178,
+      "add_mod/D": 203,
+      "eq/A": 70,
+      "eq/B": 37,
+      "eq/C": 17,
+      "eq/D": 86,
+      "neq/A": 32,
+      "neq/B": 34,
+      "neq/C": 57,
+      "neq/D": 66
+    },
+    "profile_groups": {
+      "add_mod": 702,
+      "eq": 210,
+      "neq": 189
+    },
+    "profile_signatures": {
+      "add_mod": 695,
+      "eq": 118,
+      "neq": 61
+    },
+    "sensitive_train_groups": 1272,
+    "sensitivity_fraction": 1.0,
+    "signatures": 874,
+    "solution_value_fractions": {
+      "0": 0.34862246442627914,
+      "1": 0.32773236451710563,
+      "2": 0.3236451710566152
+    }
+  },
+  "status": "NO_GO_DEVELOPMENT_CAPACITY",
+  "study_date": "2026-10-12",
+  "task_rows_inspected_by_controller": false,
+  "tests": {
+    "command": [
+      "python",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-v"
+    ],
+    "evidence_path": ".superpowers/sdd/sixvar/controller-tests-lf-command.json",
+    "passed": 347,
+    "unittest_seconds": 39.921,
+    "wrapper_seconds": 40.062
+  },
+  "wrapper": {
+    "exit_code": 1,
+    "watchdog_timeout": false,
+    "wrapper_wall_seconds": 404.1869999999981
+  }
+}

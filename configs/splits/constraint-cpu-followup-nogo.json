@@ -1,0 +1,138 @@
+{
+  "format_version": "dwr-compact-probe-result-v1",
+  "proposal": "v4 CPU operational follow-up development-only finite-domain composition probe",
+  "proposal_status": "NO_GO_PROPOSAL",
+  "reason": "SOURCE_TRAIN_FLOOR_FAILED",
+  "scientific_interpretation": "The registered proposal failed two source-train floors after source quota closure. This is a task-construction and corpus-suitability result; the EX transfer hypothesis remains untested.",
+  "study_identity": "dwr-constraint-development-probe-cpu-followup-v1",
+  "source": {
+    "commit": "4c8abbad7f390dce193b847b62124c988bdfb4e4",
+    "dirty": false,
+    "config": "configs/tasks/constraint_probe_cpu_followup.json",
+    "config_sha256": "ccc85523929ce00c15d482df4d32c3d06e639b70ab6df7b74619203cf16a1a32",
+    "generator_id": "dwr-generator-v4-probe",
+    "config_version": "dwr-constraint-development-probe-cpu-followup-v1",
+    "producer_count": 17
+  },
+  "command": [
+    "C:\\Users\\Hank47\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+    "-m",
+    "dwr.tasks.probe_cli_v4",
+    "--config",
+    "configs/tasks/constraint_probe_cpu_followup.json",
+    "--mode",
+    "development-probe",
+    "--out",
+    "data/constraint-probe-cpu-followup-20261011T131547326403Z"
+  ],
+  "runtime": {
+    "implementation": "CPython",
+    "version": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "workers": 1,
+    "candidate_cap_per_partition": 30000,
+    "registered_wall_cap_seconds": 1800,
+    "registered_peak_rss_cap_bytes": 1073741824,
+    "exit_code": 1,
+    "error_type": null,
+    "wall_seconds": 951.718,
+    "cpu_seconds": 950.09375,
+    "peak_resident_bytes": 533737472
+  },
+  "observed_counts": {
+    "source_quota_rows": 1000,
+    "source_attempts": 20299,
+    "source_quota_bookkeeping_closed": true,
+    "source_verification": "PASS_REPLAY",
+    "source_closure": "NO_GO_SOURCE_CLOSURE",
+    "replay": "PASS_REPLAY",
+    "audit": "PASS_AUDIT",
+    "development_attempts": 0,
+    "development_status": "not_started",
+    "final_attempts": 0,
+    "final_status": "never_sampled",
+    "preflight_emitted": false,
+    "g2_status": "not_assessed",
+    "model_or_training": "not_run"
+  },
+  "public_source_train_metrics": {
+    "accepted_groups": 795,
+    "structure_signatures": 493,
+    "unique_oracle_groups_sensitivity_denominator": 4499,
+    "sensitive_groups": 893,
+    "sensitivity_fraction": 0.1984885530117804,
+    "sensitivity_floor": 0.25,
+    "eligible_envelope_groups": 795,
+    "eligible_envelope_groups_denominator": 4499,
+    "accepted_envelope_yield": 0.17670593465214493,
+    "accepted_envelope_yield_floor": 0.25,
+    "source_support_cells": {
+      "A": 208,
+      "B": 186,
+      "C": 198,
+      "D": 203
+    },
+    "source_support_cell_min_pass": true,
+    "source_support_mass": 0.8902575587905935,
+    "source_support_mass_floor": 0.8,
+    "source_support_mass_pass": true,
+    "other_source_train_floors": "pass"
+  },
+  "historical_v4": {
+    "status": "NOT_ASSESSED_RESOURCE_CAP",
+    "reclassification": false,
+    "note": "The byte-identical original v4 source prefix does not reclassify its earlier run."
+  },
+  "decision": {
+    "do_not_lower_floors": true,
+    "do_not_retry_or_resume": true,
+    "next_decision": "A separately registered bounded constructive task-generation design may be considered before any new run.",
+    "comparison_scope": "The separately registered 1800-second engineering cap has a new study identity; model contracts and scientific comparisons are unchanged."
+  },
+  "evidence": {
+    "run_directory": "data/constraint-probe-cpu-followup-20261011T131547326403Z",
+    "controller_observation": ".superpowers/sdd/cpu-performance/controller-observation.json",
+    "controller_observation_sha256": "4d41e48bd589c8fd9d83854bcd611a033d02b4974452e3fa81f49363994588b2",
+    "controller_scope": "Root metadata/hash verification only; no task rows parsed and no fresh semantic replay or audit by root.",
+    "archival_backup_verified": false,
+    "independent_reproduction": false,
+    "artifact_sha256": {
+      "accepted_records.jsonl": "84459b1d0d50fd90327cbf0c8019b948fd7d96b29b1c0136e3c3300208ced5a5",
+      "candidate_replay.json": "afe815256e4fae1dbff32a6218c53bb32f9deb5f1491552d7e9bca3e079ac40a",
+      "independent_audit.json": "83f7ccef82e21229807cbfeee99501cc02b9e2659a3a263b25563d263314c1f1",
+      "outcomes.jsonl": "088235db9a9deb0d1b2b3034efe7782c748adecb2a93e7322992eae6b8b37b21",
+      "probe_manifest.initial.json": "bbcb64d141c353fe8a0455b6b7ef330db9eff005142fd76f6d0d1e199b52a3ca",
+      "probe_manifest.json": "cc9c1d62f60c3339d246c5d138a490b25f5ca31f936cdcd20cc6df12058a0882",
+      "probe_report.json": "c97e5cbd88a783531f11b6950fbe0dbd76626bf947336b88e51fbb473c6e91cc",
+      "source_closure.json": "8b2af45e8b9a2105f87ab2f1c216404978b5eae50241ca225eea44b06b9995b7"
+    },
+    "producer_sha256": {
+      "dwr/tasks/config_probe_v4.py": "80bdb36a54b31fe7e00e53b538855c07860c9917c53fc5a44f06be30dda46d37",
+      "dwr/tasks/generator_probe_v4.py": "8cf18e00d995ae5f0a55bfa49b268e00a962ed7621f4e34d78ea0fe5a3839afb",
+      "dwr/tasks/probe_v4.py": "bbad4e018377bb683c81343271c2eaade607dd19275a567da4e2100ea4ef119f",
+      "dwr/tasks/probe_cli_v4.py": "c548ee43c056d09c7bc7e4e099c105b827ddea6b16a7a6231a13ea65348e6bae",
+      "dwr/tasks/audit_probe_v4.py": "4541b46b440036fd71a77fc3578eeba1491955bc3921947e48ce3d0e27512e62",
+      "dwr/tasks/schema.py": "112daa4949907da49b1d71aadee76a363a5b3fe4234f45f26231ef6333a34129",
+      "dwr/tasks/canonical.py": "36fbf3e54a60c69697c68657d04d07ebaca7d95744847cd78eecdd0bba6589c5",
+      "dwr/tasks/generator_v2.py": "b7ca157ee18dde651217063fad0d5c9d2016a038dc25a4b5bdf0fbea9fdf600c",
+      "dwr/tasks/solver.py": "aef1f74a4cedec827c3123b8627605b8af57cb6d3c592cdba08b2b64ba04a9ac",
+      "dwr/tasks/oracle.py": "227088aabfb979036b8bc8ab1a89a35ebd4aaa4eb5af4ee8a853fcf45c61f217",
+      "dwr/tasks/audit.py": "9084a0d201e8a9b2623aaae273d6d0818b86c0b11cb875d7fa33000691f47b59",
+      "dwr/tasks/run_support.py": "d7e124b543ad0ccb2883d45e0e93ff58bd260c80c0a6d3338666eab633d56d05",
+      "dwr/tasks/generator.py": "9558be045f9f72fd102d4a4188e7b158a0f577ebc3abd39b0fac17223f4f902e",
+      "dwr/tasks/dataset.py": "48ba181e51595e6894045ebeaddb01eda9acaaa1c0f7e6a5efe6cd5ec1aea024",
+      "dwr/tasks/verifier.py": "4ef99a2f2b55d28d35b568f7eed884aaab97bdfb10580701499e1f41d6925c11",
+      "dwr/tasks/__init__.py": "34d430e998e267f4544f4a302c307dd52f5a6b951f8655450d9a924284c0eec5",
+      "dwr/__init__.py": "ff8027ef48e5a98aacc1fa04f55066bcfd92abf34c7fc27d14ea5cdf5fc60a13"
+    },
+    "validation": {
+      "command": "python -m unittest discover -s tests -v",
+      "source_commit": "4c8abbad7f390dce193b847b62124c988bdfb4e4",
+      "result": "288 tests passed in 39.772 seconds",
+      "exit_code": 0,
+      "suite_log_sha256": "02d4b280827018af367e2bf29fd417d8e9477fc3a881a817a0cee29c0db94c16",
+      "final_code_review": "READY",
+      "final_code_review_sha256": "cc51b33da948aefc20ef0242a7c1e34778f209266b488dc5ce5d74079edfb978"
+    }
+  }
+}
