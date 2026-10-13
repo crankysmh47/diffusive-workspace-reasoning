@@ -1,7 +1,6 @@
-"""Versioned, algebraically certified pair construction for six-variable F3 tasks.
+"""Versioned algebraically certified construction for six-variable F3 tasks.
 
-No solver, verifier, split, GAC, or signature logic is used here.  The final
-partition is intentionally unavailable until the separately reviewed route lands.
+No solver, verifier, split, GAC, or signature logic is used here.
 """
 from __future__ import annotations
 
@@ -21,6 +20,10 @@ GENERATOR_ID = "dwr-certificate-rank-sixvar-v1"
 _SEED_TAG = b"dwr-certificate-rank-sixvar-v1\0"
 _KINDS = {"eq": RelationKind.EQ, "neq": RelationKind.NEQ, "add_mod": RelationKind.ADD_MOD}
 _NAMES = tuple(f"v{i}" for i in range(6))
+_FINAL_PROFILE_CELL_SCHEDULE = tuple(("eq", "neq", "add_mod", cell) for cell in "ABCD")
+_FINAL_PATH_FAILURES = ("disconnected_graph", "insufficient_filler",
+                        "missing_fiber_exclusion", "rank_completion_failed",
+                        "empty_own_reject_pool")
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,12 +33,23 @@ class RankWork:
     row_operations: int = 0
     graph_operations: int = 0
     rng_calls: int = 0
+    budget_checks: int = 0
+    final_alternative_visits: int = 0
+    final_path_visits: int = 0
+    final_path_failures: tuple[tuple[str, int], ...] = ()
 
     def __post_init__(self):
         if any(type(x) is not int or x < 0 for x in (
                 self.catalog_visits, self.rank_calls, self.row_operations,
-                self.graph_operations, self.rng_calls)):
+                self.graph_operations, self.rng_calls, self.budget_checks,
+                self.final_alternative_visits, self.final_path_visits)):
             raise ValueError("work counters must be nonnegative integers")
+        if (type(self.final_path_failures) is not tuple or
+                any(type(x) is not tuple or len(x) != 2 or x[0] not in _FINAL_PATH_FAILURES or
+                    type(x[1]) is not int or x[1] <= 0 for x in self.final_path_failures) or
+                tuple(sorted(self.final_path_failures)) != self.final_path_failures or
+                len({x[0] for x in self.final_path_failures}) != len(self.final_path_failures)):
+            raise ValueError("final path failures must be canonical positive reason counts")
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,19 +72,39 @@ class RankOutcome:
     def __post_init__(self):
         _identity(self.root_seed, self.partition, self.candidate_index, None)
         if (type(self.generator_id) is not str or type(self.branch) is not str or
-                self.generator_id != GENERATOR_ID or self.branch != "no_unary"):
+                self.generator_id != GENERATOR_ID or self.branch not in ("no_unary", "ordinary")):
             raise ValueError("rank outcomes require their registered identity and branch")
-        if (self.partition != "development" or type(self.profile) is not tuple or
-                any(type(kind) is not str for kind in self.profile) or
-                self.profile not in (("eq", "add_mod"), ("neq", "add_mod"))):
-            raise ValueError("rank outcomes are limited to development pair profiles")
+        is_final = self.partition == "final"
+        if type(self.profile) is not tuple or any(type(kind) is not str for kind in self.profile):
+            raise ValueError("rank outcome profile must be an immutable tuple")
+        if is_final:
+            if self.profile != ("eq", "neq", "add_mod") or self.branch != "ordinary":
+                raise ValueError("final rank outcomes require the ordinary triple grammar")
+        elif (self.partition != "development" or self.branch != "no_unary" or
+              self.profile not in (("eq", "add_mod"), ("neq", "add_mod"))):
+            raise ValueError("rank outcomes are limited to registered development pair profiles")
         if type(self.work) is not RankWork or type(self.givens) is not tuple:
             raise TypeError("outcome collections and work must be immutable registered types")
-        schedule = legacy._profile_cell_schedule("development")
-        if (self.profile, self.cell) != schedule[self.candidate_index % len(schedule)]:
-            raise ValueError("profile and cell must match the fixed development schedule")
-        if v2._add_branch(self.candidate_index) != "no_unary":
-            raise ValueError("algebraic outcomes must occupy the frozen no_unary half-schedule")
+        if is_final:
+            entry = _FINAL_PROFILE_CELL_SCHEDULE[self.candidate_index % 4]
+            if (self.profile, self.cell) != (entry[:3], entry[3]):
+                raise ValueError("profile and cell must match the frozen final schedule")
+            max_paths = 78 if self.cell == "A" else 24
+            if self.work.final_path_visits > max_paths:
+                raise ValueError("final certificate path count exceeds its finite catalog")
+            if self.work.final_alternative_visits > 80:
+                raise ValueError("final alternative visits exceed the largest given-preserving catalog")
+            if sum(count for _, count in self.work.final_path_failures) > self.work.final_path_visits:
+                raise ValueError("path failures cannot exceed visited final alternatives")
+            expected_failures = self.work.final_path_visits - (1 if self.task is not None else 0)
+            if sum(count for _, count in self.work.final_path_failures) != expected_failures:
+                raise ValueError("final path counters must account for every failed and successful visit")
+        else:
+            schedule = legacy._profile_cell_schedule("development")
+            if (self.profile, self.cell) != schedule[self.candidate_index % len(schedule)]:
+                raise ValueError("profile and cell must match the fixed development schedule")
+            if v2._add_branch(self.candidate_index) != "no_unary":
+                raise ValueError("algebraic outcomes must occupy the frozen no_unary half-schedule")
         if any(type(item) is not GivenAssignment for item in self.givens):
             raise TypeError("givens must contain immutable GivenAssignment records")
         if type(self.alternatives) is not tuple or any(
@@ -96,13 +130,18 @@ class RankOutcome:
                 tuple(g.variable for g in self.givens) != tuple(sorted(given_map)) or
                 any(witness_map.get(name) != value for name, value in given_map.items())):
             raise ValueError("givens must be unique, sorted, cell-sized, and agree with witness")
-        failures = {"empty_eq_pool", "rank_completion_failed", "missing_fiber_exclusion",
-                    "insufficient_filler", "disconnected_graph"}
-        if self.task is None and self.rejection_reason not in failures:
+        pair_failures = {"empty_eq_pool", "rank_completion_failed", "missing_fiber_exclusion",
+                         "insufficient_filler", "disconnected_graph"}
+        allowed_failures = ({"no_feasible_final_certificate"} if is_final else pair_failures)
+        if self.task is None and self.rejection_reason not in allowed_failures:
             raise ValueError("missing task requires a registered failure tag")
         if ((self.rejection_reason == "empty_eq_pool" and self.profile[0] != "eq") or
                 (self.rejection_reason == "missing_fiber_exclusion" and self.profile[0] != "neq")):
             raise ValueError("failure tag is incompatible with the pair profile")
+        if is_final and self.task is None and self.rejection_reason != "no_feasible_final_certificate":
+            raise ValueError("final failures use the aggregate finite-catalog failure tag")
+        if is_final and self.task is not None and self.work.final_path_visits < 1:
+            raise ValueError("successful final outcomes require a visited certificate path")
         if self.task is not None and self.rejection_reason is not None:
             raise ValueError("successful task cannot carry a failure tag")
         if self.task is None and (self.alternatives or self.reserved_constraints):
@@ -113,8 +152,9 @@ class RankOutcome:
                     len(self.task.constraints) != count or
                     tuple(sorted(self.task.constraints, key=canonical_constraint_key)) != self.task.constraints):
                 raise ValueError("task shape, givens, or constraint order disagree with its outcome")
-            if any(sum(name not in given_map for name in constraint.variables) == 1
-                   for constraint in self.task.constraints):
+            if self.branch == "no_unary" and any(
+                    sum(name not in given_map for name in constraint.variables) == 1
+                    for constraint in self.task.constraints):
                 raise ValueError("no-unary grammar forbids constraints with exactly one unknown")
             if tuple(kind for kind, _ in self.alternatives) != self.profile:
                 raise ValueError("successful alternatives must follow profile order")
@@ -133,13 +173,17 @@ class RankOutcome:
                 if alt == witness_map or any(alt[name] != value for name, value in given_map.items()):
                     raise ValueError("alternatives must differ from the witness and preserve givens")
                 alt_maps[kind] = alt
+            if is_final and len({tuple(alt_maps[kind][name] for name in _NAMES)
+                                 for kind in self.profile}) != 3:
+                raise ValueError("final certificate alternatives must be pairwise distinct")
             for kind, reserve in zip(self.profile, self.reserved_constraints):
                 if reserve not in self.task.constraints or _holds(kind, reserve.variables, alt_maps[kind]):
                     raise ValueError("each reserve must be present and reject its own alternative")
-                other = alt_maps[self.profile[1] if kind == self.profile[0] else self.profile[0]]
-                if any(c.kind.value == kind and not _holds(kind, c.variables, other)
-                       for c in self.task.constraints):
-                    raise ValueError("all constraints of a kind must preserve the other-kind alternative")
+                for other_kind, other in alt_maps.items():
+                    if kind != other_kind and any(
+                            c.kind.value == kind and not _holds(kind, c.variables, other)
+                            for c in self.task.constraints):
+                        raise ValueError("constraints must preserve every other-kind alternative")
 
 
 class _Work:
@@ -147,9 +191,17 @@ class _Work:
         self.callback = callback
         self.catalog_visits = self.rank_calls = self.row_operations = 0
         self.graph_operations = self.rng_calls = 0
+        self.budget_checks = self.final_alternative_visits = self.final_path_visits = 0
+        self.final_path_failures = {}
         self._rank_counts = {}
 
     def tick(self):
+        self.budget_checks += 1
+        if self.callback is not None:
+            self.callback()
+
+    def check_budget(self):
+        self.budget_checks += 1
         if self.callback is not None:
             self.callback()
 
@@ -159,21 +211,24 @@ class _Work:
 
     def rank(self, rows, width):
         before = self._rank_counts.get("row_operations", 0)
-        result = rank(rows, width, check_budget=self.callback, counters=self._rank_counts)
+        result = rank(rows, width, check_budget=self.check_budget, counters=self._rank_counts)
         self.rank_calls = self._rank_counts.get("rank_calls", 0)
         self.row_operations += self._rank_counts.get("row_operations", 0) - before
         return result
 
     def nullspace(self, rows, width):
         before = self._rank_counts.get("row_operations", 0)
-        result = _nullspace(rows, width, check_budget=self.callback, counters=self._rank_counts)
+        result = _nullspace(rows, width, check_budget=self.check_budget, counters=self._rank_counts)
         self.rank_calls = self._rank_counts.get("rank_calls", 0)
         self.row_operations += self._rank_counts.get("row_operations", 0) - before
         return result
 
     def freeze(self):
         return RankWork(self.catalog_visits, self.rank_calls, self.row_operations,
-                        self.graph_operations, self.rng_calls)
+                        self.graph_operations, self.rng_calls, self.budget_checks,
+                        self.final_alternative_visits, self.final_path_visits,
+                        tuple(sorted((reason, count) for reason, count in
+                                     self.final_path_failures.items() if count)))
 
 
 def _identity(root_seed, partition, index, check_budget):
@@ -293,6 +348,24 @@ def _fiber_exclusion_pools(catalog, unknown, values, vector, work):
             continue
         i, j = unknown.index(a), unknown.index(b)
         slope = (vector[i] - vector[j]) % 3
+        if not slope:
+            continue
+        delta = (values[a] - values[b]) % 3
+        t = (-delta * (1 if slope == 1 else 2)) % 3
+        if t in pools:
+            pools[t].append((operands, row))
+    return pools
+
+
+def _final_fiber_exclusion_pools(catalog, unknown, values, vector, work):
+    """Final NEQ slopes include pairs with one fixed given coordinate."""
+    pools = {1: [], 2: []}
+    positions = {name: i for i, name in enumerate(unknown)}
+    for operands, row in catalog:
+        work.catalog()
+        a, b = operands
+        slope = ((vector[positions[a]] if a in positions else 0) -
+                 (vector[positions[b]] if b in positions else 0)) % 3
         if not slope:
             continue
         delta = (values[a] - values[b]) % 3
@@ -477,11 +550,265 @@ def _finish(root_seed, partition, index, profile, cell, givens, witness, unknown
                        tuple(reserved), work.freeze(), task, None, branch=branch)
 
 
+def _assignment(values):
+    return Solution(tuple(zip(_NAMES, values)))
+
+
+def _final_path_failure(work, reason):
+    work.final_path_failures[reason] = work.final_path_failures.get(reason, 0) + 1
+    return {"task": None, "reserved_constraints": (), "selected": (),
+            "connected": False, "reason": reason, "work": work.freeze()}
+
+
+def _construct_final_path(index, cell, given_positions, witness_values,
+                          eq_values, add_values, neq_values, rng, *,
+                          check_budget=None, _work=None):
+    """Run the production certificate path on explicit hand-specified state.
+
+    This helper is for canned algebra checks. It returns selected generic task
+    fields; production performs outer draws and wraps the first feasible path.
+    """
+    _identity(0, "final", index, check_budget)
+    if type(index) is not int or _FINAL_PROFILE_CELL_SCHEDULE[index % 4][3] != cell:
+        raise ValueError("final helper cell must match index modulo four")
+    given_count, target_count = legacy.CELL_SETTINGS[cell]
+    if (type(given_positions) is not tuple or len(given_positions) != given_count or
+            len(set(given_positions)) != given_count or
+            any(name not in _NAMES for name in given_positions)):
+        raise ValueError("given positions must match the selected final cell")
+    if (type(witness_values) is not tuple or len(witness_values) != 6 or
+            any(type(x) is not int or x not in (0, 1, 2) for x in witness_values)):
+        raise ValueError("witness must contain six F3 integers")
+    if not isinstance(rng, random.Random):
+        raise TypeError("rng must be a local random.Random instance")
+    work = _work if _work is not None else _Work(check_budget)
+    given_map = {name: witness_values[_NAMES.index(name)] for name in given_positions}
+    givens = tuple(GivenAssignment(name, given_map[name]) for name in sorted(given_map))
+    unknown = tuple(name for name in _NAMES if name not in given_map)
+    m = len(unknown)
+    witness_map = dict(zip(_NAMES, witness_values))
+    witness = _assignment(witness_values)
+
+    def checked(values):
+        if type(values) is not tuple or len(values) != 6 or any(
+                type(x) is not int or x not in (0, 1, 2) for x in values):
+            raise ValueError("certificate alternatives must be six F3 values")
+        return dict(zip(_NAMES, values))
+
+    e_map, a_map = checked(eq_values), checked(add_values)
+    n_maps = tuple(checked(values) for values in neq_values)
+    if (e_map == witness_map or a_map in (witness_map, e_map) or
+            any(n in (witness_map, e_map, a_map) for n in n_maps) or
+            any(any(mapping[name] != value for name, value in given_map.items())
+                for mapping in (e_map, a_map, *n_maps))):
+        raise ValueError("certificate assignments must be distinct and preserve givens")
+    if len(n_maps) > (78 if cell == "A" else 24):
+        raise ValueError("final alternative catalog exceeds the registered bound")
+
+    profiles = ("eq", "neq", "add_mod")
+    witness_solution = witness
+    catalogs = _full_catalog(given_map, witness_solution, unknown, profiles,
+                             no_unary=False, work=work)
+    work.final_path_visits = 0
+    for n_map in n_maps:
+        work.final_path_visits += 1
+        work.tick()
+        # Each kind's catalog must preserve the two certificates for other kinds.
+        eq_compatible, add_compatible, neq_compatible = [], [], []
+        for operands, row in catalogs["eq"]:
+            work.catalog()
+            if _holds("eq", operands, a_map) and _holds("eq", operands, n_map):
+                eq_compatible.append((operands, row))
+        for operands, row in catalogs["add_mod"]:
+            work.catalog()
+            if _holds("add_mod", operands, e_map) and _holds("add_mod", operands, n_map):
+                add_compatible.append((operands, row))
+        for operands, row in catalogs["neq"]:
+            work.catalog()
+            if _holds("neq", operands, e_map) and _holds("neq", operands, a_map):
+                neq_compatible.append((operands, row))
+        q_pool = []
+        for item in eq_compatible:
+            work.catalog()
+            if not _holds("eq", item[0], e_map):
+                q_pool.append(item)
+        l_pool = []
+        for item in add_compatible:
+            work.catalog()
+            if not _holds("add_mod", item[0], a_map):
+                l_pool.append(item)
+        if not q_pool or not l_pool:
+            _final_path_failure(work, "empty_own_reject_pool")
+            continue
+        q, l = _pick(rng, q_pool, work), _pick(rng, l_pool, work)
+        selected = [("eq", q[0]), ("add_mod", l[0])]
+        rows = [q[1], l[1]]
+        while len(rows) < m - 1:
+            choices = []
+            for kind, pool in (("eq", eq_compatible), ("add_mod", add_compatible)):
+                for item in pool:
+                    work.catalog()
+                    if (kind, item[0]) not in selected and work.rank(rows + [item[1]], m) > len(rows):
+                        choices.append((kind, item))
+            work.tick()
+            choice = _pick(rng, choices, work)
+            if choice is None:
+                break
+            kind, item = choice
+            selected.append((kind, item[0]))
+            rows.append(item[1])
+        if len(rows) != m - 1:
+            _final_path_failure(work, "rank_completion_failed")
+            continue
+        kernel = work.nullspace(rows, m)
+        if len(kernel) != 1:
+            raise AssertionError("rank m-1 basis must have a one-dimensional kernel")
+        vector = kernel[0]
+        first_nonzero = next(x for x in vector if x)
+        if first_nonzero == 2:
+            vector = tuple((2 * x) % 3 for x in vector)
+        exclusions = _final_fiber_exclusion_pools(neq_compatible, unknown, witness_map,
+                                                   vector, work)
+        one, two = _pick(rng, exclusions[1], work), _pick(rng, exclusions[2], work)
+        if one is None or two is None:
+            _final_path_failure(work, "missing_fiber_exclusion")
+            continue
+        selected.extend((("neq", one[0]), ("neq", two[0])))
+        chosen = set(selected)
+        fillers = []
+        for kind, pool in (("eq", eq_compatible), ("neq", neq_compatible),
+                           ("add_mod", add_compatible)):
+            for operands, _ in pool:
+                work.catalog()
+                if (kind, operands) not in chosen:
+                    fillers.append((kind, operands))
+        needed = target_count - len(selected)
+        sampled = _sample(rng, tuple(fillers), needed, work)
+        if sampled is None:
+            _final_path_failure(work, "insufficient_filler")
+            continue
+        selected.extend(sampled)
+        if not _connected(selected, unknown, work):
+            _final_path_failure(work, "disconnected_graph")
+            continue
+        alternatives = {"eq": e_map, "neq": n_map, "add_mod": a_map}
+        reserves = []
+        for kind in profiles:
+            operands = next((op for selected_kind, op in selected
+                             if selected_kind == kind and
+                             not _holds(kind, op, alternatives[kind])), None)
+            if operands is None:
+                raise AssertionError("successful final path lost a kind certificate")
+            reserves.append(_constraint(kind, operands))
+        constraints = tuple(sorted((_constraint(kind, op) for kind, op in selected),
+                                   key=canonical_constraint_key))
+        task = ConstraintTask("constraint-task-v1", 3, _NAMES, constraints, givens)
+        return {"task": task, "reserved_constraints": tuple(reserves),
+                "selected": tuple(selected), "connected": True, "reason": None,
+                "neq_values": tuple(n_map[name] for name in _NAMES),
+                "work": work.freeze()}
+    return {"task": None, "reserved_constraints": (), "selected": (),
+            "connected": False, "reason": "no_feasible_final_certificate",
+            "work": work.freeze()}
+
+
+def _construct_final(root_seed, index, cell, rng, witness_values, given_positions,
+                     work, profile):
+    values = dict(zip(_NAMES, witness_values))
+    givens = {name: values[name] for name in given_positions}
+    unknown = tuple(name for name in _NAMES if name not in givens)
+    alternatives = []
+    for unknown_values in itertools.product(range(3), repeat=len(unknown)):
+        work.catalog()
+        work.tick()
+        candidate = dict(givens)
+        candidate.update(zip(unknown, unknown_values))
+        if candidate != values:
+            work.final_alternative_visits += 1
+            alternatives.append(tuple(candidate[name] for name in _NAMES))
+    eq_catalog = _full_catalog(givens, _assignment(witness_values), unknown,
+                               ("eq",), no_unary=False, work=work)["eq"]
+    eq_pool = []
+    for candidate in alternatives:
+        candidate_map = dict(zip(_NAMES, candidate))
+        rejects_eq = False
+        for operands, _ in eq_catalog:
+            work.catalog()
+            if not _holds("eq", operands, candidate_map):
+                rejects_eq = True
+                break
+        if rejects_eq:
+            eq_pool.append(candidate)
+    # Alternatives retain their lexicographic catalog order for the seeded draw.
+    eq_pool = tuple(eq_pool)
+    certificates = _select_final_certificates(tuple(alternatives), tuple(eq_pool), rng, work)
+    if certificates is None:
+        result = {"task": None, "reserved_constraints": (), "reason": "no_feasible_final_certificate"}
+    else:
+        eq_values, add_values, n_pool = certificates
+        result = _construct_final_path(index, cell, given_positions, witness_values,
+                                       eq_values, add_values, n_pool, rng,
+                                       check_budget=work.callback, _work=work)
+        if result["task"] is not None:
+            result.update(eq_values=eq_values, add_values=add_values)
+    return result
+
+
+def _select_final_certificates(alternatives, eq_pool, rng, work):
+    """Apply the frozen E/A uniform draws and one full-catalog N shuffle."""
+    eq_values = _pick(rng, eq_pool, work)
+    if eq_values is None:
+        return None
+    add_pool = []
+    for value in alternatives:
+        work.catalog()
+        if value != eq_values:
+            add_pool.append(value)
+    add_values = _pick(rng, tuple(add_pool), work)
+    if add_values is None:
+        return None
+    neq_pool = []
+    for value in alternatives:
+        work.catalog()
+        if value not in (eq_values, add_values):
+            neq_pool.append(value)
+    work.rng_calls += 1
+    rng.shuffle(neq_pool)
+    return eq_values, add_values, tuple(neq_pool)
+
+
 def construct(root_seed, partition, candidate_index, *, check_budget=None):
     """Construct one candidate; unchanged branches delegate to the v1 producer."""
     _identity(root_seed, partition, candidate_index, check_budget)
     if partition == "final":
-        raise NotImplementedError("final rank-certified construction is reserved for Task 2")
+        entry = _FINAL_PROFILE_CELL_SCHEDULE[candidate_index % 4]
+        profile, cell = entry[:3], entry[3]
+        rng = _rng(root_seed, partition, candidate_index)
+        work = _Work(check_budget)
+        given_count, _ = legacy.CELL_SETTINGS[cell]
+        work.rng_calls += 1
+        given_positions = tuple(sorted(rng.sample(_NAMES, given_count)))
+        work.tick()
+        witness_values = []
+        for _ in range(6):
+            work.rng_calls += 1
+            witness_values.append(rng.randrange(3))
+            work.tick()
+        outcome = _construct_final(root_seed, candidate_index, cell, rng,
+                                   tuple(witness_values), given_positions, work, profile)
+        givens = tuple(GivenAssignment(name, witness_values[_NAMES.index(name)])
+                       for name in sorted(given_positions))
+        witness = _assignment(tuple(witness_values))
+        if outcome["task"] is None:
+            return RankOutcome(root_seed, partition, candidate_index, profile, cell, givens,
+                               witness, (), (), work.freeze(), None,
+                               "no_feasible_final_certificate", branch="ordinary")
+        ordered = (("eq", _assignment(outcome["eq_values"])),
+                   ("neq", _assignment(outcome["neq_values"])),
+                   ("add_mod", _assignment(outcome["add_values"])))
+        return RankOutcome(root_seed, partition, candidate_index, profile, cell, givens,
+                           witness, ordered, outcome["reserved_constraints"],
+                           work.freeze(), outcome["task"], None, branch="ordinary")
     schedule = legacy._profile_cell_schedule(partition)
     profile, cell = schedule[candidate_index % len(schedule)]
     if partition == "source":

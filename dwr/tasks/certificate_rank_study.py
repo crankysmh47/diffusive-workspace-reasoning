@@ -164,13 +164,26 @@ def _revoke_terminal(output, config_hash, report, exc):
         _write(output / "manifest.initial.json", {"status": "NOT_ASSESSED", "config_sha256": config_hash}, None)
     _write(output / "replay.json", {"status": "NOT_ASSESSED", "reason": type(exc).__name__}, None)
     report["status"] = "NOT_ASSESSED"
+    report["g2_status"] = "not_assessed"
     report["terminal_reason"] = type(exc).__name__
     report["artifacts"] = {}
     report["artifact_hashes_valid"] = False
     _write(output / "report.json", report, None)
-    _write(output / "manifest.json", {"status": "NOT_ASSESSED", "config_sha256": config_hash,
+    _write(output / "manifest.json", {"status": "NOT_ASSESSED", "g2_status": "not_assessed",
+                                      "config_sha256": config_hash,
                                       "artifacts": {}, "artifact_hashes_valid": False,
                                       "terminal_reason": type(exc).__name__}, None)
+
+
+def _g2_status(status, production, replay_ok=True):
+    """Expose G2 only when the complete production audit and replay are trustworthy."""
+    if not production or not replay_ok:
+        return "not_assessed"
+    if status == "PASS_G2_RANK_V1":
+        return "pass"
+    if status == "NO_GO_FULL_AUDIT":
+        return "fail"
+    return "not_assessed"
 
 
 def _audit_ordered_solutions(task, scalar_solutions, oracle_solutions, solved, witness, guard, counters):
@@ -660,6 +673,7 @@ def run_study(config_path, output_path, *, argv=None, _guard=None, _constructor=
             full_pass, full_report = audit.full_gate(rows, dict(raw_counts), config)
             report["full_audit"] = full_report
             report["status"] = "PASS_G2_RANK_V1" if full_pass and replay_ok and production else "NO_GO_FULL_AUDIT"
+        report["g2_status"] = _g2_status(report["status"], production, replay_ok)
         hashes = {name: _sha(output / name, guard) for name in ARTIFACTS[:-2] if (output / name).exists()}
         report.update({"elapsed_seconds": time.monotonic() - started,
                        "cpu_seconds": time.process_time() - cpu_started,
@@ -670,6 +684,7 @@ def run_study(config_path, output_path, *, argv=None, _guard=None, _constructor=
         _write(output / "report.json", report, guard)
         hashes["report.json"] = _sha(output / "report.json", guard)
         manifest = {"manifest_version": "dwr-certificate-rank-study-v1", "status": report["status"],
+                    "g2_status": report["g2_status"],
                     "config_sha256": cfg_hash, "source": source, "artifacts": hashes,
                     "resources": {"elapsed_seconds": time.monotonic() - started,
                                   "cpu_seconds": time.process_time() - cpu_started,
@@ -680,7 +695,8 @@ def run_study(config_path, output_path, *, argv=None, _guard=None, _constructor=
         _write(output / "manifest.json", manifest, guard)
         return report
     except Exception as exc:
-        report.update({"status": "NOT_ASSESSED", "terminal_reason": type(exc).__name__,
+        report.update({"status": "NOT_ASSESSED", "g2_status": "not_assessed",
+                       "terminal_reason": type(exc).__name__,
                        "elapsed_seconds": time.monotonic() - started,
                        "cpu_seconds": time.process_time() - cpu_started,
                        "peak_rss_bytes": guard.peak_bytes,

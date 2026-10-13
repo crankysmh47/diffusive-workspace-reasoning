@@ -5,13 +5,13 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 ## Rank-certified qualification — 2026-10-12
 
 - [x] Register the prospective rank/nullspace pair constructor, explicit unary-permitted final grammar and integrated source/development qualification plus conditional full-G2 path. Independent mathematical and contract reviews are READY_FOR_IMPLEMENTATION. See [design](docs/certificate_rank_design.md), [plan](docs/superpowers/plans/2026-10-12-certificate-rank.md) and qualification/full configs under `configs/tasks/`. This is not a corpus PASS; all closed studies remain unchanged.
-- [ ] Implement/review finite F3 arithmetic, strict pair outcomes and frozen final grammar with Luna and meaningful canned regression checks.
-- [ ] Implement/review integrated U/E/A ledgers, independent semantic replay, protected routing and exact qualification/full five-cohort audit. Freeze verified clean source before any population.
+- [x] Implement/review finite F3 arithmetic, strict pair outcomes and frozen final grammar with Luna and meaningful canned regression checks. Controller474 CPU tests pass; independent release review READY. See [verification](docs/certificate_rank_implementation.md).
+- [x] Implement/review integrated U/E/A ledgers, independent semantic replay, protected routing and exact qualification/full five-cohort audit. Stable-byte full suite and scoped reporting rereview passed. Clean source freeze is mandatory before the next population.
 - [ ] Execute the single registered qualification (root20261014,3600 source/4800 development/final0). Source failure prevents development; no retry or prefix extension.
 - [ ] Only qualification PASS: execute the frozen independently seeded full study and five-cohort G2 once. Full failure is preserved and blocks model work.
 - [ ] Only complete G2 PASS: implement fixed-N exchangeable workspace and indexed control with meaningful gradient/mask/permutation/resume/cost verification. Training remains separately preregistered.
 
-Current work is implementation/review of this new design, not an extension of the closed sampler-v2 fixture. Root handles research decisions; Luna implements.
+Current work is the single registered rank qualification after implementation verification; this does not reopen the closed sampler-v2 fixture. Root handles research decisions; Luna implements.
 
 - [ ] Owner-requested PR to `main` at the next major checkpoint: independently reviewed complete rank implementation, passing CPU checks and the registered qualification's recorded terminal outcome. Negative outcomes remain reportable; PR creation does not authorize merging or an unregistered retry. See the dated resumption ruling in the rank plan/design.
 

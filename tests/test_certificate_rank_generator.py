@@ -1,17 +1,24 @@
 import unittest
 import hashlib
+import inspect
+import json
 import random
 from dataclasses import replace
 from unittest.mock import patch
 
 from dwr.tasks import certificate_generator as legacy
 from dwr.tasks import certificate_generator_v2 as v2
-from dwr.tasks.certificate_rank_generator import _construct_pair, _rng as rank_rng, construct
+from dwr.tasks.certificate_rank_generator import (
+    RankOutcome, RankWork, _construct_pair, _rng as rank_rng, construct,
+    _select_final_certificates,
+)
 from dwr.tasks.certificate_rank_generator import (
     _Work, _connected, _fiber_exclusion_pools, _finish, _full_catalog, _lift,
+    _construct_final_path,
 )
 from dwr.tasks.oracle import enumerate_assignments
 from dwr.tasks.local_propagation import propagate
+from dwr.tasks.verifier import verify_answer
 from dwr.tasks.f3 import rank
 from dwr.tasks.schema import Constraint, GivenAssignment, RelationKind, Solution
 
@@ -23,6 +30,46 @@ def _scalar_holds(constraint, values):
     if constraint.kind.value == "neq":
         return selected[0] != selected[1]
     return (selected[0] + selected[1]) % 3 == selected[2]
+
+
+def _assert_final_fixture_semantics(testcase, result, witness_values, alt_values, given_names):
+    task = result["task"]
+    testcase.assertIsNotNone(task)
+    witness = Solution(tuple((f"v{i}", value) for i, value in enumerate(witness_values)))
+    alternatives = {kind: Solution(tuple((f"v{i}", value) for i, value in enumerate(values)))
+                    for kind, values in alt_values.items()}
+    witness_map = dict(witness.assignments)
+    testcase.assertTrue(all(_scalar_holds(c, witness_map) for c in task.constraints))
+    testcase.assertEqual(enumerate_assignments(task.variables, task.givens,
+                                               task.constraints).solutions, (witness,))
+    testcase.assertTrue(verify_answer(
+        task, json.dumps({"assignment": witness_map})).valid)
+    testcase.assertEqual(len(result["reserved_constraints"]), 3)
+    for reserve, kind in zip(result["reserved_constraints"], ("eq", "neq", "add_mod")):
+        alt_map = dict(alternatives[kind].assignments)
+        testcase.assertFalse(_scalar_holds(reserve, alt_map))
+        testcase.assertIn(reserve, task.constraints)
+        for constraint in task.constraints:
+            if constraint.kind.value != kind:
+                testcase.assertTrue(_scalar_holds(constraint, alt_map))
+        without_kind = tuple(c for c in task.constraints if c.kind.value != kind)
+        remaining = enumerate_assignments(task.variables, task.givens, without_kind).solutions
+        testcase.assertIn(alternatives[kind], remaining)
+        testcase.assertGreaterEqual(len(remaining), 2)
+
+    unknown = {name for name in task.variables if name not in set(given_names)}
+    neighbors = {name: set() for name in unknown}
+    for constraint in task.constraints:
+        scope = [name for name in constraint.variables if name in unknown]
+        for name in scope:
+            neighbors[name].update(other for other in scope if other != name)
+    reached, pending = set(), [next(iter(unknown))]
+    while pending:
+        name = pending.pop()
+        if name not in reached:
+            reached.add(name)
+            pending.extend(neighbors[name] - reached)
+    testcase.assertEqual(reached, unknown)
 
 
 def _assert_pair_outcome_semantics(testcase, result):
@@ -56,9 +103,164 @@ def _assert_pair_outcome_semantics(testcase, result):
 
 
 class RankConstructorTests(unittest.TestCase):
-    def test_final_route_is_explicitly_pending(self):
-        with self.assertRaises(NotImplementedError):
-            construct(1, "final", 0)
+    def test_final_route_is_reserved_without_drawing_a_candidate(self):
+        # Final population access is gated. This only checks the frozen topology.
+        from dwr.tasks import certificate_rank_generator as module
+        self.assertEqual(module._FINAL_PROFILE_CELL_SCHEDULE,
+                         tuple(("eq", "neq", "add_mod", cell) for cell in "ABCD"))
+        source = inspect.getsource(module.construct)
+        self.assertLess(source.index('if partition == "final"'),
+                        source.index('schedule = legacy._profile_cell_schedule(partition)'))
+        self.assertIn("_construct_final(root_seed, candidate_index", source)
+
+    def test_final_outer_selection_draws_e_a_once_then_shuffles_full_n_catalog(self):
+        e, a, n1, n2 = ((1,), (2,), (3,), (4,))
+
+        class ScriptedRng:
+            def __init__(self):
+                self.choice_pools = []
+                self.shuffle_calls = 0
+            def choice(self, pool):
+                self.choice_pools.append(tuple(pool))
+                return pool[0]
+            def shuffle(self, pool):
+                self.shuffle_calls += 1
+                pool.reverse()
+
+        rng = ScriptedRng()
+        work = _Work(None)
+        selected = _select_final_certificates((e, a, n1, n2), (e, a, n1), rng, work)
+        self.assertEqual(selected, (e, a, (n2, n1)))
+        self.assertEqual(rng.choice_pools, [(e, a, n1), (a, n1, n2)])
+        self.assertEqual(rng.shuffle_calls, 1)
+        self.assertEqual(work.rng_calls, 3)
+
+    def test_final_catalog_records_first_failed_n_path_then_success(self):
+        result = _construct_final_path(17, "B", ("v3", "v4", "v5"),
+                                       (0, 0, 0, 0, 1, 2),
+                                       (2, 0, 2, 0, 1, 2), (0, 0, 1, 0, 1, 2),
+                                       ((2, 1, 0, 0, 1, 2), (1, 1, 0, 0, 1, 2)),
+                                       random.Random(7))
+        self.assertIsNotNone(result["task"])
+        self.assertEqual(result["work"].final_path_visits, 2)
+        self.assertEqual(result["work"].final_path_failures,
+                         (("empty_own_reject_pool", 1),))
+        self.assertLessEqual(result["work"].final_path_visits, 24)
+
+    def test_exhausted_explicit_n_catalog_returns_typed_failure_without_retry(self):
+        witness_values = (0, 0, 0, 0, 1, 2)
+        givens = tuple(GivenAssignment(name, value) for name, value in
+                       (("v3", 0), ("v4", 1), ("v5", 2)))
+        result = _construct_final_path(17, "B", ("v3", "v4", "v5"), witness_values,
+                                       (2, 0, 2, 0, 1, 2), (0, 0, 1, 0, 1, 2),
+                                       ((2, 1, 0, 0, 1, 2),), random.Random(7))
+        self.assertEqual(result["reason"], "no_feasible_final_certificate")
+        self.assertIsNone(result["task"])
+        self.assertEqual(result["selected"], ())
+        self.assertEqual(result["reserved_constraints"], ())
+        self.assertEqual(result["work"].final_path_visits, 1)
+        self.assertEqual(result["work"].final_path_failures,
+                         (("empty_own_reject_pool", 1),))
+        self.assertEqual(result["work"].rank_calls, 0)
+        self.assertEqual(result["work"].rng_calls, 0)
+        failure = RankOutcome(1, "final", 17, ("eq", "neq", "add_mod"), "B",
+                              givens, Solution(tuple((f"v{i}", value)
+                                                    for i, value in enumerate(witness_values))),
+                              (), (), result["work"], None, result["reason"],
+                              branch="ordinary")
+        self.assertEqual(failure.rejection_reason, "no_feasible_final_certificate")
+
+    def test_hand_final_g3_path_preserves_three_certificates_and_padding(self):
+        witness = (0, 0, 0, 0, 1, 2)
+        givens = ("v3", "v4", "v5")
+        eq_alt = (2, 0, 2, 0, 1, 2)
+        add_alt = (0, 0, 1, 0, 1, 2)
+        neq_alt = (1, 1, 0, 0, 1, 2)
+        for index, cell, count in ((17, "B", 6), (18, "C", 7), (19, "D", 8)):
+            with self.subTest(cell=cell):
+                result = _construct_final_path(index, cell, givens, witness, eq_alt, add_alt,
+                                               (neq_alt,), random.Random(7))
+                task = result["task"]
+                self.assertIsNotNone(task)
+                self.assertEqual(len(task.constraints), count)
+                self.assertEqual(set(c.kind.value for c in task.constraints), {"eq", "neq", "add_mod"})
+                self.assertTrue(any(sum(name not in {"v3", "v4", "v5"}
+                                        for name in c.variables) == 1
+                                    for c in task.constraints))
+                self.assertEqual(result["work"].final_path_visits, 1)
+                _assert_final_fixture_semantics(
+                    self, result, witness,
+                    {"eq": eq_alt, "neq": neq_alt, "add_mod": add_alt}, givens)
+                alternatives = tuple((kind, Solution(tuple((f"v{i}", value)
+                                                           for i, value in enumerate(alt))))
+                                     for kind, alt in (("eq", eq_alt), ("neq", neq_alt),
+                                                       ("add_mod", add_alt)))
+                outcome = RankOutcome(1, "final", index, ("eq", "neq", "add_mod"), cell,
+                                      task.givens, Solution(tuple((f"v{i}", value)
+                                                                  for i, value in enumerate(witness))),
+                                      alternatives, result["reserved_constraints"], result["work"],
+                                      task, None, branch="ordinary")
+                self.assertEqual(outcome.task, task)
+                with self.assertRaises(ValueError):
+                    replace(outcome, branch="no_unary")
+                with self.assertRaises(ValueError):
+                    replace(outcome, work=RankWork(final_path_visits=2))
+
+    def test_hand_final_g2_path_supports_c8_and_unknown_given_neq_slopes(self):
+        witness = (2, 2, 0, 1, 0, 1)
+        eq_alt = (1, 2, 2, 0, 0, 1)
+        add_alt = (2, 2, 1, 1, 0, 1)
+        neq_alt = (0, 0, 0, 1, 0, 1)
+        result = _construct_final_path(16, "A", ("v4", "v5"), witness,
+                                       eq_alt, add_alt, (neq_alt,), random.Random(9))
+        self.assertEqual(len(result["task"].constraints), 8)
+        self.assertEqual(result["work"].final_path_visits, 1)
+        _assert_final_fixture_semantics(
+            self, result, witness,
+            {"eq": eq_alt, "neq": neq_alt, "add_mod": add_alt}, ("v4", "v5"))
+
+    def test_final_path_failure_is_finite_and_callback_interrupts(self):
+        calls = 0
+        def stop():
+            nonlocal calls
+            calls += 1
+            if calls == 25:
+                raise RuntimeError("budget")
+        with self.assertRaisesRegex(RuntimeError, "budget"):
+            _construct_final_path(17, "B", ("v3", "v4", "v5"), (0, 0, 0, 0, 1, 2),
+                                  (2, 0, 2, 0, 1, 2), (0, 0, 1, 0, 1, 2),
+                                  ((1, 1, 0, 0, 1, 2),), random.Random(7),
+                                  check_budget=stop)
+
+    def test_final_failure_schema_keeps_drawn_private_state_and_reason_counts(self):
+        witness = Solution(tuple((f"v{i}", value) for i, value in
+                                 enumerate((0, 0, 0, 0, 1, 2))))
+        givens = tuple(GivenAssignment(name, value) for name, value in
+                       (("v3", 0), ("v4", 1), ("v5", 2)))
+        work = RankWork(final_path_visits=1,
+                        final_path_failures=(("empty_own_reject_pool", 1),))
+        failure = RankOutcome(1, "final", 17, ("eq", "neq", "add_mod"), "B",
+                              givens, witness, (), (), work, None,
+                              "no_feasible_final_certificate", branch="ordinary")
+        self.assertEqual(failure.witness, witness)
+        self.assertEqual(failure.givens, givens)
+        self.assertEqual(failure.work.final_path_failures,
+                         (("empty_own_reject_pool", 1),))
+        with self.assertRaises(ValueError):
+            replace(failure, rejection_reason="empty_own_reject_pool")
+        with self.assertRaises(ValueError):
+            replace(failure, work=RankWork(final_path_visits=25))
+        with self.assertRaises(ValueError):
+            replace(failure, rejection_reason="rank_completion_failed")
+        with self.assertRaises(ValueError):
+            replace(failure, work=RankWork(final_path_visits=1))
+
+    def test_final_aggregate_failure_tag_is_not_valid_for_development_pair(self):
+        good_pair = _construct_pair(1, "development", 16, ("eq", "add_mod"), "A",
+                                    ("v4", "v5"), (0, 0, 0, 0, 0, 1), random.Random(11))
+        with self.assertRaises(ValueError):
+            replace(good_pair, task=None, alternatives=(), reserved_constraints=(),
+                    rejection_reason="no_feasible_final_certificate")
 
     def test_invalid_config_identity_rejected(self):
         for args in ((-1, "source", 0), (1, "other", 0), (1, "development", True)):

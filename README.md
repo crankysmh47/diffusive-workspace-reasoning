@@ -2,7 +2,7 @@
 
 Studying whether exchangeable latent workspaces learn reusable computation that transfers to unseen task compositions and structures.
 
-**Status (2026-10-13):** The new [rank-certified design](docs/certificate_rank_design.md) is registered and its interrupted implementation is preserved as work in progress. Fresh CPU verification ran457 tests:456 passed and one unfinished fixture errored. The final constructor, registered qualification, full G2, workspace and training remain incomplete/unattempted. Earlier studies, including the sampler-v2 hard-cell NO-GO, remain unchanged. The exchangeable workspace hypothesis is untested. Read the [complete project history and status](docs/project_history_and_status.md), [execution state](docs/execution_state.md) and [todo.md](todo.md).
+**Status (2026-10-14):** The [rank-certified implementation](docs/certificate_rank_implementation.md) is complete and independently reviewed. The controller passed474 CPU tests in40.367 seconds on stable source bytes. Its single registered qualification is next; full G2, workspace and training remain unattempted. Earlier negative studies remain unchanged. The exchangeable workspace hypothesis is untested. Read the [project history](docs/project_history_and_status.md), [execution state](docs/execution_state.md) and [todo.md](todo.md).
 
 The main question is whether one trained workspace and decoder interface can transfer without task-specific retraining. Exchangeability is the central architectural hypothesis. Variable slot count is a supporting experiment after a fixed-size transfer study; diffusion and other alternatives are parked.
 
@@ -11,7 +11,7 @@ The earlier [four-variable mechanism check](docs/constructive_task_design.md) ve
 ## Start here
 
 - [Project history and current status](docs/project_history_and_status.md): original ideas, architecture choices, implemented infrastructure, every completed study, interrupted work and the GitHub handoff.
-- [Rank-certified design](docs/certificate_rank_design.md) and [implementation plan](docs/superpowers/plans/2026-10-12-certificate-rank.md): current prospective path; draft code is not approved for scientific execution.
+- [Rank-certified design](docs/certificate_rank_design.md) and [implementation plan](docs/superpowers/plans/2026-10-12-certificate-rank.md): prospectively registered path; implementation verification is recorded separately.
 
 - [Research plan v2](docs/diffusive_workspace_reasoning_project_plan_v2.md) and [binding v2.2 protocol](docs/research_protocol.md): scientific scope, experiment design and evidence gates.
 - [Main research direction](docs/transfer_research_direction.md): transfer, exchangeability and variable-slot-count hypotheses.
@@ -83,7 +83,7 @@ Keep dataset splits and decoder access matched. Check exchangeable updates for p
 
 Every experiment must capture source/configuration/model/data identities, environment, RNG streams, per-example outcomes, parameter counts and full costs. Confirmatory effects require a preregistered comparison, at least three training seeds, suitable uncertainty analysis and a fixed test-access policy. Preserve failed and negative runs. See the protocol for exact requirements.
 
-**Next work:** complete the rank constructor/runner's open reviews and fixture checks, implement the frozen final grammar, and freeze verified clean source before its single registered qualification. Only a qualification PASS permits the predeclared full corpus/five-cohort G2 audit; only complete G2 PASS permits fixed-N EX/IDX work. Training requires a separate study registration. Preserve every earlier failed study and its thresholds.
+**Next work:** freeze the verified rank source and execute its single registered qualification. Only a qualification PASS permits the predeclared full corpus/five-cohort G2 audit; only complete G2 PASS permits fixed-N EX/IDX work. Training requires a separate study registration. Preserve every earlier failed study and its thresholds.
 
 ## Licensing
 

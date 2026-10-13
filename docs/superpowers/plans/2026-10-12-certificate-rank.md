@@ -40,10 +40,10 @@ Interfaces: `rank(rows, width, *, check_budget=None, counters=None) -> int`; `nu
 
 Files: extend rank generator and its tests only after Task1 interface stable. Canned hand matrices/pools may test primitives; never invoke final `construct` or draw final records.
 
-- [ ] Record independent mathematical review of generic all-legal unary-permitted certificate/rank-fiber rule and hand support before code.
-- [ ] Add meaningful RED tests for cross-kind pool preservation, independent reserve rows, opposing exclusions, padding and terminal finite-catalog failures.
-- [ ] Implement frozen final route with bounded counter/callback law, no solver/split/oracle imports.
-- [ ] Review all interfaces/claim limits and run canned checks.
+- [x] Record independent mathematical review of generic all-legal unary-permitted certificate/rank-fiber rule and hand support before code.
+- [x] Add meaningful RED tests for cross-kind pool preservation, independent reserve rows, opposing exclusions, padding and terminal finite-catalog failures.
+- [x] Implement frozen final route with bounded counter/callback law, no solver/split/oracle imports.
+- [x] Review all interfaces/claim limits and run canned checks.
 
 ## Task3: integrated qualification runner and full A/E audit
 
@@ -51,11 +51,11 @@ Files: create `dwr/tasks/certificate_rank_study.py`, `tests/test_certificate_ran
 
 Interfaces: strict config loader; versioned `run_study(config_path,output_path,*,argv=None)` and CLI `python -m dwr.tasks.certificate_rank_study --config ... --output runs/certificate-rank-...`. Test-only private injections cannot certify a production PASS.
 
-- [ ] Write RED tests for fixed routing/denominators/gates/config/replay/late-cap/protected reporting and failure preservation.
-- [ ] Implement initial resolved manifest before draws, budget guard before config/source hashing, exact production clean-source identity, all raw ledger, independent semantic checks and replay.
-- [ ] Version A record/E outcome linkage; full five-cohort audit and stage gates. Qualification never reaches final; full requires recorded qualified config/source/artifact linkage.
-- [ ] Test source/development/final split closure, held-out composition absence, field projection, value/given floors, failures and no favorable subset selection with canned records only.
-- [ ] Root task review, scoped fixes, full branch review and CPU suite within120seconds. Normalize LF before source freeze and verify runtime producers equal Git blobs.
+- [x] Write RED tests for fixed routing/denominators/gates/config/replay/late-cap/protected reporting and failure preservation.
+- [x] Implement initial resolved manifest before draws, budget guard before config/source hashing, exact production clean-source identity, all raw ledger, independent semantic checks and replay.
+- [x] Version A record/E outcome linkage; full five-cohort audit and stage gates. Qualification never reaches final; full requires recorded qualified config/source/artifact linkage.
+- [x] Test source/development/final split closure, held-out composition absence, field projection, value/given floors, failures and no favorable subset selection with canned records only.
+- [x] Root task review, scoped fixes, full branch review and CPU suite within120seconds. Normalize LF before source freeze and verify runtime producers equal Git blobs.
 
 ## Task4: registered execution and durable decision
 
@@ -71,3 +71,5 @@ Interfaces: strict config loader; versioned `run_study(config_path,output_path,*
 No new task checks or population have run at registration creation. Checkboxes remain open until recorded commands/outcomes exist.
 
 2026-10-13 resumption: owner authorized a PR to main at the next major checkpoint. Root selects reviewed complete rank source + passing CPU suite + the sole qualification's recorded terminal decision as that checkpoint, even if scientific NO-GO. Do not merge. Prospective output-admission and A-quota/linkage hardening are recorded in the design; all scientific configurations remain unchanged. Fresh Luna fix workers own pair generator/tests and runner/tests separately. Only after pair review passes, a fresh Luna worker implements the frozen final grammar; no production final draw or final-prefix fixture is permitted before the declared gates. Root retains scientific decisions, commit/freeze, actual run invocation and PR preparation.
+
+2026-10-14 implementation closure: Task2 hand-state grammar checks and Task3 integrated release checks are complete. Root passed474 CPU tests in40.367 seconds (wrapper40.532), tracked bytes unchanged; independent release rereview READY_FOR_SINGLE_QUALIFICATION. See `docs/certificate_rank_implementation.md` for exact command, hashes, reporting correction, retained earlier errors and claim boundaries. Task4 remains conditional and unchecked until actual terminal evidence.

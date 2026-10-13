@@ -1,4 +1,10 @@
-# Execution state: prospective rank-certified qualification implementation
+# Execution state: rank source verified, qualification next
+
+Updated: 2026-10-14. Active branch `research/transfer-cpu-v1`; main remains unchanged. Luna implementation and independent release review are complete; controller passed474 CPU tests in40.367 seconds on stable tracked bytes. See [implementation verification](certificate_rank_implementation.md). Freeze clean source, then execute the sole registered qualification; zero retries. No qualification/full/model/training has yet run. The owner-requested PR checkpoint is its preserved terminal decision, including scientific NO-GO.
+
+The previous WIP handoff below is historical and unchanged.
+
+## Historical execution state: prospective rank-certified qualification implementation
 
 Updated: 2026-10-12. Branch: `research/transfer-cpu-v1`. Worktree: `C:\sem5\diffusive-workspace-reasoning\.worktrees\transfer-cpu-v1`.
 

@@ -51,6 +51,18 @@ class StrictConfigTests(unittest.TestCase):
 
 
 class FixtureRunTests(unittest.TestCase):
+    def test_g2_terminal_state_tracks_only_assessed_full_audits(self):
+        for status, production, expected, replay_ok in (
+                ("PASS_G2_RANK_V1", True, "pass", True),
+                ("NO_GO_FULL_AUDIT", True, "fail", True),
+                ("PASS_G2_RANK_V1", False, "not_assessed", True),
+                ("NOT_ASSESSED_FIXTURE_ONLY", False, "not_assessed", True),
+                ("NO_GO_FULL_STAGE", True, "not_assessed", True),
+                ("NOT_ASSESSED", True, "not_assessed", True),
+                ("PASS_G2_RANK_V1", True, "not_assessed", False)):
+            with self.subTest(status=status, production=production):
+                self.assertEqual(study._g2_status(status, production, replay_ok), expected)
+
     def test_ordered_scalar_oracle_solver_and_verifier_agreement(self):
         names = tuple(f"v{i}" for i in range(6))
         pairs = (("v0", "v1"), ("v0", "v2"), ("v0", "v3"), ("v0", "v4"),
@@ -192,6 +204,9 @@ class FixtureRunTests(unittest.TestCase):
                 study.run_study(config_path, out, _guard=guard, _constructor=fail)
             report = json.loads((out / "report.json").read_text(encoding="utf-8"))
             self.assertEqual(report["status"], "NOT_ASSESSED")
+            self.assertEqual(report["g2_status"], "not_assessed")
+            manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["g2_status"], report["g2_status"])
             self.assertTrue(report["fixture_only"])
             for name in study.ARTIFACTS:
                 self.assertTrue((out / name).exists(), name)
@@ -236,16 +251,20 @@ class FixtureRunTests(unittest.TestCase):
     def test_late_cap_revocation_clears_terminal_pass_and_stale_hashes(self):
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp)
-            report = {"status": "PASS_QUALIFICATION", "artifacts": {"records.jsonl": "stale"},
+            report = {"status": "PASS_G2_RANK_V1", "g2_status": "pass",
+                      "artifacts": {"records.jsonl": "stale"},
                       "fixture_only": False, "cpu_seconds": 4.2}
-            study._write(output / "manifest.json", {"status": "PASS_QUALIFICATION", "artifacts": {"x": "stale"}}, None)
+            study._write(output / "manifest.json", {"status": "PASS_G2_RANK_V1", "g2_status": "pass",
+                                                       "artifacts": {"x": "stale"}}, None)
             study._revoke_terminal(output, study.CONFIG_HASHES["qualification"], report, TimeoutError())
             manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
             saved_report = json.loads((output / "report.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["status"], "NOT_ASSESSED")
+            self.assertEqual(manifest["g2_status"], "not_assessed")
             self.assertEqual(manifest["artifacts"], {})
             self.assertFalse(manifest["artifact_hashes_valid"])
             self.assertEqual(saved_report["status"], "NOT_ASSESSED")
+            self.assertEqual(saved_report["g2_status"], "not_assessed")
             self.assertEqual(saved_report["artifacts"], {})
             self.assertEqual(saved_report["cpu_seconds"], 4.2)
 
