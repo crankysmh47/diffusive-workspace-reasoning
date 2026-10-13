@@ -59,8 +59,8 @@ Interfaces: strict config loader; versioned `run_study(config_path,output_path,*
 
 ## Task4: registered execution and durable decision
 
-- [ ] Freeze verified clean source. Root execute ONE qualification under external watchdog; preserve raw ledgers/resources/replay/hashes on every exit.
-- [ ] Independently check allowed aggregate reports and artifact/source bindings, never read protected task payloads for choices. Record exact outcomes in tracked result + compact hashes and todo/execution state.
+- [x] Freeze verified clean source. Root execute ONE qualification under external watchdog; preserve raw ledgers/resources/replay/hashes on every exit. Source41bd784; NO_GO_DEVELOPMENT, exit1/no timeout.
+- [x] Independently check allowed aggregate reports and artifact/source bindings, never read protected task payloads for choices. Record exact outcomes in tracked result + compact hashes and todo/execution state. All controller integrity checks passed; six hashes and40 raw Git producer bindings verified.
 - [ ] Only PASS: execute predeclared full corpus once, with final structural access logged and frozen grammar. Report full G2 or preserved NO-GO, no automatic seed/prefix retries.
 - [ ] Only complete full G2 PASS: proceed to next fixed-N EX/IDX infrastructure milestone with a concrete separate plan and no unregistered training. Scientific NO-GO narrows scope and may be a real blocker; arbitrary continued tuning is not completion.
 
@@ -73,3 +73,5 @@ No new task checks or population have run at registration creation. Checkboxes r
 2026-10-13 resumption: owner authorized a PR to main at the next major checkpoint. Root selects reviewed complete rank source + passing CPU suite + the sole qualification's recorded terminal decision as that checkpoint, even if scientific NO-GO. Do not merge. Prospective output-admission and A-quota/linkage hardening are recorded in the design; all scientific configurations remain unchanged. Fresh Luna fix workers own pair generator/tests and runner/tests separately. Only after pair review passes, a fresh Luna worker implements the frozen final grammar; no production final draw or final-prefix fixture is permitted before the declared gates. Root retains scientific decisions, commit/freeze, actual run invocation and PR preparation.
 
 2026-10-14 implementation closure: Task2 hand-state grammar checks and Task3 integrated release checks are complete. Root passed474 CPU tests in40.367 seconds (wrapper40.532), tracked bytes unchanged; independent release rereview READY_FOR_SINGLE_QUALIFICATION. See `docs/certificate_rank_implementation.md` for exact command, hashes, reporting correction, retained earlier errors and claim boundaries. Task4 remains conditional and unchecked until actual terminal evidence.
+
+2026-10-14 terminal decision: qualification consumed3600 source/4800 development/final0, PASS_REPLAY8400, closed NO_GO_DEVELOPMENT on common support only (ADD masses0.779089/0.702532 versus0.8). No conditional full or model action is admitted. PR checkpoint reached; preserve registered NO-GO instead of running another seed or favorable subset. See result/compact manifest.

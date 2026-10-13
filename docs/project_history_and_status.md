@@ -97,3 +97,9 @@ The project has substantial task/reproducibility infrastructure and useful negat
 ## Parked ideas
 
 The [spare-ideas document](spare_research_ideas.md) holds task-structure prediction of useful computation, persistent workspace repair after problem edits, learned slot allocation, symmetry-aware flow distillation and adaptive stopping. These are not an implementation backlog. Their questions remain available, but the main transfer/exchangeability hypothesis has not been rejected by the CPU task-generation failures.
+
+## 2026-10-14 checkpoint: reviewed rank code and closed qualification
+
+The earlier WIP handoff above remains historical. Luna completed the finite F3/pair/final grammar and integrated runner; independent release review cleared the source, and root passed474 CPU tests in40.367 seconds on stable bytes. Clean source41bd784 executed the sole registered qualification with3600 source/4800 development/final0 and PASS_REPLAY8400. All source floors passed. Development capacity/signature/core/difficulty floors passed, but EQ/ADD and NEQ/ADD support masses0.779089/0.702532 failed the fixed0.8 condition, giving **NO_GO_DEVELOPMENT**. See [implementation verification](certificate_rank_implementation.md), [result](certificate_rank_qualification_result.md) and [compact manifest](../configs/splits/certificate-rank-qualification-result.json).
+
+The result improves nontriviality/capacity evidence but leaves the supported task-population gate unresolved. The single allowance is closed; no full/final/model/training follows and G2 remains not assessed. Any next study needs a bounded prospective support-population design. This does not test or reject exchangeability. The owner-requested PR checkpoint is reached by reviewed implementation plus the preserved terminal result; no merge is authorized. Raw ledgers/review logs remain local and ignored, with archival backup and independent-person reproduction still incomplete.
