@@ -13,6 +13,8 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 
 Current work is implementation/review of this new design, not an extension of the closed sampler-v2 fixture. Root handles research decisions; Luna implements.
 
+- [ ] Owner-requested PR to `main` at the next major checkpoint: independently reviewed complete rank implementation, passing CPU checks and the registered qualification's recorded terminal outcome. Negative outcomes remain reportable; PR creation does not authorize merging or an unregistered retry. See the dated resumption ruling in the rank plan/design.
+
 2026-10-13 handoff: interrupted rank source/tests are preserved as WIP. Fresh full-suite check ran457 tests:456 pass, one unary-filler fixture errors. Final construction and qualification have not run; the milestones above remain unchecked. See [detailed project history](docs/project_history_and_status.md) and [verification manifest](configs/splits/github-handoff-20261013.json). The GitHub handoff is source preservation, not a research gate or raw-artifact backup.
 
 ## Retained coverage diagnosis — 2026-10-12

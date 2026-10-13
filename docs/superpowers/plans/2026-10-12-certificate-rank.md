@@ -31,10 +31,10 @@ Files: create `dwr/tasks/f3.py`, `dwr/tasks/certificate_rank_generator.py`, `tes
 
 Interfaces: `rank(rows, width, *, check_budget=None, counters=None) -> int`; `nullspace(rows,width,*,check_budget=None,counters=None) -> tuple[tuple[int,...],...]`; `construct(root_seed,partition,index,*,check_budget=None)` old-compatible immutable outcome plus branch for algebraic outputs. Final routing initially fails explicitly until Task2 lands; no old schema changes.
 
-- [ ] Write meaningful failing canned matrix/task tests and preserve RED evidence.
-- [ ] Implement direct basis pair algorithms exactly from spec, finite counters/failures/delegation/strict outcomes; test callback interruption and source/ordinary byte-equivalence.
-- [ ] Independently cross-check F3 against small brute-force matrices and pair fixtures against scalar/oracle/deletion/GAC. Use hand witness/pool injection into production-connected algebraic helpers, not a random prefix.
-- [ ] Run scoped tests, self-review, root task review and fix findings. Root alone commits after final LF/hash checks.
+- [x] Write meaningful failing canned matrix/task tests and preserve RED evidence. Initial module-import RED was narrow; later delegation/filler/no-unary mutations provide targeted behavioral evidence. Preserve that distinction.
+- [x] Implement direct basis pair algorithms exactly from spec, finite counters/failures/delegation/strict outcomes; test callback interruption and source/ordinary byte-equivalence.
+- [x] Independently cross-check F3 against small brute-force matrices and pair fixtures against scalar/oracle/deletion/GAC. Use hand witness/pool injection into production-connected algebraic helpers, not a random prefix.
+- [x] Run scoped tests, self-review, root task review and fix findings. Root verified27 F3/pair tests in0.059 seconds; fresh read-only review is READY_FOR_TASK2. LF and source hashes are checked at the component checkpoint. Final route remains pending; this is not scientific qualification.
 
 ## Task2: frozen final grammar correctness
 
@@ -69,3 +69,5 @@ Interfaces: strict config loader; versioned `run_study(config_path,output_path,*
 2026-10-12: User continuation delegates routine design and commits. No repeated plan-approval handoff; independent review and prospective registrations still required. Keep ignored review/test ledgers rather than deleting negative evidence when a skill cleanup suggestion conflicts with research preservation.
 
 No new task checks or population have run at registration creation. Checkboxes remain open until recorded commands/outcomes exist.
+
+2026-10-13 resumption: owner authorized a PR to main at the next major checkpoint. Root selects reviewed complete rank source + passing CPU suite + the sole qualification's recorded terminal decision as that checkpoint, even if scientific NO-GO. Do not merge. Prospective output-admission and A-quota/linkage hardening are recorded in the design; all scientific configurations remain unchanged. Fresh Luna fix workers own pair generator/tests and runner/tests separately. Only after pair review passes, a fresh Luna worker implements the frozen final grammar; no production final draw or final-prefix fixture is permitted before the declared gates. Root retains scientific decisions, commit/freeze, actual run invocation and PR preparation.

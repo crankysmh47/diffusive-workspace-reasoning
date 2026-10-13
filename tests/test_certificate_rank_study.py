@@ -5,6 +5,7 @@ import json
 import hashlib
 import tempfile
 import unittest
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -30,6 +31,15 @@ class StrictConfigTests(unittest.TestCase):
     def test_unknown_keys_do_not_match_closed_tree(self):
         self.assertFalse(study._same_typed({"mode": "qualification", "surprise": 1},
                                            {"mode": "qualification"}))
+
+    def test_qualification_floor_map_must_be_exact_nonempty_and_strict_true(self):
+        expected = {"source", "dev"}
+        self.assertTrue(study._exact_true_floor_map({"source": True, "dev": True}, expected))
+        for invalid in ({}, {"source": True}, {"source": True, "dev": True, "extra": True},
+                        {"source": True, "dev": 1}, {"source": True, "dev": False}):
+            with self.subTest(invalid=invalid):
+                self.assertFalse(study._exact_true_floor_map(invalid, expected))
+        self.assertFalse(study._exact_true_floor_map({"source": True}, set()))
 
     def test_registered_config_bytes_are_exact(self):
         for mode, digest in study.CONFIG_HASHES.items():
@@ -79,6 +89,41 @@ class FixtureRunTests(unittest.TestCase):
         self.assertTrue(protected["integrity_checked"])
         self.assertNotIn("core", protected)
 
+    def test_core_population_is_eligible_unique_hard_validation_E_before_envelope(self):
+        import random
+        outcome = rank_generator._construct_pair(
+            1, "development", 16, ("eq", "add_mod"), "A", ("v4", "v5"),
+            (0, 0, 0, 0, 0, 1), random.Random(11))
+        original_metrics = study.old._task_metrics
+        eligible = {"oracle_unique": True, "eligible": True, "sensitive": True,
+                    "oracle_solution_count": 1, "interaction": {"fixture": True}}
+
+        def out_of_envelope_validation(task, **kwargs):
+            values = original_metrics(task, **kwargs)
+            return {**values, "development_split": "development_validation",
+                    "prompt_bytes": 100, "first_solution_nodes": 1}
+
+        with patch.object(study.old, "_task_metrics", side_effect=out_of_envelope_validation), \
+             patch.object(study.old, "_audit_task", return_value=eligible), \
+             patch("dwr.tasks.certificate_fixture_v2._core", return_value={"signature": "canned"}) as core:
+            seen, lineage = set(), {}
+            unique = study._build_row(outcome, "development", 16, {}, seen, lineage, None)
+            duplicate = study._build_row(outcome, "development", 16, {}, seen, lineage, None)
+            self.assertFalse(unique["envelope"])
+            self.assertIn("core", unique)
+            self.assertNotIn("core", duplicate)
+            self.assertEqual(core.call_count, 1)
+
+        def protected_validation(task, **kwargs):
+            values = original_metrics(task, **kwargs)
+            return {**values, "development_split": "development_diagnostic_test"}
+
+        with patch.object(study.old, "_task_metrics", side_effect=protected_validation), \
+             patch("dwr.tasks.certificate_fixture_v2._core", side_effect=AssertionError("protected core")):
+            protected = study._build_row(outcome, "development", 16, {}, set(), {}, None)
+        self.assertEqual(protected["state"], "protected_integrity_only")
+        self.assertNotIn("core", protected)
+
     def test_nonunique_duplicate_content_is_retained_but_not_counted_twice(self):
         names = tuple(f"v{i}" for i in range(6))
         witness = legacy._solution((0, 0, 0, 0, 0, 0))
@@ -107,6 +152,33 @@ class FixtureRunTests(unittest.TestCase):
         self.assertFalse(two["first_seen_content"])
         self.assertFalse(two["oracle_unique"])
 
+    def test_unique_eligible_duplicate_is_only_one_A_quota_row(self):
+        outcome = legacy.construct(20261014, "source", 0)
+        original_metrics = study.old._task_metrics
+
+        def envelope_metrics(task, **kwargs):
+            values = original_metrics(task, **kwargs)
+            return {**values, "prompt_bytes": 1200, "first_solution_nodes": 5}
+
+        eligible = {"oracle_unique": True, "eligible": True, "sensitive": True,
+                    "oracle_solution_count": 1, "interaction": {"fixture": True}}
+        seen, lineage = set(), {}
+        with patch.object(study.old, "_task_metrics", side_effect=envelope_metrics), \
+             patch.object(study.old, "_audit_task", return_value=eligible):
+            one = study._build_row(outcome, "source", 0, {}, seen, lineage, None)
+            two = study._build_row(outcome, "source", 0, {}, seen, lineage, None)
+        self.assertTrue(study._is_A(one))
+        self.assertFalse(study._is_A(two))
+        quotas = Counter()
+        study._count_A_for_quota(one, "eq", quotas)
+        study._count_A_for_quota(two, "eq", quotas)
+        self.assertEqual(quotas["eq"], 1)
+
+    def test_full_production_rejects_reusable_arbitrary_output_path(self):
+        output = study._registered_path("full").parents[2] / "runs" / "certificate-rank-repeat"
+        with self.assertRaisesRegex(ValueError, "full output path"):
+            study.run_study(study._registered_path("full"), output)
+
     def test_private_constructor_failure_cannot_create_production_pass(self):
         config_path = study._registered_path("qualification")
         with tempfile.TemporaryDirectory() as temp:
@@ -126,6 +198,27 @@ class FixtureRunTests(unittest.TestCase):
             raw = json.loads((out / "outcomes.jsonl").read_text(encoding="utf-8").splitlines()[0])
             self.assertEqual(raw["state"], "fatal_error")
             self.assertEqual(raw["candidate_index"], 0)
+            self.assertEqual(raw["phase"], "construction")
+
+    def test_row_assembly_failure_preserves_private_raw_certificate_payload(self):
+        config_path = study._registered_path("qualification")
+        outcome = legacy.construct(20261014, "source", 0)
+        with tempfile.TemporaryDirectory() as temp:
+            out = Path(temp) / "assembly-failure"
+            guard = type("Guard", (), {"wall_seconds": 1800, "peak_bytes": 10,
+                                        "reset_origin": lambda self: None,
+                                        "check": lambda self: None})()
+            with patch.object(study, "_construct", return_value=outcome), \
+                 patch.object(study, "_build_row", side_effect=RuntimeError("private detail")):
+                with self.assertRaisesRegex(RuntimeError, "private detail"):
+                    study.run_study(config_path, out, _guard=guard)
+            raw = json.loads((out / "outcomes.jsonl").read_text(encoding="utf-8").splitlines()[0])
+            self.assertEqual(raw["phase"], "row_assembly")
+            self.assertEqual(raw["error_type"], "RuntimeError")
+            self.assertNotIn("error", raw)
+            self.assertIn("task", raw["raw_outcome"])
+            self.assertIn("witness", raw["raw_outcome"])
+            self.assertIn("work", raw["raw_outcome"])
 
     def test_private_guard_alone_marks_a_run_fixture_only(self):
         config_path = study._registered_path("qualification")
@@ -192,6 +285,7 @@ class FixtureRunTests(unittest.TestCase):
     def test_replay_rejects_tampered_raw_and_a_projection_bytes(self):
         digest = "b" * 64
         saved = {"partition": "source", "candidate_index": 0, "content_id": "c",
+                 "oracle_unique": True,
                  "first_seen_content": True, "eligible": True, "envelope": True,
                  "model_input_sha256": "a" * 64, "config_sha256": digest}
         rebuilt = {k: v for k, v in saved.items() if k != "config_sha256"}

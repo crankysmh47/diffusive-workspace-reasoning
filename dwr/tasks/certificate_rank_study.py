@@ -120,6 +120,24 @@ def _a_projection(row):
     return {key: row[key] for key in fields if key in row}
 
 
+def _is_A(row):
+    """True only for a first-seen, unique, eligible support-envelope row."""
+    return all(row.get(key) is True for key in
+               ("first_seen_content", "oracle_unique", "eligible", "envelope"))
+
+
+def _exact_true_floor_map(actual, expected_keys):
+    return (type(actual) is dict and bool(expected_keys) and set(actual) == set(expected_keys) and
+            all(type(value) is bool and value is True for value in actual.values()))
+
+
+def _count_A_for_quota(row, profile, counts):
+    if _is_A(row):
+        counts[profile] += 1
+        return True
+    return False
+
+
 def _replay_matches(saved_rows, rebuilt_rows, raw_bytes, record_bytes, config_hash):
     if len(saved_rows) != len(rebuilt_rows): return False
     full_rows = [{**row, "config_sha256": config_hash} for row in rebuilt_rows]
@@ -130,7 +148,7 @@ def _replay_matches(saved_rows, rebuilt_rows, raw_bytes, record_bytes, config_ha
     if raw_bytes != expected_raw: return False
     projections = []
     for row in full_rows:
-        if row.get("first_seen_content") and row.get("eligible") and row.get("envelope"):
+        if _is_A(row):
             payload = _json_bytes(row)
             projection = _a_projection(row)
             projection["outcome_sha256"] = hashlib.sha256(payload).hexdigest()
@@ -380,7 +398,9 @@ def _build_row(outcome, partition, index, config, seen, lineage, guard, *, fixtu
         _audit_certificate(task, outcome.witness, outcome.alternatives, outcome.reserved_constraints,
                            tuple(outcome.profile))
         row["no_unary_gac_checked"] = True
-        if partition == "development" and row["eligible"] and not duplicate and row["split"] == "development_validation":
+        if (partition == "development" and row["split"] == "development_validation" and
+                row["first_seen_content"] is True and row["oracle_unique"] is True and
+                row["eligible"] is True):
             row["core"] = _core(task, lambda: _check(guard))
     row["task"] = serialize_task(task)
     row["verification_work"] = counters
@@ -425,11 +445,17 @@ def _verify_qualification_link(config, source, guard):
     if report.get("fixture_only") is not False:
         raise StudyError("fixture output cannot satisfy qualification linkage")
     expected_counts = {"source": 3600, "development": 4800, "final": 0}
-    if report.get("raw_attempts") != expected_counts or replay.get("attempts_rederived") != 8400:
+    if (not _same_typed(report.get("raw_attempts"), expected_counts) or
+            type(replay.get("attempts_rederived")) is not int or replay["attempts_rederived"] != 8400):
         raise StudyError("qualification attempt/replay counts differ from registration")
-    if (not all(report.get("source_gate", {}).get("floors", {}).values()) or
-            not all(report.get("development_gate", {}).get("floors", {}).values())):
-        raise StudyError("qualification report does not retain every passing floor")
+    qualification_config = load_config(_registered_path("qualification"))[0]
+    expected_source_floors = set(audit.source_gate([], 0, qualification_config)[1]["floors"])
+    expected_development_floors = set(audit.development_gate([], [], qualification_config)[1]["floors"])
+    for gate_name, expected_keys in (("source_gate", expected_source_floors),
+                                     ("development_gate", expected_development_floors)):
+        floors = report.get(gate_name, {}).get("floors")
+        if not _exact_true_floor_map(floors, expected_keys):
+            raise StudyError("qualification report does not retain every exact passing floor")
     if (initial.get("config_sha256") != link["config_sha256"] or
             not _same_typed(initial.get("resolved_config"), load_config(_registered_path("qualification"))[0]) or
             initial.get("source") != manifest.get("source") or
@@ -506,6 +532,9 @@ def run_study(config_path, output_path, *, argv=None, _guard=None, _constructor=
         if config["mode"] == "qualification":
             registered = runs / "certificate-rank-qualification-20261012-v1"
             if output != registered.resolve(): raise ValueError("qualification output path differs from registered path")
+        elif config["mode"] == "full":
+            registered = runs / "certificate-rank-full-20261013-v1"
+            if output != registered.resolve(): raise ValueError("full output path differs from registered path")
     output.mkdir(parents=True)
     initial = None
     report = {"status": "NOT_ASSESSED", "g2_status": "not_assessed", "preflight_emitted": False,
@@ -557,8 +586,11 @@ def run_study(config_path, output_path, *, argv=None, _guard=None, _constructor=
             with (output / "outcomes.jsonl").open("ab") as outcomes, (output / "records.jsonl").open("ab") as records:
                 for index in range(limit):
                     _check(guard)
+                    outcome = None
+                    phase = "construction"
                     try:
                         outcome = (_constructor(config, part, index) if _constructor else _construct(config["root_seed"], part, index, guard))
+                        phase = "row_assembly"
                         if _constructor is None:
                             _validate_outcome(outcome, part, index, config)
                         row = _build_row(outcome, part, index, config, seen, lineage, guard, fixture=not production)
@@ -566,18 +598,21 @@ def run_study(config_path, output_path, *, argv=None, _guard=None, _constructor=
                         payload = _json_bytes(row)
                         outcomes.write(payload); outcomes.flush()
                         # A-only projections link to their exact full outcome line.
-                        if row.get("first_seen_content") and row.get("eligible") and row.get("envelope"):
+                        if _is_A(row):
                             record = _a_projection(row)
                             record["outcome_sha256"] = hashlib.sha256(payload).hexdigest()
                             records.write(_json_bytes(record)); records.flush()
                         partition_rows.append(row); rows.append(row); raw_counts[part] += 1
                         profile, _ = _schedule(part, index)
-                        if row.get("eligible") and row.get("envelope"): by_profile[profile] += 1
+                        _count_A_for_quota(row, profile, by_profile)
                     except Exception as exc:
-                        fatal = {"partition": part, "candidate_index": index, "phase": "row_assembly",
-                                 "error_type": type(exc).__name__, "task": None, "state": "fatal_error"}
+                        fatal = {"partition": part, "candidate_index": index, "phase": phase,
+                                 "error_type": type(exc).__name__, "state": "fatal_error"}
+                        if outcome is not None:
+                            try: fatal["raw_outcome"] = _private_outcome(outcome, part, index)
+                            except Exception: pass
                         outcomes.write(_json_bytes(fatal)); outcomes.flush(); raw_counts[part] += 1
-                        report.update({"status": "NOT_ASSESSED", "failure": {"index": index, "phase": "row_assembly", "error_type": type(exc).__name__}})
+                        report.update({"status": "NOT_ASSESSED", "failure": {"index": index, "phase": phase, "error_type": type(exc).__name__}})
                         raise
                     if config["mode"] == "full":
                         done = (by_profile[profile] >= quota if part == "development" else

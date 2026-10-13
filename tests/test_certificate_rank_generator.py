@@ -25,6 +25,36 @@ def _scalar_holds(constraint, values):
     return (selected[0] + selected[1]) % 3 == selected[2]
 
 
+def _assert_pair_outcome_semantics(testcase, result):
+    task = result.task
+    witness = dict(result.witness.assignments)
+    testcase.assertTrue(all(_scalar_holds(c, witness) for c in task.constraints))
+    solutions = enumerate_assignments(task.variables, task.givens, task.constraints).solutions
+    testcase.assertEqual(solutions, (result.witness,))
+    unknown = tuple(name for name in task.variables
+                    if name not in {given.variable for given in task.givens})
+    work = _Work(None)
+    testcase.assertTrue(_connected(tuple((c.kind.value, c.variables) for c in task.constraints),
+                                   unknown, work))
+    propagated = propagate(task)
+    testcase.assertTrue(propagated.stalled)
+    testcase.assertTrue(all(len(propagated.domains[task.variables.index(name)]) == 3
+                            for name in unknown))
+    alternatives = dict(result.alternatives)
+    for kind, alternative in result.alternatives:
+        alt = dict(alternative.assignments)
+        testcase.assertNotEqual(alt, witness)
+        remaining = tuple(c for c in task.constraints if c.kind.value != kind)
+        testcase.assertIn(alternative,
+                          enumerate_assignments(task.variables, task.givens, remaining).solutions)
+        reserve = next(c for c in result.reserved_constraints if c.kind.value == kind)
+        testcase.assertFalse(_scalar_holds(reserve, alt))
+        other_alt = dict(alternatives[result.profile[1] if kind == result.profile[0]
+                                      else result.profile[0]].assignments)
+        testcase.assertTrue(all(c.kind.value != kind or _scalar_holds(c, other_alt)
+                                for c in task.constraints))
+
+
 class RankConstructorTests(unittest.TestCase):
     def test_final_route_is_explicitly_pending(self):
         with self.assertRaises(NotImplementedError):
@@ -199,6 +229,7 @@ class RankConstructorTests(unittest.TestCase):
         given_map = {g.variable: g.value for g in givens}
         selected = [("eq", ("v0", "v1")), ("add_mod", ("v0", "v1", "v2")),
                     ("add_mod", ("v0", "v2", "v1"))]
+        basis = tuple(selected)
         eq_alternative = _lift((0, 1, 1), unknown, given_map)
         add_alternative = _lift((1, 1, 1), unknown, given_map)
 
@@ -218,6 +249,7 @@ class RankConstructorTests(unittest.TestCase):
                                  work, None, "no_unary")
                 self.assertIsNone(result.rejection_reason)
                 task = result.task
+                _assert_pair_outcome_semantics(self, result)
                 # This witness-true EQ filler rejects the EQ-removal alternative;
                 # that is allowed because all EQ constraints are removed together.
                 self.assertTrue(any(c.kind.value == "eq" and c not in result.reserved_constraints and
@@ -248,6 +280,7 @@ class RankConstructorTests(unittest.TestCase):
                                  work, None, "no_unary", neq_vector=(1, 0, 0))
                 self.assertIsNone(result.rejection_reason)
                 self.assertEqual(len(result.task.constraints), {"B": 6, "C": 7, "D": 8}[cell])
+                _assert_pair_outcome_semantics(self, result)
 
     def test_hand_g3_eq_add_padding_may_reject_own_alternative(self):
         witness = Solution(tuple((f"v{i}", x) for i, x in enumerate((0, 0, 0, 0, 1, 2))))
@@ -285,6 +318,7 @@ class RankConstructorTests(unittest.TestCase):
                                  no_unary=True, work=work)
         selected = [("eq", ("v0", "v1")), ("add_mod", ("v0", "v1", "v2")),
                     ("add_mod", ("v0", "v2", "v1"))]
+        basis = tuple(selected)
         alternatives = {"eq": _lift((0, 1, 1), unknown, given_map),
                         "add_mod": _lift((1, 1, 1), unknown, given_map)}
         class FirstSample(random.Random):
@@ -302,7 +336,7 @@ class RankConstructorTests(unittest.TestCase):
         filler_index = next(i for i, c in enumerate(result.task.constraints)
                             if c.kind is RelationKind.ADD_MOD and c != reserved_add and c not in
                             tuple(Constraint(RelationKind.ADD_MOD, operands)
-                                  for kind, operands in selected if kind == "add_mod"))
+                                  for kind, operands in basis if kind == "add_mod"))
         altered = list(result.task.constraints)
         altered[filler_index] = Constraint(RelationKind.ADD_MOD, ("v4", "v5", "v0"))
         invalid_task = type(result.task)(result.task.schema_version, result.task.modulus,
@@ -328,6 +362,53 @@ class RankConstructorTests(unittest.TestCase):
                          witness, unknown, selected, catalogs, alternatives, 6,
                          random.Random(1), work, None, "no_unary")
         self.assertEqual(result.rejection_reason, "rank_completion_failed")
+        self.assertIsNone(result.task)
+        self.assertEqual(result.alternatives, ())
+        self.assertEqual(result.reserved_constraints, ())
+
+    def test_rank_choice_failure_returns_empty_outcome_without_retry(self):
+        witness = Solution(tuple((f"v{i}", x) for i, x in enumerate((0, 0, 0, 0, 1, 2))))
+        catalog = {"eq": (( ("v0", "v1"), (1, 2, 0)),),
+                   "add_mod": ((("v0", "v1", "v2"), (0, 0, 0)),)}
+        with patch("dwr.tasks.certificate_rank_generator._full_catalog", return_value=catalog):
+            result = _construct_pair(1, "development", 17, ("eq", "add_mod"), "B",
+                                     ("v3", "v4", "v5"), (0, 0, 0, 0, 1, 2),
+                                     random.Random(11))
+        self.assertEqual(result.rejection_reason, "rank_completion_failed")
+        self.assertIsNone(result.task)
+        self.assertEqual(result.alternatives, ())
+        self.assertEqual(result.reserved_constraints, ())
+
+    def test_missing_fiber_exclusion_returns_empty_outcome_without_retry(self):
+        witness_values = (0, 1, 2, 0, 1, 2)
+        empty_pools = {1: [], 2: []}
+        with patch("dwr.tasks.certificate_rank_generator._fiber_exclusion_pools",
+                   return_value=empty_pools):
+            result = _construct_pair(1, "development", 21, ("neq", "add_mod"), "B",
+                                     ("v3", "v4", "v5"), witness_values,
+                                     random.Random(11))
+        self.assertEqual(result.rejection_reason, "missing_fiber_exclusion")
+        self.assertIsNone(result.task)
+        self.assertEqual(result.alternatives, ())
+        self.assertEqual(result.reserved_constraints, ())
+
+    def test_insufficient_filler_returns_empty_outcome_without_retry(self):
+        witness = Solution(tuple((f"v{i}", x) for i, x in enumerate((0, 0, 0, 0, 1, 2))))
+        givens = tuple(GivenAssignment(name, value) for name, value in
+                       (("v3", 0), ("v4", 1), ("v5", 2)))
+        unknown = ("v0", "v1", "v2")
+        given_map = {g.variable: g.value for g in givens}
+        selected = [("eq", ("v0", "v1")), ("add_mod", ("v0", "v1", "v2")),
+                    ("add_mod", ("v0", "v2", "v1"))]
+        alternatives = {"eq": _lift((0, 1, 1), unknown, given_map),
+                        "add_mod": _lift((1, 1, 1), unknown, given_map)}
+        work = _Work(None)
+        catalogs = _full_catalog(given_map, witness, unknown, ("eq", "add_mod"),
+                                 no_unary=True, work=work)
+        result = _finish(1, "development", 17, ("eq", "add_mod"), "B", givens,
+                         witness, unknown, selected, catalogs, alternatives, 99,
+                         random.Random(1), work, None, "no_unary")
+        self.assertEqual(result.rejection_reason, "insufficient_filler")
         self.assertIsNone(result.task)
         self.assertEqual(result.alternatives, ())
         self.assertEqual(result.reserved_constraints, ())

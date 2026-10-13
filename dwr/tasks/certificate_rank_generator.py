@@ -113,6 +113,9 @@ class RankOutcome:
                     len(self.task.constraints) != count or
                     tuple(sorted(self.task.constraints, key=canonical_constraint_key)) != self.task.constraints):
                 raise ValueError("task shape, givens, or constraint order disagree with its outcome")
+            if any(sum(name not in given_map for name in constraint.variables) == 1
+                   for constraint in self.task.constraints):
+                raise ValueError("no-unary grammar forbids constraints with exactly one unknown")
             if tuple(kind for kind, _ in self.alternatives) != self.profile:
                 raise ValueError("successful alternatives must follow profile order")
             if tuple(c.kind.value for c in self.reserved_constraints) != self.profile:
