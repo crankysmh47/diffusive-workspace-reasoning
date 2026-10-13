@@ -1,14 +1,17 @@
 # Diffusive Workspace Reasoning (DWR)
 
-Testing joint iterative latent workspaces against one-shot, indexed, and sequential latent computation for frozen language models.
+Studying whether exchangeable latent workspaces learn reusable computation that transfers to unseen task compositions and structures.
 
 **Status:** Repository bootstrap. The generator, solver, models, training, and evaluation are not implemented yet. No experimental results are claimed.
 
-The first question is whether repeated joint updates to a latent workspace improve verified constraint completion. Diffusion/flow matching is a later experiment, conditional on understanding a working recurrent teacher.
+The main question is whether one trained workspace and decoder interface can transfer without task-specific retraining. Exchangeability is the central architectural hypothesis. Variable slot count is a supporting experiment after a fixed-size transfer study; diffusion and other alternatives are parked.
 
 ## Start here
 
-- [Research plan v2](docs/diffusive_workspace_reasoning_project_plan_v2.md): authoritative scientific scope, preserved from the supplied plan.
+- [Research plan v2](docs/diffusive_workspace_reasoning_project_plan_v2.md) and [binding v2.2 protocol](docs/research_protocol.md): scientific scope, experiment design and evidence gates.
+- [Main research direction](docs/transfer_research_direction.md): transfer, exchangeability and variable-slot-count hypotheses.
+- [Spare ideas](docs/spare_research_ideas.md): alternatives outside the active roadmap.
+- [Research-readiness review](docs/research_review.md): design corrections, related-work starting map and unresolved decisions.
 - [Implementation checklist](todo.md): ordered work and verification checkpoints.
 - [Prototype specification](configs/prototype.json): initial settings and decisions still to resolve; not an executable training configuration yet.
 - [Contribution instructions](AGENTS.md): implementation and experiment rules.
@@ -17,16 +20,16 @@ The first question is whether repeated joint updates to a latent workspace impro
 
 | Component | Initial scope |
 | --- | --- |
-| Task | Verified 4×4 mini-Sudoku, unique solutions, solver-derived difficulty |
+| Task | Controlled finite-domain constraint compositions; exact grammar and split specification is the next gate; Sudoku is optional fixture work |
 | Backbone | One frozen 1.5B–2B decoder-only base model; checkpoint selection pending |
 | Workspace | 64 slots, dimension 768, iid Gaussian initialization |
 | Update | `Z_next = Z + F(LN(Z), X)`, shared parameters across steps |
 | Interface | Newly added trainable set cross-attention adapters, fixed across core methods |
 | Training | Final-answer cross-entropy; original pretrained weights frozen |
-| Methods | Frozen baseline, one-shot, exchangeable recurrent, indexed recurrent |
-| Fixed horizons | Separate checkpoints at K = 1, 2, 4, 8 |
-| Variable horizons | Train on K = 1, 2, 4, 8; label K = 12, 16 as unseen extrapolation |
-| Evaluation | Verifier accuracy, hard-bucket accuracy, latency, FLOPs, peak memory, seed spread |
+| Methods | Frozen reference, trained K=0 noise-memory interface control, one-shot, exchangeable recurrent, indexed recurrent |
+| Fixed horizons | Primary fixed K=4 with K=1 control; wider sweep deferred |
+| Variable horizons | Deferred secondary study; distinguish trained and unseen horizons |
+| Evaluation | Valid-solution rate, supported hard-distribution accuracy, paired effects/uncertainty, end-to-end latency/FLOPs and peak memory |
 
 Target hardware: one RTX 5060 Ti with 16 GB VRAM, 32 GB system RAM, Windows 11. Measure memory before committing to model/dtype/batch settings. Smaller slot counts are permitted only as documented experimental decisions applied consistently across comparisons.
 
@@ -66,9 +69,9 @@ python -c 'import dwr; print(dwr.__version__)'
 
 Keep dataset splits and decoder access matched. Check exchangeable updates for permutation equivariance and decoder outputs for permutation invariance. Verify backbone freezing without blocking gradient flow through the trainable adapters and workspace. Keep same-checkpoint horizon scaling separate from architecture-at-budget comparisons.
 
-Every experiment must capture commit, exact configuration, model revision, dataset hash, generator version, split IDs, seed, N/d/K, slot identity, parameter counts, accuracy, verifier pass rate, latency, memory, and compute estimates. Use at least three seeds for claimed effects where feasible. Test sets remain fixed after results are inspected.
+Every experiment must capture source/configuration/model/data identities, environment, RNG streams, per-example outcomes, parameter counts and full costs. Confirmatory effects require a preregistered comparison, at least three training seeds, suitable uncertainty analysis and a fixed test-access policy. Preserve failed and negative runs. See the protocol for exact requirements.
 
-**Next action:** fix the 4×4 mini-Sudoku format, implement the reference solver and verifier, then generate unique puzzles and freeze leakage-controlled splits. Follow the checklist before adding model complexity.
+**Next action:** specify the primitive grammar, held-out compositions and strict verifier/oracle contract in `docs/task_spec.md`, then implement the CPU task checks. Backbone selection, memory feasibility, sample sizes and numerical study budgets remain open gates; no training is ready to launch.
 
 ## Licensing
 
