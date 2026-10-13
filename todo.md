@@ -13,7 +13,7 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 
 The rank qualification is closed scientific NO-GO. Full/model milestones remain blocked; no registered allowance remains. Root handles research decisions; Luna implements. A new bounded prospective support-population design is the next research decision, not an automatic retry.
 
-- [ ] Owner-requested PR to `main` at the next major checkpoint: independently reviewed complete rank implementation, passing CPU checks and the registered qualification's recorded terminal outcome. Negative outcomes remain reportable; PR creation does not authorize merging or an unregistered retry. See the dated resumption ruling in the rank plan/design.
+- [x] Owner-requested [PR #1 to `main`](https://github.com/crankysmh47/diffusive-workspace-reasoning/pull/1) created at the reviewed rank implementation/474-pass CPU suite/recorded qualification terminal checkpoint. NO_GO is preserved. PR remains open; no merge or unregistered retry is authorized.
 
 2026-10-13 handoff: interrupted rank source/tests are preserved as WIP. Fresh full-suite check ran457 tests:456 pass, one unary-filler fixture errors. Final construction and qualification have not run; the milestones above remain unchecked. See [detailed project history](docs/project_history_and_status.md) and [verification manifest](configs/splits/github-handoff-20261013.json). The GitHub handoff is source preservation, not a research gate or raw-artifact backup.
 
