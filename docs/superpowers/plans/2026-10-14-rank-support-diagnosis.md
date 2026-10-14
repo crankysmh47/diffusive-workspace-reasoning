@@ -32,10 +32,10 @@ Files create `dwr/tasks/certificate_rank_support_diagnosis.py`, `tests/test_cert
 
 Interfaces: `analyze_rows(rows, *, projection_stream=None, check_budget=None) -> dict`; `compare_public(report, analysis) -> None`; `run_diagnosis(config_path, output_path, *, argv=None, _guard=None) -> dict`; CLI `python -m dwr.tasks.certificate_rank_support_diagnosis --config ... --output ...`. Private test guard marks fixture-only and cannot certify production success. Root may settle helper names when existing interfaces are clearer; record departures before real execution.
 
-- [ ] Write meaningful canned RED tests: bin boundaries, U/E/A/signatures, branch/cell/stall contingencies/zero bins, protected poison/global first-seen routing, scalar-type errors, public mismatch, config/output/input admission and late revocation.
-- [ ] Implement thin reusable analysis and runner; no task parsing or calls. Initial identity manifest before analysis, exact8400 ordered prefix checks, permitted-only projection, bound report linkage, guarded hashes/writes/resources and explicit terminal claim/cost boundaries.
-- [ ] Run scoped unittest and diff check; save self-review/RED/GREEN/hash evidence under ignored `.superpowers/sdd/rank-support-diagnosis-20261014/`; normalize LF. No whole-suite/production call by implementer; no root/old producer edits or source commit.
-- [ ] Independent task/release review, root scoped fixes as needed, full stable-byte CPU suite once, source/config/links verified.
+- [x] Write meaningful canned RED tests: bin boundaries, U/E/A/signatures, branch/cell/stall contingencies/zero bins, protected poison/global first-seen routing, scalar-type errors, public mismatch, config/output/input admission and late revocation.
+- [x] Implement thin reusable analysis and runner; no task parsing or calls. Initial identity manifest before analysis, exact8400 ordered prefix checks, permitted-only projection, bound report linkage, guarded hashes/writes/resources and explicit terminal claim/cost boundaries.
+- [x] Run scoped unittest and diff check; save self-review/RED/GREEN/hash evidence under ignored `.superpowers/sdd/rank-support-diagnosis-20261014/`; normalize LF. No whole-suite/production call by implementer; no root/old producer edits or source commit.
+- [x] Independent task/release review, root scoped fixes as needed, full stable-byte CPU suite once, source/config/links verified.
 
 ## Task2: one registered diagnosis and evidence-based design decision
 
@@ -47,3 +47,7 @@ Interfaces: `analyze_rows(rows, *, projection_stream=None, check_budget=None) ->
 ## Controller rulings
 
 2026-10-14: Routine design/implementation authorization persists from owner delegation and resume. Selected diagnosis rather than another seed or post-result envelope change. It costs one retained-data analysis; if overlap is poor it may justify rejecting the current composition-only task comparison, not another tune-until-PASS cycle. No raw permitted data were read at registration creation. Read-only scientific review agrees the existing Sig(A)/ALL-E support contract is coherent; implementation feasibility recommends reuse of pure helpers without old-module edits.
+
+2026-10-14 release corrections: independent review found an unowned-output revocation bug, missing original Git proof, missing derived stall comparison and incomplete output boundaries. The scoped wave closes the first three; rereview caught an undefined input_config at the report-boundary insertion. Ruling: explicitly bind the already validated original configuration and add a fake-metadata runner regression that reaches final reporting before any retained-data invocation. This is a dependent correctness fix, not another diagnostic/population allowance or gate change. Preserve all RED/negative reviews and documented implementation departures.
+
+2026-10-14 implementation verified: root493 CPU tests passed43.653s (wrapper43.828), tracked bytes stable; final scoped review READY_FOR_SINGLE_DIAGNOSIS. All41 runtime producers match staged raw Git bytes/LF. Config unchanged. See diagnosis implementation verification for exact log/hash and evidence limits; actual analysis remains unattempted until clean freeze.

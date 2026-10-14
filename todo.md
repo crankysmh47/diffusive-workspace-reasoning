@@ -5,7 +5,7 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 ## Retained rank support diagnosis — 2026-10-14
 
 - [x] Register one bounded retained-data diagnosis before another population design. See [scope](docs/rank_support_diagnosis.md), [plan](docs/superpowers/plans/2026-10-14-rank-support-diagnosis.md) and closed config. No raw rows/new tasks were inspected at registration; original NO_GO unchanged.
-- [ ] Luna implement and independently review permitted-only bin/branch/stall inventories and strict bounded runner; pass stable-byte CPU suite and freeze clean source.
+- [x] Luna implement and independently review permitted-only bin/branch/stall inventories and strict bounded runner. Root493 CPU tests passed in43.653s on stable bytes; final review READY. See [implementation verification](docs/rank_support_diagnosis_implementation.md). Freeze clean source before the sole invocation.
 - [ ] Execute once (60s/256MiB/oneworker/watchdog65), verify exact retained input/public linkage, record descriptive result. No generation or protected/final choices.
 - [ ] Decide a justified prospective support-population design from complete unselected inventories, or stop on substantive lack of overlap; no automatic new population, model or floor change.
 

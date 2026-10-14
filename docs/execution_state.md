@@ -6,7 +6,7 @@ Controller474 CPU tests passed in40.367 seconds on stable bytes; independent rel
 
 ## Active retained diagnosis — 2026-10-14
 
-Owner resumed autonomous work. Root selected and registered [retained rank support diagnosis](rank_support_diagnosis.md); Luna implementation follows independent scope review. Only source_train/development_validation annotations of the closed qualification may be analyzed; no new tasks, protected/final choices, threshold selection or G2/model execution. Config SHA63145f650d17dc5bd205bfd1dc0db38b7c2b68dadc8ea445ddf8805e296bd394; sole60s/256MiB run after reviewed clean source. Original NO_GO remains unchanged. Owner mergedPR#1; next verified checkpoint gets a new PR.
+Owner resumed autonomous work. Root selected and registered [retained rank support diagnosis](rank_support_diagnosis.md); Luna implementation and independent release review are complete; root493 CPU tests passed43.653s on stable bytes. See [implementation verification](rank_support_diagnosis_implementation.md). Clean source freeze and sole retained invocation are next. Only source_train/development_validation annotations of the closed qualification may be analyzed; no new tasks, protected/final choices, threshold selection or G2/model execution. Config SHA63145f650d17dc5bd205bfd1dc0db38b7c2b68dadc8ea445ddf8805e296bd394; sole60s/256MiB run after reviewed clean source. Original NO_GO remains unchanged. Owner mergedPR#1; next verified checkpoint gets a new PR.
 
 ## Historical execution state: prospective rank-certified qualification implementation
 
