@@ -33,6 +33,10 @@ CONFIG_HASHES = {
     "qualification": "8fa592fe2bedc012a1a10fb5ecd74bbd871df2f0cedcf5026562f5b518c2d601",
     "full": "c01056ece9e4d63981301b2cff2c224df952499a54d8b746ac1d73b2df15be6f",
 }
+FIVE_CONFIG_HASHES = {
+    "qualification": "d66ad33da9111287223e7e94ab849e8b710692db32f71f94410f305ce1cf1002",
+    "full": "3aff6fcaba6143a26ad6d8a86cc83f9782ff63d689912f5fb04ffc4e9cc81afa",
+}
 
 
 class ConfigError(ValueError):
@@ -79,8 +83,9 @@ def _same_typed(actual: Any, expected: Any) -> bool:
     return actual == expected
 
 
-def _registered_path(mode: str) -> Path:
-    return Path(__file__).resolve().parents[2] / "configs" / "tasks" / f"certificate_rank_{mode}_v1.json"
+def _registered_path(mode: str, *, five_stratum: bool = False) -> Path:
+    stem = "certificate_five_stratum" if five_stratum else "certificate_rank"
+    return Path(__file__).resolve().parents[2] / "configs" / "tasks" / f"{stem}_{mode}_v1.json"
 
 
 def load_config(path: str | Path) -> tuple[dict, str, Path]:
@@ -90,9 +95,11 @@ def load_config(path: str | Path) -> tuple[dict, str, Path]:
         value = _strict_load(raw.decode("utf-8"))
         # Mode is admitted only after a strict parse; it selects one closed baseline.
         mode = value.get("mode") if type(value) is dict else None
-        expected_hash = CONFIG_HASHES.get(mode)
+        five = value.get("config_version") == "dwr-five-stratum-rank-study-v1"
+        registry = FIVE_CONFIG_HASHES if five else CONFIG_HASHES
+        expected_hash = registry.get(mode)
         if expected_hash is None: raise ConfigError("unknown registered mode")
-        expected_raw = _registered_path(mode).read_bytes()
+        expected_raw = _registered_path(mode, five_stratum=five).read_bytes()
         expected = _strict_load(expected_raw.decode("utf-8"))
     except (UnicodeError, OSError) as exc:
         raise ConfigError("cannot read registered config") from exc
@@ -117,13 +124,24 @@ def _a_projection(row):
               "lineage_id", "structure_signature", "oracle_unique", "eligible", "sensitive", "envelope",
               "values", "given_count", "prompt_bytes", "first_solution_nodes", "model_input_sha256",
               "gac", "core", "config_sha256")
-    return {key: row[key] for key in fields if key in row}
+    projection = {key: row[key] for key in fields if key in row}
+    if "fine_stratum" in row:
+        projection["fine_stratum"] = row["fine_stratum"]
+    return projection
 
 
-def _is_A(row):
+def _is_A(row, config=None):
     """True only for a first-seen, unique, eligible support-envelope row."""
-    return all(row.get(key) is True for key in
-               ("first_seen_content", "oracle_unique", "eligible", "envelope"))
+    if config is not None and config.get("support", {}).get("scheme") == "five-fixed-strata-v1":
+        if not audit.row_schema_valid(row, config):
+            return False
+    if not all(row.get(key) is True for key in
+               ("first_seen_content", "oracle_unique", "eligible", "envelope")):
+        return False
+    if config is not None and config.get("support", {}).get("scheme") == "five-fixed-strata-v1":
+        return (row.get("fine_stratum") in {"A2", "A3", "B2", "C2", "D2"} and
+                row.get("fine_stratum") == audit.support_stratum(row, config))
+    return True
 
 
 def _exact_true_floor_map(actual, expected_keys):
@@ -131,15 +149,19 @@ def _exact_true_floor_map(actual, expected_keys):
             all(type(value) is bool and value is True for value in actual.values()))
 
 
-def _count_A_for_quota(row, profile, counts):
-    if _is_A(row):
+def _count_A_for_quota(row, profile, counts, config=None):
+    if _is_A(row, config):
         counts[profile] += 1
         return True
     return False
 
 
-def _replay_matches(saved_rows, rebuilt_rows, raw_bytes, record_bytes, config_hash):
+def _replay_matches(saved_rows, rebuilt_rows, raw_bytes, record_bytes, config_hash, config=None):
     if len(saved_rows) != len(rebuilt_rows): return False
+    if config is not None and config.get("support", {}).get("scheme") == "five-fixed-strata-v1":
+        if any(not audit.row_schema_valid(row, config)
+               for row in (*saved_rows, *rebuilt_rows)):
+            return False
     full_rows = [{**row, "config_sha256": config_hash} for row in rebuilt_rows]
     if any(_json_bytes(expected) != _json_bytes(actual)
            for actual, expected in zip(saved_rows, full_rows)):
@@ -148,7 +170,7 @@ def _replay_matches(saved_rows, rebuilt_rows, raw_bytes, record_bytes, config_ha
     if raw_bytes != expected_raw: return False
     projections = []
     for row in full_rows:
-        if _is_A(row):
+        if _is_A(row, config):
             payload = _json_bytes(row)
             projection = _a_projection(row)
             projection["outcome_sha256"] = hashlib.sha256(payload).hexdigest()
@@ -179,7 +201,7 @@ def _g2_status(status, production, replay_ok=True):
     """Expose G2 only when the complete production audit and replay are trustworthy."""
     if not production or not replay_ok:
         return "not_assessed"
-    if status == "PASS_G2_RANK_V1":
+    if status in ("PASS_G2_RANK_V1", "PASS_G2_FIVE_STRATUM_V1"):
         return "pass"
     if status == "NO_GO_FULL_AUDIT":
         return "fail"
@@ -347,6 +369,7 @@ def _build_row(outcome, partition, index, config, seen, lineage, guard, *, fixtu
     row.update({"split": None, "content_id": None, "lineage_id": None, "structure_signature": None,
                 "oracle_unique": False, "eligible": False, "sensitive": False, "envelope": False,
                 "gac": None, "first_seen_content": False, "state": "construction_failed", "values": [], "given_count": 0})
+    five_mode = config.get("support", {}).get("scheme") == "five-fixed-strata-v1"
     task = outcome.task
     if task is None: return row
     row["given_count"] = len(task.givens)
@@ -401,7 +424,11 @@ def _build_row(outcome, partition, index, config, seen, lineage, guard, *, fixtu
     row.update({k: sem[k] for k in ("oracle_unique", "eligible", "sensitive", "oracle_solution_count")})
     row["eligible"] = bool(sem["eligible"])
     row["sensitive"] = bool(sem["sensitive"])
-    row["envelope"] = bool(row["oracle_unique"] and old._prompt_bin(row["prompt_bytes"]) == 4 and old._node_bin(row["first_solution_nodes"]) == 2)
+    if five_mode:
+        row["fine_stratum"] = audit.support_stratum(row, config)
+        row["envelope"] = bool(row["oracle_unique"] and row["fine_stratum"] is not None)
+    else:
+        row["envelope"] = bool(row["oracle_unique"] and old._prompt_bin(row["prompt_bytes"]) == 4 and old._node_bin(row["first_solution_nodes"]) == 2)
     row["gac"] = {"stalled": actual.stalled, "solved": actual.solved, "contradiction": actual.contradiction,
                    "independent_audit": projection is not None}
     row["state"] = "first_seen" if not duplicate else "duplicate_content"
@@ -420,6 +447,12 @@ def _build_row(outcome, partition, index, config, seen, lineage, guard, *, fixtu
     return row
 
 
+def _validate_row_annotation(row, config):
+    if config.get("support", {}).get("scheme") == "five-fixed-strata-v1" and not audit.row_schema_valid(row, config):
+        raise StudyError("five-stratum row annotation or state schema is inconsistent")
+    return True
+
+
 def _schedule(partition, index):
     if partition == "source": profiles = ("eq", "neq", "add_mod")
     elif partition == "development": profiles = ("eq/neq", "eq/add_mod", "neq/add_mod")
@@ -434,15 +467,156 @@ def _construct(root, partition, index, guard):
     return rank_generator.construct(root, partition, index, check_budget=lambda: _check(guard))
 
 
+def _verify_historical_producers(historical_source, current_source, guard):
+    """Prove a five-mode qualification producer map against its committed Git blobs."""
+    def valid_commit(value):
+        return (type(value) is str and len(value) == 40 and
+                all(ch in "0123456789abcdefABCDEF" for ch in value))
+    if (type(historical_source) is not dict or historical_source.get("git_clean") is not True or
+            not valid_commit(historical_source.get("git_commit"))):
+        raise StudyError("historical qualification source identity is invalid")
+    producers = historical_source.get("producer_sha256")
+    current = current_source.get("producer_sha256") if type(current_source) is dict else None
+    if (type(current_source) is not dict or current_source.get("git_clean") is not True or
+            not valid_commit(current_source.get("git_commit")) or
+            type(producers) is not dict or not producers or
+            not _same_typed(producers, current) or
+            any(type(name) is not str or not name or type(digest) is not str or len(digest) != 64 or
+                name.startswith(("/", "\\")) or ".." in name.split("/") or "\\" in name or ":" in name or
+                any(ch not in "0123456789abcdef" for ch in digest)
+                for name, digest in producers.items())):
+        raise StudyError("historical producer map is empty or differs from current runtime")
+    root = Path(__file__).resolve().parents[2]
+    commit = historical_source["git_commit"]
+    for name, expected_hash in producers.items():
+        _check(guard)
+        try:
+            result = subprocess.run(["git", "show", f"{commit}:{name}"], cwd=root, check=True,
+                                    capture_output=True)
+        except (OSError, subprocess.CalledProcessError) as exc:
+            raise StudyError("historical producer Git blob is unavailable") from exc
+        _check(guard)
+        if hashlib.sha256(result.stdout).hexdigest() != expected_hash:
+            raise StudyError("historical producer blob does not match its registered hash")
+    return True
+
+
+def _five_qualification_projection_bytes(outcome_lines, config, config_hash):
+    """Derive the exact public A ledger from complete metadata-only raw rows."""
+    expected_counts = {"source": config["attempts"]["source"],
+                       "development": config["attempts"]["development"],
+                       "final": config["attempts"]["final"]}
+    expected_sequence = [(part, index) for part in ("source", "development", "final")
+                         for index in range(expected_counts[part])]
+    if len(outcome_lines) != len(expected_sequence):
+        raise StudyError("qualification raw outcome count differs from registration")
+    records = []
+    protected_splits = {"source_validation", "source_test", "development_diagnostic_test"}
+    for index, (line, expected_identity) in enumerate(zip(outcome_lines, expected_sequence)):
+        row = _strict_load(line.decode("utf-8"))
+        if (type(row) is not dict or (row.get("partition"), row.get("candidate_index")) != expected_identity or
+                row.get("config_sha256") != config_hash):
+            raise StudyError("qualification raw outcome identity or config binding is invalid")
+        if _json_bytes(row) != line:
+            raise StudyError("qualification raw outcome is not in canonical ledger form")
+        split = row.get("split")
+        if split in protected_splits:
+            # Route before inspecting the fine annotation or A predicate.
+            if row.get("state") != "protected_integrity_only" or not audit.row_schema_valid(row, config):
+                raise StudyError("qualification protected row schema is invalid")
+            continue
+        if not audit.row_schema_valid(row, config):
+            raise StudyError("qualification raw outcome row schema or fine annotation is invalid")
+        if split is None:
+            continue
+        if split not in ("source_train", "development_validation"):
+            raise StudyError("qualification outcome has an unregistered choice split")
+        if _is_A(row, config):
+            payload = line if line.endswith(b"\n") else line + b"\n"
+            projection = _a_projection(row)
+            projection["outcome_sha256"] = hashlib.sha256(payload).hexdigest()
+            if not isinstance(row.get("model_input_sha256"), str):
+                raise StudyError("accepted qualification row lacks its model-input hash")
+            records.append(_json_bytes(projection))
+    if not records:
+        raise StudyError("passing qualification cannot have an empty accepted-record ledger")
+    return b"".join(records)
+
+
+def _verify_exact_qualification_records(outcome_lines, record_bytes, config, config_hash):
+    expected = _five_qualification_projection_bytes(outcome_lines, config, config_hash)
+    if record_bytes != expected:
+        raise StudyError("qualification records are not the exact ordered projection of accepted raw outcomes")
+    return True
+
+
+def _load_qualification_receipt(qout, link, source, guard):
+    """Bind full five-mode execution to the complete exact qualification ledger."""
+    manifest_path, initial_path = qout / "manifest.json", qout / "manifest.initial.json"
+    replay_path, report_path = qout / "replay.json", qout / "report.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    initial = json.loads(initial_path.read_text(encoding="utf-8"))
+    replay = json.loads(replay_path.read_text(encoding="utf-8"))
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    qconfig_path = _registered_path("qualification", five_stratum=True)
+    qconfig, qhash, _ = load_config(qconfig_path)
+    if (qhash != link.get("config_sha256") or manifest.get("config_sha256") != qhash or
+            initial.get("config_sha256") != qhash or
+            not _same_typed(initial.get("resolved_config"), qconfig)):
+        raise StudyError("qualification config identity differs from the registered five-stratum tree")
+    if (manifest.get("status") != "PASS_QUALIFICATION" or report.get("status") != "PASS_QUALIFICATION" or
+            report.get("fixture_only") is not False or replay.get("status") != "PASS_REPLAY" or
+            replay.get("exact_indices") is not True):
+        raise StudyError("new qualification is not an exact production PASS with replay")
+    expected_counts = {"source": 3600, "development": 4800, "final": 0}
+    if (not _same_typed(report.get("raw_attempts"), expected_counts) or
+            type(replay.get("attempts_rederived")) is not int or replay["attempts_rederived"] != 8400):
+        raise StudyError("new qualification attempt and replay counts differ from registration")
+    expected_source = set(audit.source_gate([], 0, qconfig)[1]["floors"])
+    expected_development = set(audit.development_gate([], [], qconfig)[1]["floors"])
+    for gate_name, expected_floors in (("source_gate", expected_source),
+                                       ("development_gate", expected_development)):
+        gate = report.get(gate_name)
+        floors = gate.get("floors") if type(gate) is dict else None
+        if not _exact_true_floor_map(floors, expected_floors):
+            raise StudyError("new qualification has an empty or nonpassing floor map")
+    if initial.get("source") != manifest.get("source"):
+        raise StudyError("new qualification source identities differ between manifests")
+    _verify_historical_producers(manifest.get("source"), source, guard)
+    if (Path(initial.get("output_dir", "")).resolve() != qout.resolve() or
+            Path(initial.get("config_path", "")).resolve(strict=True) != qconfig_path.resolve(strict=True) or
+            not _argv_binds(initial.get("requested_argv"), qconfig_path, qout)):
+        raise StudyError("new qualification command and paths are not the exact registration")
+    hashes = manifest.get("artifacts")
+    if type(hashes) is not dict or set(hashes) != set(ARTIFACTS[:-1]):
+        raise StudyError("new qualification artifact binding is incomplete")
+    for name, digest in hashes.items():
+        _check(guard)
+        if _sha(qout / name, guard) != digest:
+            raise StudyError("new qualification artifact hash mismatch")
+    outcome_lines = (qout / "outcomes.jsonl").read_bytes().splitlines(keepends=True)
+    _verify_exact_qualification_records(outcome_lines, (qout / "records.jsonl").read_bytes(), qconfig, qhash)
+    return {"manifest_sha256": _sha(manifest_path, guard), "artifact_sha256": hashes,
+            "source_producer_sha256": source["producer_sha256"], "replay_status": replay["status"]}
+
+
 def _verify_qualification_link(config, source, guard):
     link = config["required_qualification"]
-    if link.get("config_sha256") != CONFIG_HASHES["qualification"]:
+    five_mode = config.get("support", {}).get("scheme") == "five-fixed-strata-v1"
+    registry = FIVE_CONFIG_HASHES if five_mode else CONFIG_HASHES
+    if link.get("config_sha256") != registry["qualification"]:
         raise StudyError("qualification config binding changed")
     root = Path(__file__).resolve().parents[2]
-    qout = Path(link["output_path"])
+    path_key = "run_path" if five_mode else "output_path"
+    qout = Path(link[path_key])
     if not qout.is_absolute(): qout = root / qout
-    if qout.resolve() != (root / "runs" / "certificate-rank-qualification-20261012-v1").resolve():
+    expected_qout = root / "runs" / ("certificate-five-stratum-qualification-20261014-v1" if five_mode else "certificate-rank-qualification-20261012-v1")
+    if qout.resolve() != expected_qout.resolve():
         raise StudyError("qualification output binding changed")
+    if five_mode:
+        receipt = _load_qualification_receipt(qout, link, source, guard)
+        receipt["status"] = "PASS_QUALIFICATION"
+        return receipt
     manifest_path = qout / "manifest.json"
     initial_path = qout / "manifest.initial.json"
     replay_path = qout / "replay.json"
@@ -541,13 +715,19 @@ def run_study(config_path, output_path, *, argv=None, _guard=None, _constructor=
     if production:
         try: output.relative_to(runs.resolve())
         except ValueError as exc: raise ValueError("production output must be under runs/") from exc
-        if not output.name.startswith("certificate-rank-"): raise ValueError("invalid production output name")
-        if config["mode"] == "qualification":
+        if config.get("support", {}).get("scheme") == "five-fixed-strata-v1":
+            registered = Path(config["output_path"])
+            if not registered.is_absolute(): registered = runs.parent / registered
+        elif config["mode"] == "qualification":
             registered = runs / "certificate-rank-qualification-20261012-v1"
-            if output != registered.resolve(): raise ValueError("qualification output path differs from registered path")
-        elif config["mode"] == "full":
+        else:
             registered = runs / "certificate-rank-full-20261013-v1"
-            if output != registered.resolve(): raise ValueError("full output path differs from registered path")
+        if output != registered.resolve():
+            if config.get("support", {}).get("scheme") == "five-fixed-strata-v1":
+                raise ValueError(f"{config['mode']} output path differs from registered path")
+            if config["mode"] == "qualification":
+                raise ValueError("qualification output path differs from registered path")
+            raise ValueError("full output path differs from registered path")
     output.mkdir(parents=True)
     initial = None
     report = {"status": "NOT_ASSESSED", "g2_status": "not_assessed", "preflight_emitted": False,
@@ -607,17 +787,18 @@ def run_study(config_path, output_path, *, argv=None, _guard=None, _constructor=
                         if _constructor is None:
                             _validate_outcome(outcome, part, index, config)
                         row = _build_row(outcome, part, index, config, seen, lineage, guard, fixture=not production)
+                        _validate_row_annotation(row, config)
                         row["config_sha256"] = cfg_hash
                         payload = _json_bytes(row)
                         outcomes.write(payload); outcomes.flush()
                         # A-only projections link to their exact full outcome line.
-                        if _is_A(row):
+                        if _is_A(row, config):
                             record = _a_projection(row)
                             record["outcome_sha256"] = hashlib.sha256(payload).hexdigest()
                             records.write(_json_bytes(record)); records.flush()
                         partition_rows.append(row); rows.append(row); raw_counts[part] += 1
                         profile, _ = _schedule(part, index)
-                        _count_A_for_quota(row, profile, by_profile)
+                        _count_A_for_quota(row, profile, by_profile, config)
                     except Exception as exc:
                         fatal = {"partition": part, "candidate_index": index, "phase": phase,
                                  "error_type": type(exc).__name__, "state": "fatal_error"}
@@ -658,11 +839,12 @@ def run_study(config_path, output_path, *, argv=None, _guard=None, _constructor=
             outcome = (_constructor(config, part, index) if _constructor else _construct(config["root_seed"], part, index, guard))
             if _constructor is None: _validate_outcome(outcome, part, index, config)
             rebuilt = _build_row(outcome, part, index, config, rseen, rlineage, guard, fixture=not production)
+            _validate_row_annotation(rebuilt, config)
             replay_rows.append(rebuilt)
         # Rebuild and compare the exact raw and A-projection ledgers from the same indices.
         replay_ok = _replay_matches(rows, replay_rows,
                                     (output / "outcomes.jsonl").read_bytes(),
-                                    (output / "records.jsonl").read_bytes(), cfg_hash)
+                                    (output / "records.jsonl").read_bytes(), cfg_hash, config)
         _write(output / "replay.json", {"status": "PASS_REPLAY" if replay_ok else "FAIL_REPLAY",
                                          "attempts_rederived": len(replay_rows), "exact_indices": True}, guard)
         if not replay_ok: report["status"] = "NOT_ASSESSED_REPLAY_MISMATCH"
@@ -672,7 +854,9 @@ def run_study(config_path, output_path, *, argv=None, _guard=None, _constructor=
         if config["mode"] == "full" and report.get("status") == "RUNNING":
             full_pass, full_report = audit.full_gate(rows, dict(raw_counts), config)
             report["full_audit"] = full_report
-            report["status"] = "PASS_G2_RANK_V1" if full_pass and replay_ok and production else "NO_GO_FULL_AUDIT"
+            pass_status = ("PASS_G2_FIVE_STRATUM_V1" if config.get("support", {}).get("scheme") == "five-fixed-strata-v1"
+                           else "PASS_G2_RANK_V1")
+            report["status"] = pass_status if full_pass and replay_ok and production else "NO_GO_FULL_AUDIT"
         report["g2_status"] = _g2_status(report["status"], production, replay_ok)
         hashes = {name: _sha(output / name, guard) for name in ARTIFACTS[:-2] if (output / name).exists()}
         report.update({"elapsed_seconds": time.monotonic() - started,
@@ -718,7 +902,7 @@ def main(argv=None):
         # Guard before config/source/hash reads, including admission failures.
         report = run_study(args.config, args.output, argv=sys.argv)
         print(stable_json(report))
-        return 0 if report["status"] in ("PASS_QUALIFICATION", "PASS_G2_RANK_V1") else 1
+        return 0 if report["status"] in ("PASS_QUALIFICATION", "PASS_G2_RANK_V1", "PASS_G2_FIVE_STRATUM_V1") else 1
     except Exception as exc:
         print(f"NOT_ASSESSED: {type(exc).__name__}", file=sys.stderr)
         return 2

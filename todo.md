@@ -5,8 +5,8 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 ## Prospective five-stratum study — 2026-10-14
 
 - [x] Register exact five fine strata, fresh seeds/counts/quotas/caps and new estimand/weights. Scientific readiness review passed. See [design](docs/five_stratum_study_design.md), [plan](docs/superpowers/plans/2026-10-14-five-stratum-study.md) and closed qualification/full configs.
-- [ ] Luna implement/review support policy and fine-cohort audit, preserving legacy behavior.
-- [ ] Luna implement/review strict new runner/linkage/projections; pass stable-byte CPU suite and freeze clean source.
+- [x] Luna implement/review support policy and fine-cohort audit, preserving legacy behavior. Source TRAIN/ID/validation isolation checks passed.
+- [x] Luna implement/review strict new runner/linkage/projections; root528 stable-byte CPU tests passed40.839s; release review READY. See [verification](docs/five_stratum_implementation.md). Freeze this verified source before the sole invocation.
 - [ ] Execute the sole fresh qualification; only PASS admits its frozen full G2. Preserve every negative/partial outcome; no retry or policy change from new test feedback.
 - [ ] Only full G2 PASS: next fixed-N infrastructure milestone; no unregistered model training.
 
@@ -26,7 +26,7 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 - [ ] Only qualification PASS: execute the frozen independently seeded full study and five-cohort G2 once. Full failure is preserved and blocks model work.
 - [ ] Only complete G2 PASS: implement fixed-N exchangeable workspace and indexed control with meaningful gradient/mask/permutation/resume/cost verification. Training remains separately preregistered.
 
-The rank qualification is closed scientific NO-GO. Full/model milestones remain blocked; no registered allowance remains. Root handles research decisions; Luna implements. A new bounded prospective support-population design is the next research decision, not an automatic retry.
+The rank qualification is closed scientific NO-GO. Full/model milestones remain blocked; no registered allowance remains. Root handles research decisions; Luna implements. The separately registered five-stratum design above is the active next study; it does not reopen this old allowance.
 
 - [x] Owner-requested [PR #1 to `main`](https://github.com/crankysmh47/diffusive-workspace-reasoning/pull/1) created at the reviewed rank implementation/474-pass CPU suite/recorded qualification terminal checkpoint. NO_GO is preserved. Owner merged it externally at2026-10-13T19:25:44Z; no agent merge or unregistered retry was performed.
 

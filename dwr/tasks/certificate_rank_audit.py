@@ -9,6 +9,8 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from typing import Any, Iterable
 
+from .certificate_support import FIVE_STRATA, is_envelope, support_counts, support_stratum
+
 CELLS = ("A", "B", "C", "D")
 SOURCE_SPLITS = ("source_train", "source_validation", "source_test")
 DEV_SPLITS = ("development_validation", "development_diagnostic_test")
@@ -32,20 +34,80 @@ def _first_unique(rows: Iterable[dict]) -> list[dict]:
     return out
 
 
-def _envelope(row: dict) -> bool:
-    return (row.get("envelope") is True and row.get("cell") in CELLS and
-            row.get("prompt_bytes", 0) > 1023 and 4 <= row.get("first_solution_nodes", 0) <= 7)
-
-
 def _support(rows: list[dict], config: dict) -> dict:
-    eligible = [r for r in rows if r.get("eligible") is True]
-    counts = Counter(r.get("cell") for r in eligible if _envelope(r))
-    denom = len(eligible)
-    mass = sum(counts[c] for c in CELLS) / denom if denom else 0.0
-    floor = config["support"]
-    return {"eligible": denom, "cell_counts": {c: counts[c] for c in CELLS}, "mass": mass,
-            "pass": denom > 0 and mass >= floor["cohort_mass_min"] and
-                    all(counts[c] >= floor["cell_min"] for c in CELLS)}
+    return support_counts(rows, config)
+
+
+def _node2_envelope(row: dict, config: dict) -> bool:
+    return is_envelope(row, config) and support_stratum(row, config) in ("A", "B", "C", "D", "A2", "B2", "C2", "D2")
+
+
+def five_row_schema_valid(row: dict, config: dict) -> bool:
+    """Validate new-only support annotations and the row states that omit them."""
+    if config.get("support", {}).get("scheme") != "five-fixed-strata-v1":
+        return True
+    if type(row) is not dict:
+        return False
+    state = row.get("state")
+    if state == "construction_failed":
+        return (row.get("split") is None and "fine_stratum" not in row and row.get("envelope") is False and
+                row.get("oracle_unique") is False and row.get("eligible") is False and
+                row.get("sensitive") is False and row.get("first_seen_content") is False)
+    if state == "protected_integrity_only":
+        return (row.get("split") in SOURCE_SPLITS + DEV_SPLITS and "fine_stratum" not in row and
+                row.get("envelope") is False and row.get("oracle_unique") is False and
+                row.get("eligible") is False and row.get("sensitive") is False and
+                type(row.get("first_seen_content")) is bool and
+                type(row.get("duplicate_content")) is bool and
+                row["first_seen_content"] is (not row["duplicate_content"]))
+    if state not in ("first_seen", "duplicate_content") or "fine_stratum" not in row:
+        return False
+    if (row.get("split") not in SOURCE_SPLITS + DEV_SPLITS + ("final_test",) or
+            row.get("cell") not in CELLS or type(row.get("first_solution_nodes")) is not int or
+            type(row.get("prompt_bytes")) is not int or type(row.get("oracle_unique")) is not bool or
+            type(row.get("envelope")) is not bool or
+            row.get("branch") not in ("ordinary", "no_unary") or
+            not isinstance(row.get("model_input_sha256"), str) or len(row["model_input_sha256"]) != 64 or
+            any(ch not in "0123456789abcdef" for ch in row["model_input_sha256"])):
+        return False
+    expected = support_stratum(row, config)
+    fine = row["fine_stratum"]
+    return fine == expected and row["envelope"] is (row["oracle_unique"] and expected is not None)
+
+
+def row_schema_valid(row: dict, config: dict) -> bool:
+    """Check the full public audit row shape, including five-mode annotation rules."""
+    if type(row) is not dict or not five_row_schema_valid(row, config):
+        return False
+    source_profiles = set(config["source_profiles"])
+    development_profiles = set(config["development_profiles"])
+    final_profiles = set(config["final_profiles"])
+    expected_partition = {**{s: "source" for s in SOURCE_SPLITS},
+                          **{s: "development" for s in DEV_SPLITS}, "final_test": "final"}
+    split = row.get("split")
+    if split is None and row.get("state") == "construction_failed":
+        part, profile = row.get("partition"), row.get("profile")
+        allowed = source_profiles if part == "source" else development_profiles if part == "development" else final_profiles if part == "final" else ()
+        return profile in allowed and type(row.get("candidate_index")) is int and row["candidate_index"] >= 0
+    if split not in expected_partition:
+        return False
+    cid, lid, part = (row.get(k) for k in ("content_id", "lineage_id", "partition"))
+    profile = row.get("profile")
+    allowed_profiles = source_profiles if split in SOURCE_SPLITS else development_profiles if split in DEV_SPLITS else final_profiles
+    required_bools = ("oracle_unique", "eligible", "envelope", "sensitive", "first_seen_content")
+    valid = (all(isinstance(x, str) for x in (cid, lid, part, profile, row.get("structure_signature")))
+             and part == expected_partition[split] and profile in allowed_profiles
+             and all(type(row.get(k)) is bool for k in required_bools)
+             and row.get("cell") in CELLS and type(row.get("given_count")) is int
+             and isinstance(row.get("values"), list)
+             and all(type(v) is int and v in (0, 1, 2) for v in row.get("values", ())))
+    if split in DEV_SPLITS and row.get("state") != "protected_integrity_only":
+        valid = valid and isinstance(row.get("gac"), dict)
+    if config.get("support", {}).get("scheme") == "five-fixed-strata-v1":
+        valid = valid and row.get("branch") in ("ordinary", "no_unary")
+        if row.get("state") != "protected_integrity_only":
+            valid = valid and isinstance(row.get("gac"), dict)
+    return bool(valid)
 
 
 def _value_given(rows: list[dict], config: dict) -> tuple[bool, dict]:
@@ -80,10 +142,11 @@ def source_gate(rows: list[dict], raw_attempts: int, config: dict) -> tuple[bool
     train = _first_unique(_routed(rows, "source_train"))
     sensitive = [r for r in train if r.get("sensitive") is True]
     eligible = [r for r in sensitive if r.get("eligible") is True]
-    accepted = [r for r in eligible if _envelope(r)]
+    accepted = [r for r in eligible if is_envelope(r, config)]
     floors, profiles = config["source_floors"], config["source_profiles"]
-    cells = Counter(r["cell"] for r in accepted)
-    pcells = Counter((r.get("profile"), r.get("cell")) for r in accepted)
+    node2_accepted = [r for r in accepted if _node2_envelope(r, config)]
+    cells = Counter(r["cell"] for r in node2_accepted)
+    pcells = Counter((r.get("profile"), r.get("cell")) for r in node2_accepted)
     sigs = {r.get("structure_signature") for r in accepted if isinstance(r.get("structure_signature"), str)}
     psigs = {p: {r.get("structure_signature") for r in accepted if r.get("profile") == p} for p in profiles}
     sig_support = Counter(r.get("structure_signature") for r in accepted)
@@ -102,6 +165,19 @@ def source_gate(rows: list[dict], raw_attempts: int, config: dict) -> tuple[bool
         "eligible_envelope_fraction": bool(train) and len(accepted) / len(train) >= floors["eligible_envelope_fraction"],
         "sensitive_signatures": all(sig_support[s] >= floors["sensitive_per_accepted_signature"] for s in sigs),
     }
+    if config["support"].get("scheme") == "five-fixed-strata-v1":
+        a3_primitives = {primitive for r in accepted if support_stratum(r, config) == "A3"
+                         for primitive in str(r.get("profile", "")).split("/")}
+        required_primitives = {primitive for profile in profiles for primitive in str(profile).split("/")}
+        checks["a3_source_primitive_presence"] = required_primitives.issubset(a3_primitives)
+        primitive_strata: dict[str, Counter] = defaultdict(Counter)
+        for r in accepted:
+            stratum = support_stratum(r, config)
+            if stratum is not None:
+                for primitive in str(r.get("profile", "")).split("/"):
+                    primitive_strata[primitive][stratum] += 1
+    else:
+        a3_primitives = set()
     support = _support(sensitive, config)
     checks["common_support"] = support["pass"]
     report = {"floors": checks, "first_seen_unique": len(train), "sensitive": len(sensitive),
@@ -113,6 +189,12 @@ def source_gate(rows: list[dict], raw_attempts: int, config: dict) -> tuple[bool
               "A_fraction": len(accepted) / len(train) if train else 0.0,
               "A_per_raw_attempt": len(accepted) / raw_attempts if type(raw_attempts) is int and raw_attempts > 0 else 0.0,
               "cell_counts": {c: cells[c] for c in CELLS}, "support": support, **valmeta}
+    if config["support"].get("scheme") == "five-fixed-strata-v1":
+        report["a3_source_primitives"] = sorted(a3_primitives)
+        report["node2_cell_counts"] = {c: cells[c] for c in CELLS}
+        report["source_primitive_by_fine_stratum"] = {
+            primitive: {stratum: primitive_strata[primitive][stratum] for stratum in FIVE_STRATA}
+            for primitive in sorted(primitive_strata)}
     return all(checks.values()), report
 
 
@@ -127,10 +209,10 @@ def development_gate(rows: list[dict], source_rows: list[dict], config: dict) ->
     report_profiles = {}
     for p, rs in by_profile.items():
         E = [r for r in rs if r.get("eligible") is True]
-        A = [r for r in E if _envelope(r)]
+        A = [r for r in E if is_envelope(r, config)]
         sigE = {r.get("structure_signature") for r in E}
         sigA = {r.get("structure_signature") for r in A}
-        cells = Counter(r.get("cell") for r in A)
+        cells = Counter(r.get("cell") for r in A if _node2_envelope(r, config))
         checks[f"{p}/A_groups"] = len(A) >= floors["eligible_envelope_groups_per_profile"]
         checks[f"{p}/SigA"] = len(sigA) >= floors["accepted_signatures_per_profile"]
         checks[f"{p}/cell_min"] = all(cells[c] >= floors["eligible_envelope_per_profile_cell"] for c in CELLS)
@@ -175,7 +257,7 @@ def full_stage_gate(rows: list[dict], partition: str, config: dict, raw_attempts
         qual, qreport = source_gate(source_train, raw_attempts, config)
         all_source = _first_unique(permitted)
         source_E = [r for r in all_source if r.get("sensitive") is True and r.get("eligible") is True]
-        source_A = [r for r in source_E if _envelope(r)]
+        source_A = [r for r in source_E if is_envelope(r, config)]
         source_sensitive = [r for r in all_source if r.get("sensitive") is True]
         full = config["full_floors"]
         value_ok, value_meta = _value_given(source_A, config)
@@ -188,7 +270,7 @@ def full_stage_gate(rows: list[dict], partition: str, config: dict, raw_attempts
         }
         for split, minimum in full["source_split_minima"].items():
             checks[f"{split}_minimum_A"] = sum(r.get("split") == split and r.get("sensitive") is True and
-                                                  r.get("eligible") is True and _envelope(r)
+                                                  r.get("eligible") is True and is_envelope(r, config)
                                                   for r in all_source) >= minimum
         # Full source's source-train floors remain, and ID-test ALL-E support is mandatory.
         testE = [r for r in _first_unique(_routed(permitted, "source_test"))
@@ -207,20 +289,21 @@ def full_stage_gate(rows: list[dict], partition: str, config: dict, raw_attempts
         for p in config["development_profiles"]:
             vals = [r for r in unique if r.get("profile") == p]
             validation = [r for r in vals if r.get("split") == "development_validation"]
+            diagnostic = [r for r in vals if r.get("split") == "development_diagnostic_test"]
             E = [r for r in vals if r.get("eligible") is True]
-            A = [r for r in E if _envelope(r)]
+            A = [r for r in E if is_envelope(r, config)]
             E_validation = [r for r in validation if r.get("eligible") is True]
-            A_validation = [r for r in E_validation if _envelope(r)]
+            A_validation = [r for r in E_validation if is_envelope(r, config)]
             counts = Counter(r.get("cell") for r in A)
             bysplit = Counter(r.get("split") for r in vals)
-            validation_cells = Counter(r.get("cell") for r in A_validation)
+            validation_cells = Counter(r.get("cell") for r in A_validation if _node2_envelope(r, config))
             support = _support(E_validation, config)
             checks[f"{p}/quota"] = len(A) >= full["development_quota_per_profile"]
             checks[f"{p}/support"] = support["pass"]
             checks[f"{p}/split_validation_A"] = sum(r.get("split") == "development_validation" and
-                                                      r.get("eligible") is True and _envelope(r) for r in vals) >= full["development_split_minima_per_profile"]["development_validation"]
+                                                      r.get("eligible") is True and is_envelope(r, config) for r in vals) >= full["development_split_minima_per_profile"]["development_validation"]
             checks[f"{p}/split_diagnostic_A"] = sum(r.get("split") == "development_diagnostic_test" and
-                                                     r.get("eligible") is True and _envelope(r) for r in vals) >= full["development_split_minima_per_profile"]["development_diagnostic_test"]
+                                                     r.get("eligible") is True and is_envelope(r, config) for r in vals) >= full["development_split_minima_per_profile"]["development_diagnostic_test"]
             checks[f"{p}/A_groups"] = len(A) >= full["accepted_groups_per_mixed_profile"]
             checks[f"{p}/SigA"] = len({r.get("structure_signature") for r in A}) >= full["accepted_signatures_per_mixed_profile"]
             checks[f"{p}/eligibility"] = bool(vals) and len(E)/len(vals) >= full["mixed_eligibility_fraction"]
@@ -232,9 +315,16 @@ def full_stage_gate(rows: list[dict], partition: str, config: dict, raw_attempts
             profiles_report[p] = {"U": len(vals), "E": len(E), "A": len(A), "validation_U": len(validation),
                                   "validation_E": len(E_validation), "validation_A": len(A_validation),
                                   "support": support, "splits": dict(bysplit)}
+            if config["support"].get("scheme") == "five-fixed-strata-v1":
+                diagnostic_fine = Counter(support_stratum(r, config) for r in diagnostic
+                                          if r.get("eligible") is True and is_envelope(r, config))
+                diagnostic_nonzero = all(diagnostic_fine[stratum] > 0 for stratum in FIVE_STRATA)
+                checks[f"{p}/diagnostic_fine_stratum_nonzero"] = diagnostic_nonzero
+                profiles_report[p]["diagnostic_fine_stratum_counts"] = {
+                    stratum: diagnostic_fine[stratum] for stratum in FIVE_STRATA}
         for split, minimum in full["development_split_minima"].items():
             checks[f"{split}_total_A_minimum"] = sum(r.get("split") == split and r.get("eligible") is True and
-                                                       _envelope(r) for r in unique) >= minimum
+                                                       is_envelope(r, config) for r in unique) >= minimum
         allE = [r for r in unique if r.get("eligible") is True]
         validationE = [r for r in unique if r.get("split") == "development_validation" and r.get("eligible") is True]
         source_train_E = [r for r in _first_unique(_routed(source_rows, "source_train"))
@@ -250,14 +340,14 @@ def full_stage_gate(rows: list[dict], partition: str, config: dict, raw_attempts
         for p in ("eq/add_mod", "neq/add_mod"):
             for g in (2, 3):
                 checks[f"{p}/core_g{g}"] = cores.get(f"{p}/g{g}", 0) >= config["development_floors"]["core_signatures_per_profile_given_count"]
-        allA = [r for r in unique if r.get("eligible") is True and _envelope(r)]
+        allA = [r for r in unique if r.get("eligible") is True and is_envelope(r, config)]
         value_ok, value_meta = _value_given(allA, config)
         checks["values_and_givens"] = value_ok
         return all(checks.values()), {"partition": partition, "floors": checks, "profiles": profiles_report, "E": len(allE), "A": sum(v["A"] for v in profiles_report.values()), "stalled_E": len(ids), "core_signatures": cores, "source_train_support": source_support, **value_meta}
     # Final is a single triple-kind test cohort. It is structurally read only here.
     final_rows = _first_unique(_routed(rows, "final_test"))
     E = [r for r in final_rows if r.get("eligible") is True]
-    A = [r for r in E if _envelope(r)]
+    A = [r for r in E if is_envelope(r, config)]
     full = config["full_floors"]
     support = _support(E, config)
     value_ok, valmeta = _value_given(A, config)
@@ -277,18 +367,16 @@ def full_gate(all_rows: list[dict], raw_attempts_by_partition: dict[str, int], c
     content_owner: dict[str, tuple[str, str]] = {}
     checks = {"row_schema": True, "lineage_consistency": True, "content_split_closure": True,
               "heldout_compositions_absent_from_source_train": True}
-    source_profiles = set(config["source_profiles"])
-    development_profiles = set(config["development_profiles"])
-    final_profiles = set(config["final_profiles"])
     expected_partition = {**{s: "source" for s in SOURCE_SPLITS},
                           **{s: "development" for s in DEV_SPLITS}, "final_test": "final"}
     for r in all_rows:
+        if type(r) is not dict:
+            checks["row_schema"] = False
+            continue
+        if not row_schema_valid(r, config):
+            checks["row_schema"] = False
         split = r.get("split")
         if split is None and r.get("state") == "construction_failed":
-            part, profile = r.get("partition"), r.get("profile")
-            allowed = source_profiles if part == "source" else development_profiles if part == "development" else final_profiles if part == "final" else ()
-            if profile not in allowed or type(r.get("candidate_index")) is not int or r.get("candidate_index") < 0:
-                checks["row_schema"] = False
             # A consumed failed construction is an attempt, not a content row.
             continue
         if split not in expected_partition:
@@ -296,18 +384,6 @@ def full_gate(all_rows: list[dict], raw_attempts_by_partition: dict[str, int], c
             continue
         cid, lid, part = (r.get(k) for k in ("content_id", "lineage_id", "partition"))
         profile = r.get("profile")
-        allowed_profiles = source_profiles if split in SOURCE_SPLITS else development_profiles if split in DEV_SPLITS else final_profiles
-        required_bools = ("oracle_unique", "eligible", "envelope", "sensitive", "first_seen_content")
-        shape_ok = (all(isinstance(x, str) for x in (cid, lid, part, profile, r.get("structure_signature")))
-                    and part == expected_partition[split] and profile in allowed_profiles
-                    and all(type(r.get(k)) is bool for k in required_bools)
-                    and r.get("cell") in CELLS and type(r.get("given_count")) is int
-                    and isinstance(r.get("values"), list)
-                    and all(type(v) is int and v in (0, 1, 2) for v in r.get("values", ())))
-        if split in DEV_SPLITS and r.get("state") != "protected_integrity_only":
-            shape_ok = shape_ok and isinstance(r.get("gac"), dict)
-        if not shape_ok:
-            checks["row_schema"] = False
         if not all(isinstance(x, str) for x in (cid, lid, part, split)):
             continue
         if lid in lineage_content and lineage_content[lid] != cid:

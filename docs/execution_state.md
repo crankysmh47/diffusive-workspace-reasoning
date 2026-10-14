@@ -1,6 +1,6 @@
 # Active execution: prospective five-stratum study
 
-Updated2026-10-14. The retained support diagnosis atcleanbb9540e completed PASS_DIAGNOSIS in1.734s after493 passing CPU tests; old qualification NO_GO remains unchanged. See [diagnosis result](rank_support_diagnosis_result.md) and [new five-stratum design](five_stratum_study_design.md). Scientific readiness passed and exact fresh configs/seeds/caps/weights are frozen. Luna implements policy/audit, then runner/linkage; root reviews/freezes/executes. No new five-stratum qualification/full/final/model/training has yet run.
+Updated2026-10-14. The retained support diagnosis atcleanbb9540e completed PASS_DIAGNOSIS in1.734s after493 passing CPU tests; old qualification NO_GO remains unchanged. See [diagnosis result](rank_support_diagnosis_result.md) and [new five-stratum design](five_stratum_study_design.md). Scientific readiness passed and exact fresh configs/seeds/caps/weights are frozen. Luna policy/audit and runner/linkage implementation is reviewed. Root528 stable-byte CPU tests passed40.839s; whole-plan review READY_FOR_SINGLE_QUALIFICATION. See [implementation verification](five_stratum_implementation.md). Root freezes clean source and executes the sole fresh qualification next. No new five-stratum qualification/full/final/model/training has yet run.
 
 # Execution state: rank qualification closed NO-GO
 
@@ -8,7 +8,7 @@ Updated: 2026-10-14. Branch `research/transfer-cpu-v1`; main unchanged. Clean so
 
 Controller474 CPU tests passed in40.367 seconds on stable bytes; independent release review READY. Terminal artifact/config/command/producer bindings were independently checked using public aggregates and opaque hashes only. The registered decision is a scientific blocker to full/model work. Preserve all ignored artifacts and negative evidence; archival backup and independent reproduction remain incomplete. The owner-requested [PR #1](https://github.com/crankysmh47/diffusive-workspace-reasoning/pull/1) was merged by the owner at2026-10-13T19:25:44Z, remote main62c450f. No agent merge was performed; original local main edits remain untouched.
 
-## Active retained diagnosis — 2026-10-14
+## Historical retained diagnosis implementation checkpoint — 2026-10-14
 
 Owner resumed autonomous work. Root selected and registered [retained rank support diagnosis](rank_support_diagnosis.md); Luna implementation and independent release review are complete; root493 CPU tests passed43.653s on stable bytes. See [implementation verification](rank_support_diagnosis_implementation.md). Clean source freeze and sole retained invocation are next. Only source_train/development_validation annotations of the closed qualification may be analyzed; no new tasks, protected/final choices, threshold selection or G2/model execution. Config SHA63145f650d17dc5bd205bfd1dc0db38b7c2b68dadc8ea445ddf8805e296bd394; sole60s/256MiB run after reviewed clean source. Original NO_GO remains unchanged. Owner mergedPR#1; next verified checkpoint gets a new PR.
 
