@@ -68,7 +68,7 @@ Windows work addressed bounded atomic-file replacement conflicts, resource accou
 
 These are agent-run CPU studies with independently implemented checks, not independent human reproduction. Syntax/core counts are not proof of independent reasoning mechanisms. Protected unattempted targets are unassessed, not measured failures.
 
-## 6. Current rank-certified design and unfinished implementation
+## 6. Historical rank-certified design and unfinished implementation at the handoff
 
 The next [prospective design](certificate_rank_design.md), committed as `2858750`, uses finite F3 rank/nullspace construction to make hard ADD-containing pair tasks unique algebraically while preserving each kind-deletion alternative. EQ/ADD uses a full-rank mixed linear basis; NEQ/ADD uses a rank-(m-1) ADD basis and inequalities excluding the other two points of its three-point solution fiber. Padding and connectivity remain explicit conditions, with every failure consuming its index. Existing source and ordinary development branches remain versioned delegates.
 
@@ -88,7 +88,7 @@ The research branch contains the completed source/docs/history and the clearly l
 
 ## 8. What remains before a research paper
 
-First finish and independently review the rank constructor/runner, including the final grammar and meaningful fixture/failure checks; then freeze clean source and execute its single registered qualification. Only PASS enables the predeclared full corpus and five-cohort G2 audit. Scientific or resource failures must be preserved rather than repaired by unregistered seed/threshold searches.
+The separately versioned five-stratum structural G2 now passes; the original rank qualification and older studies retain their negative results. Native model correctness, complete run/evaluation/resume machinery, full training memory/cost feasibility and prospective precision remain before an interpretable model experiment. Scientific/resource failures must be preserved rather than repaired by unregistered seed/threshold searches.
 
 After full G2 PASS, implement fixed-N EX/IDX tensors and the decoder interface; verify permutation behavior, causal masks, frozen-weight immutability, gradient flow, resume and full memory/cost. Select a pinned backbone and complete non-null model preregistration, then run development pilots and the matched multi-seed transfer study. Variable N, allocation, cross-family claims and flow/distillation remain subsequent work.
 
@@ -115,3 +115,13 @@ Root registered and independently reviewed a [fresh five-stratum study](five_str
 2026-10-14 checkpoint: [PR #2](https://github.com/crankysmh47/diffusive-workspace-reasoning/pull/2) records reviewed retained support diagnosis and prospective five-stratum registration. Root opened it against main without merging; implementation continues on research/transfer-cpu-v1. Raw artifacts remain local/ignored.
 
 2026-10-14 five-stratum implementation checkpoint: Luna completed explicit policy/audit and strict runner/linkage/projection/state handling. Independent task/release reviews closed discovered defects before any scientific draw. Root528 stable-byte CPU tests passed40.839s. See [verification](five_stratum_implementation.md) for actual logs, hashes and preserved evidence departures. Fresh qualification and conditional full G2 are next; no workspace/model/training result exists.
+
+
+## 2026-10-14: first complete structural G2 PASS and fixed-N core design
+
+At clean source `6ad8277`, the sole fresh five-stratum qualification passed, followed by PASS_G2_FIVE_STRATUM_V1. All 22,718 full attempts replayed, with 3,000 source, 2,907 development and 600 final accepted tasks. Required support/difficulty/uniqueness/grouping checks and held-out composition absence from training passed. See [result](five_stratum_study_result.md) and [compact record](../configs/splits/certificate-five-stratum-study-result.json). Both allowances are closed without retry. The runner write-cost component counters are unavailable measurements; total costs and original artifacts remain preserved. Raw artifacts remain local without a verified archival backup.
+
+Root selected the [fixed-N workspace core and set reader design](fixed_workspace_core_design.md); independent review is READY_FOR_CORE_IMPLEMENTATION and Luna implementation is in progress. There are no neural results. The seven-example EQ/NEQ A3 diagnostic cell limits prospective precision; no corpus/support/split change follows its protected structural count. The owner requested minimal commits, so results and verified components will be consolidated into one checkpoint and the existing PR updated without an agent merge.
+
+
+2026-10-14 component checkpoint: Luna implemented the actual shared EX/IDX workspace and invariant set reader. Independent task/release reviews and strengthened RNG/query/EX-and-IDX gradient/optimizer regressions are clear. Root528 stdlib checks plus20 actual tensor checks passed on stable bytes in separate environments, combined44.140s; the first monolithic run failed two unchanged256MiB guards after Torch import and remains preserved. See [verification](fixed_workspace_core_verification.md). No native pretrained/GPU learning result or complete training-resume evidence exists. The [native integration design](native_backbone_design.md) pins the next candidate and host contract prospectively.

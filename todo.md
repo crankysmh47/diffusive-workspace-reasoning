@@ -2,13 +2,14 @@
 
 Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_v2.md), amended by the binding [v2.2 protocol](docs/research_protocol.md); the terminal v4 proposal record is [v4](docs/task_spec_v4.md). This is the sole live checklist. Check an item only when its output and recorded verification exist. Planning does not count as implementing a gate.
 
-## Prospective five-stratum study — 2026-10-14
+## Five-stratum study and fixed-N components — 2026-10-14
 
 - [x] Register exact five fine strata, fresh seeds/counts/quotas/caps and new estimand/weights. Scientific readiness review passed. See [design](docs/five_stratum_study_design.md), [plan](docs/superpowers/plans/2026-10-14-five-stratum-study.md) and closed qualification/full configs.
 - [x] Luna implement/review support policy and fine-cohort audit, preserving legacy behavior. Source TRAIN/ID/validation isolation checks passed.
 - [x] Luna implement/review strict new runner/linkage/projections; root528 stable-byte CPU tests passed40.839s; release review READY. See [verification](docs/five_stratum_implementation.md). Freeze this verified source before the sole invocation.
-- [ ] Execute the sole fresh qualification; only PASS admits its frozen full G2. Preserve every negative/partial outcome; no retry or policy change from new test feedback.
-- [ ] Only full G2 PASS: next fixed-N infrastructure milestone; no unregistered model training.
+- [x] Freeze clean source `6ad8277` and execute the sole qualification and conditional full G2. Results PASS_QUALIFICATION / PASS_G2_FIVE_STRATUM_V1 with replay of all 8,400 / 22,718 attempts; root checked public terminal metadata and artifact bindings. Both allowances are closed. See [result](docs/five_stratum_study_result.md) and [compact manifest](configs/splits/certificate-five-stratum-study-result.json).
+- [x] Specify the next fixed-N component architecture and verification plan. Independent design review READY_FOR_CORE_IMPLEMENTATION; this is design evidence, not model validation. See [design](docs/fixed_workspace_core_design.md) and [plan](docs/superpowers/plans/2026-10-14-fixed-workspace-core.md).
+- [x] Implement and independently review the actual EX/IDX tensor core and set reader; verify recurrence, permutation, masks, RNG and frozen-tail gradient flow. Root528 stdlib checks and20 actual tensor checks passed in separate environments under44.140s combined; the original monolithic memory-guard failure is preserved. See [verification](docs/fixed_workspace_core_verification.md). No native-model training or full-resume claim follows.
 
 ## Retained rank support diagnosis — 2026-10-14
 
@@ -130,14 +131,14 @@ Gate G1: passed for the frozen task contract and CPU correctness implementation.
 - [x] Implement and test canonical structure/lineage grouping, including variable renaming and constraint-order changes; define which transformations preserve each primitive's semantics.
 - [x] Run the independent audit on the available partial corpus and record assessed versus unassessed dimensions in `docs/task_suitability.md`. The incomplete attempt did not assess held-out composition coverage or G2.
 - [x] Record observed unique-solution examples, independent group counts, structural sensitivity and support diagnostics.
-- [ ] Match or stratify input length, size and solver difficulty across a complete source/target composition comparison.
-- [ ] Use development data to choose sample/group counts and prospective precision; register an absolute transfer criterion, ID-learning guardrails and a practical EX-IDX effect size. No development data were generated.
-- [ ] Freeze source train/validation/ID-test plus composition-transfer validation/test, with distinct development/final composition signatures. Development/final partitions were not attempted.
+- [x] Stratify the new five-stratum comparison prospectively by given/constraint counts and solver-node bins, with fixed equal fine-stratum/composition metric weights. Exact within-bin difficulty, locality and source primitive balance are not controlled; see [design](docs/five_stratum_study_design.md).
+- [ ] Use permitted development data for prospective precision; register absolute transfer/ID-learning guardrails and a practical EX-IDX effect size. EQ/NEQ diagnostic A3 has seven examples; structural PASS does not establish confirmatory precision.
+- [x] Freeze source train/validation/ID-test and development-validation/diagnostic plus final-composition partitions in the new passing study. Held-out compositions and required grouping closures passed; no split changes follow results.
 - [x] Commit a small manifest of the registered config/source and partial local artifact hashes under `configs/splits/`; generated records remain ignored in `data/`.
 - [x] Verify model-input annotation exclusion and candidate replay on the 185-record partial corpus.
-- [ ] Regenerate a complete corpus and verify its registered hashes; the current run is incomplete and was not retried.
+- [x] Generate and replay a complete separately versioned corpus. All 22,718 attempts replayed with exact accepted projections and root artifact hash checks. This is agent-run evidence; archival backup and independent-person reproduction remain incomplete.
 
-Gate G2: not assessed and not passed. The fixed-size EX/IDX experiment is conditional on a future versioned development-only resolution and a complete passing audit; no target-answer tuning or relaxed grouping is permitted.
+Gate G2: **PASS_G2_FIVE_STRATUM_V1**, the registered structural gate only. All predecessor studies retain their own failures/unassessed results. Model sample adequacy, native host correctness, training feasibility and complete registration remain separate prerequisites; no target-answer tuning or relaxed grouping is permitted.
 
 ## 3. Run infrastructure and frozen-backbone reference
 
@@ -153,10 +154,11 @@ Gate G3: run identities, repeatable frozen-backbone evaluation and measurement i
 
 ## 4. One-shot workspace and interface controls
 
-- [ ] Implement trainable set cross-attention adapters and the shared residual block `Z_next = Z + F(LN(Z), X)` under `dwr/models/`; fix layers, dimensions, initializations and gates across methods.
+- [x] Implement the actual shared residual EX/IDX block and invariant set reader under `dwr/models/`. Independently reviewed CPU tests verify the fixed-N component contract; see [verification](docs/fixed_workspace_core_verification.md).
+- [ ] Integrate the matched readers into actual frozen native decoder layers and verify prompt-only encoding, causal logits and complete answer loss. Follow the [native design](docs/native_backbone_design.md); this is not established by the frozen linear-tail fixture.
 - [ ] Train only new parameters using shifted answer-token cross-entropy, masking prompt/padding tokens; retain gradients through frozen decoder computations and all workspace updates.
-- [ ] Add tensor tests for EX equivariance, decoder invariance, causality, masks, shapes, finite gradients and frozen weights unchanged after an optimizer step. Report CPU versus GPU checks separately.
-- [ ] Implement K=4 shared recurrence for the pilot and full planned K support for the memory probe; test gradients through every update and finite latent norms.
+- [x] Add actual CPU tensor checks for EX equivariance, reader invariance/query independence, masks, shapes, all recurrent gradients and new-parameter SGD changes with frozen-tail bytes unchanged for EX/IDX. Native causal logits and GPU checks remain outstanding.
+- [x] Implement K=4 shared recurrence and K0/K1 forward paths; verify finite states and gradients through Z0..Z4. This does not implement trained K0-control bookkeeping or deferred wider-K studies.
 - [ ] Measure full forward/backward/optimizer memory at maximum planned training K, sequence length and batch, plus any separately registered extrapolation horizon; freeze model/workspace/adapter/precision settings consistently across methods before the pilot.
 - [ ] Verify complete optimizer/scheduler/scaler/RNG/sampler resume against uninterrupted tiny training with stated tolerances.
 - [ ] Overfit a tiny verified batch; diagnose integration failures before development comparisons.
@@ -205,6 +207,6 @@ Gate G7: a reproducible technical report, not guaranteed venue acceptance. Choos
 
 See [spare_research_ideas.md](docs/spare_research_ideas.md) for task-structure theory, persistent repair, learned slot allocation, flow distillation and adaptive stopping. These are not active milestones. Public datasets and larger backbones also require a new evidence-backed scope decision; preserve problem-level grouping and usage-term checks if activated.
 
-At this revision, CPU task-generation, orchestration, replay/audit, exact canonicalization and the separately registered operational follow-up are implemented and verified. The follow-up's source suitability NO-GO and all historical attempts are preserved. G2 is not assessed and remains unchecked. Workspace/model implementation, backbone selection, training, fixed-size transfer, variable-slot-count experiments, paper reporting, archival backup, and independent reproduction remain incomplete.
+At this revision, CPU task generation, replay/audit, the new five-stratum structural G2 and fixed-N tensor components are verified. All historical attempts remain preserved. Native backbone integration, run/evaluation/resume machinery, GPU task training, fixed-size transfer, variable-slot experiments, paper reporting, archival backup and independent-person reproduction remain incomplete.
 
 2026-10-14 checkpoint: [PR #2](https://github.com/crankysmh47/diffusive-workspace-reasoning/pull/2) records reviewed retained support diagnosis and prospective five-stratum registration. Root opened it against main without merging; implementation continues on research/transfer-cpu-v1. Raw artifacts remain local/ignored.

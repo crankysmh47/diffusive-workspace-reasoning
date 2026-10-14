@@ -1,0 +1,862 @@
+{
+  "archival_backup": false,
+  "cost_reporting_correction": {
+    "reason": "Runner fallback zero counters are not a separate write-cost measurement. Total wall/CPU include writes; original hashed artifacts remain unchanged.",
+    "separate_artifact_write_cpu_seconds": null,
+    "separate_artifact_write_wall_seconds": null
+  },
+  "full": {
+    "artifact_sha256": {
+      "manifest.initial.json": "996263024f52e57d327333007927dba299e09eae2b4b7ee5c5deef0c4f6ebc9a",
+      "manifest.json": "07a321f6471175537200a8c2db724682220cbae59f39eaedb2923280ac1e4baf",
+      "outcomes.jsonl": "13ce3f4cec7240c387d9bbfd42bb3d4eb23a51e917906be3810c647da2ae6103",
+      "records.jsonl": "24478cb8c9a9a0f190a38163187faeabf56445bbda0938c48f57ac06eb2e05b4",
+      "replay.json": "f2b7062bea5034cd4faa1351af6f2d708016b78fa7e1bb71ac47557b59e635e2",
+      "report.json": "fe29bb8fe8e51e9015c58e06dfee7b916e9b2d730efa259dfe54fb20c0eebe70"
+    },
+    "config_sha256": "3aff6fcaba6143a26ad6d8a86cc83f9782ff63d689912f5fb04ffc4e9cc81afa",
+    "controller_checks": {
+      "all_stages_pass": true,
+      "artifacts": true,
+      "budgets": true,
+      "clean": true,
+      "config_hash": true,
+      "config_path": true,
+      "counts_within_raw_caps": true,
+      "current_runtime_git_blobs": true,
+      "final_access": true,
+      "g2_pass": true,
+      "output_dir": true,
+      "production": true,
+      "qualification_link": true,
+      "replay": true,
+      "requested_command": true,
+      "resolved_config": true,
+      "source_commit": true,
+      "source_initial": true,
+      "terminal_equal": true
+    },
+    "controller_wrapper": {
+      "command": [
+        "C:\\Users\\Hank47\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+        "-m",
+        "dwr.tasks.certificate_rank_study",
+        "--config",
+        "configs/tasks/certificate_five_stratum_full_v1.json",
+        "--output",
+        "runs/certificate-five-stratum-full-20261014-v1"
+      ],
+      "exit_code": 0,
+      "external_watchdog_seconds": 3605,
+      "git_status_after": "",
+      "log_sha256": "3edbda47f2b1cc36fc3eb1e970c6d756d6c344e825c122a1b895819f51684a16",
+      "source_commit": "6ad827784e3887295db05c4e1e651f6e5a6648f3",
+      "source_commit_after": "6ad827784e3887295db05c4e1e651f6e5a6648f3",
+      "started_utc": "20261014T172309491522Z",
+      "timed_out": false,
+      "wall_seconds": 826.1089999999999
+    },
+    "development_gate": {
+      "A": 2907,
+      "E": 3271,
+      "core_signatures": {
+        "eq/add_mod/g2": 153,
+        "eq/add_mod/g3": 27,
+        "neq/add_mod/g2": 161,
+        "neq/add_mod/g3": 13
+      },
+      "floors": {
+        "development_diagnostic_test_total_A_minimum": true,
+        "development_validation_total_A_minimum": true,
+        "eq/add_mod/A_groups": true,
+        "eq/add_mod/SigA": true,
+        "eq/add_mod/core_g2": true,
+        "eq/add_mod/core_g3": true,
+        "eq/add_mod/diagnostic_fine_stratum_nonzero": true,
+        "eq/add_mod/eligibility": true,
+        "eq/add_mod/qualification_A_cell_min": true,
+        "eq/add_mod/qualification_A_fraction": true,
+        "eq/add_mod/qualification_E_fraction": true,
+        "eq/add_mod/quota": true,
+        "eq/add_mod/split_diagnostic_A": true,
+        "eq/add_mod/split_validation_A": true,
+        "eq/add_mod/support": true,
+        "eq/add_mod/validation_A_min": true,
+        "eq/add_mod/validation_SigA_min": true,
+        "eq/neq/A_groups": true,
+        "eq/neq/SigA": true,
+        "eq/neq/diagnostic_fine_stratum_nonzero": true,
+        "eq/neq/eligibility": true,
+        "eq/neq/qualification_A_cell_min": true,
+        "eq/neq/qualification_A_fraction": true,
+        "eq/neq/qualification_E_fraction": true,
+        "eq/neq/quota": true,
+        "eq/neq/split_diagnostic_A": true,
+        "eq/neq/split_validation_A": true,
+        "eq/neq/support": true,
+        "eq/neq/validation_A_min": true,
+        "eq/neq/validation_SigA_min": true,
+        "neq/add_mod/A_groups": true,
+        "neq/add_mod/SigA": true,
+        "neq/add_mod/core_g2": true,
+        "neq/add_mod/core_g3": true,
+        "neq/add_mod/diagnostic_fine_stratum_nonzero": true,
+        "neq/add_mod/eligibility": true,
+        "neq/add_mod/qualification_A_cell_min": true,
+        "neq/add_mod/qualification_A_fraction": true,
+        "neq/add_mod/qualification_E_fraction": true,
+        "neq/add_mod/quota": true,
+        "neq/add_mod/split_diagnostic_A": true,
+        "neq/add_mod/split_validation_A": true,
+        "neq/add_mod/support": true,
+        "neq/add_mod/validation_A_min": true,
+        "neq/add_mod/validation_SigA_min": true,
+        "pooled_stalls": true,
+        "source_train_common_support": true,
+        "values_and_givens": true
+      },
+      "given_counts": [
+        2,
+        3
+      ],
+      "partition": "development",
+      "profiles": {
+        "eq/add_mod": {
+          "A": 1524,
+          "E": 1747,
+          "U": 2180,
+          "diagnostic_fine_stratum_counts": {
+            "A2": 72,
+            "A3": 42,
+            "B2": 75,
+            "C2": 55,
+            "D2": 70
+          },
+          "splits": {
+            "development_diagnostic_test": 438,
+            "development_validation": 1742
+          },
+          "support": {
+            "eligible": 1388,
+            "mass": 0.8717579250720461,
+            "pass": true,
+            "stratum_counts": {
+              "A2": 280,
+              "A3": 167,
+              "B2": 262,
+              "C2": 276,
+              "D2": 225
+            }
+          },
+          "validation_A": 1210,
+          "validation_E": 1388,
+          "validation_U": 1742
+        },
+        "eq/neq": {
+          "A": 600,
+          "E": 614,
+          "U": 865,
+          "diagnostic_fine_stratum_counts": {
+            "A2": 31,
+            "A3": 7,
+            "B2": 19,
+            "C2": 37,
+            "D2": 37
+          },
+          "splits": {
+            "development_diagnostic_test": 181,
+            "development_validation": 684
+          },
+          "support": {
+            "eligible": 482,
+            "mass": 0.9730290456431535,
+            "pass": true,
+            "stratum_counts": {
+              "A2": 99,
+              "A3": 35,
+              "B2": 44,
+              "C2": 110,
+              "D2": 181
+            }
+          },
+          "validation_A": 469,
+          "validation_E": 482,
+          "validation_U": 684
+        },
+        "neq/add_mod": {
+          "A": 783,
+          "E": 910,
+          "U": 992,
+          "diagnostic_fine_stratum_counts": {
+            "A2": 33,
+            "A3": 33,
+            "B2": 22,
+            "C2": 33,
+            "D2": 28
+          },
+          "splits": {
+            "development_diagnostic_test": 189,
+            "development_validation": 803
+          },
+          "support": {
+            "eligible": 743,
+            "mass": 0.8532974427994616,
+            "pass": true,
+            "stratum_counts": {
+              "A2": 146,
+              "A3": 146,
+              "B2": 97,
+              "C2": 110,
+              "D2": 135
+            }
+          },
+          "validation_A": 634,
+          "validation_E": 743,
+          "validation_U": 803
+        }
+      },
+      "source_train_support": {
+        "eligible": 2616,
+        "mass": 0.9311926605504587,
+        "pass": true,
+        "stratum_counts": {
+          "A2": 467,
+          "A3": 191,
+          "B2": 563,
+          "C2": 568,
+          "D2": 647
+        }
+      },
+      "stalled_E": 1048,
+      "value_counts": {
+        "0": 5580,
+        "1": 6005,
+        "2": 5857
+      },
+      "value_fractions": {
+        "0": 0.31991744066047473,
+        "1": 0.3442839123953675,
+        "2": 0.3357986469441578
+      }
+    },
+    "final_gate": {
+      "A": 600,
+      "E": 646,
+      "U": 646,
+      "floors": {
+        "accepted_groups": true,
+        "accepted_signatures": true,
+        "eligibility": true,
+        "quota": true,
+        "support": true,
+        "values_and_givens": true
+      },
+      "given_counts": [
+        2,
+        3
+      ],
+      "partition": "final",
+      "support": {
+        "eligible": 646,
+        "mass": 0.9287925696594427,
+        "pass": true,
+        "stratum_counts": {
+          "A2": 140,
+          "A3": 90,
+          "B2": 121,
+          "C2": 124,
+          "D2": 125
+        }
+      },
+      "value_counts": {
+        "0": 1137,
+        "1": 1256,
+        "2": 1207
+      },
+      "value_fractions": {
+        "0": 0.31583333333333335,
+        "1": 0.3488888888888889,
+        "2": 0.3352777777777778
+      }
+    },
+    "final_structural_access": {
+      "config_sha256": "3aff6fcaba6143a26ad6d8a86cc83f9782ff63d689912f5fb04ffc4e9cc81afa",
+      "development_stage_sha256": "83379c8ed459fdb084093b854492342802d824ab595b8bc154d5b03cf4d4ba57",
+      "event": "final_structural_access",
+      "frozen_contract": {
+        "final_quota": 600,
+        "floors": {
+          "accepted_groups_per_mixed_profile": 100,
+          "accepted_groups_per_partition": 100,
+          "accepted_signatures_per_mixed_profile": 12,
+          "accepted_signatures_per_partition": 12,
+          "development_quota_per_profile": 600,
+          "development_split_minima": {
+            "development_diagnostic_test": 20,
+            "development_validation": 80
+          },
+          "development_split_minima_per_profile": {
+            "development_diagnostic_test": 5,
+            "development_validation": 20
+          },
+          "diagnostic_fine_stratum_nonzero": true,
+          "final_quota": 600,
+          "given_counts": [
+            2,
+            3
+          ],
+          "mixed_eligibility_fraction": 0.25,
+          "source_quota": 3000,
+          "source_split_minima": {
+            "source_test": 20,
+            "source_train": 100,
+            "source_validation": 20
+          },
+          "value_fraction_each": 0.1
+        },
+        "raw_limit": 30000,
+        "support": {
+          "cell_min": 10,
+          "cohort_mass_min": 0.8,
+          "scheme": "five-fixed-strata-v1",
+          "strata": [
+            {
+              "cell": "A",
+              "first_solution_node_bin": 2,
+              "id": "A2",
+              "prompt_byte_bin": 4
+            },
+            {
+              "cell": "A",
+              "first_solution_node_bin": 3,
+              "id": "A3",
+              "prompt_byte_bin": 4
+            },
+            {
+              "cell": "B",
+              "first_solution_node_bin": 2,
+              "id": "B2",
+              "prompt_byte_bin": 4
+            },
+            {
+              "cell": "C",
+              "first_solution_node_bin": 2,
+              "id": "C2",
+              "prompt_byte_bin": 4
+            },
+            {
+              "cell": "D",
+              "first_solution_node_bin": 2,
+              "id": "D2",
+              "prompt_byte_bin": 4
+            }
+          ]
+        }
+      },
+      "qualification_manifest_sha256": "fd51b2e0350f91f4fa6bae8f03b817c0bc070baa8705cab3dbdd15f338184aa2",
+      "scope": "final_test structural qualification only; no model evaluation or construction choices",
+      "source_stage_sha256": "50ad04a1497b0eb1803e91489a13b6e322d42f8c30f1e46d6c0f17589fa94632",
+      "timestamp_utc": "2026-10-14T17:29:51.885836+00:00"
+    },
+    "global_first_seen_content": 13025,
+    "qualification_link": {
+      "artifact_sha256": {
+        "manifest.initial.json": "ab2d27e82f51a46b1063647a7a8e1f248a471f968fa02062ddac2da0d8ace243",
+        "outcomes.jsonl": "1c8292ede7e4bdb8cb7d23ab2e9657fcd59226bbbd00411c1e2383c904f7a090",
+        "records.jsonl": "98eebe985c4b8424cfe2c3b605279883bc29324792c8e24117ffbdda6674007d",
+        "replay.json": "feeb059f4e89b86440ca7a41af6f8172573a36467665c609a51c21fcbd1d2f73",
+        "report.json": "c629f82fbed0ba01768a92196dbf9a4a550fb4584903442f830f464005442c17"
+      },
+      "manifest_sha256": "fd51b2e0350f91f4fa6bae8f03b817c0bc070baa8705cab3dbdd15f338184aa2",
+      "replay_status": "PASS_REPLAY",
+      "source_producer_sha256": {
+        "dwr/__init__.py": "ff8027ef48e5a98aacc1fa04f55066bcfd92abf34c7fc27d14ea5cdf5fc60a13",
+        "dwr/tasks/__init__.py": "34d430e998e267f4544f4a302c307dd52f5a6b951f8655450d9a924284c0eec5",
+        "dwr/tasks/audit.py": "9084a0d201e8a9b2623aaae273d6d0818b86c0b11cb875d7fa33000691f47b59",
+        "dwr/tasks/audit_cli_v2.py": "6c5f71d307ea1c24421160abd38666fa155f0ec61ef8e7056fc09b64f7a084cb",
+        "dwr/tasks/audit_cli_v3.py": "2abcf4f9d5c258ad0431d13701838bcd89400db9409f2d5b9d8809833635e813",
+        "dwr/tasks/audit_probe_v4.py": "4541b46b440036fd71a77fc3578eeba1491955bc3921947e48ce3d0e27512e62",
+        "dwr/tasks/audit_v2.py": "1189e3df2ef820809f410f222863ba80f929574812e69e1cbc245cd6b2025531",
+        "dwr/tasks/canonical.py": "36fbf3e54a60c69697c68657d04d07ebaca7d95744847cd78eecdd0bba6589c5",
+        "dwr/tasks/certificate_diagnosis.py": "f7cf96bb63fdf0555908b170a3cc81c61769785aa4b0c21ee5c5082372e988c1",
+        "dwr/tasks/certificate_fixture_v2.py": "40d602b8e66e6d0b045cdee6e3a63bea11a4ddad3980dd79b5319f9038c75f08",
+        "dwr/tasks/certificate_generator.py": "a92d3a2e7940bb191228529e142d7564f40051d0b7e3ced77f6a2edf10852308",
+        "dwr/tasks/certificate_generator_v2.py": "4fe6516855315556b873e3fb974ecd3a0e7a1e26eb3579b1e9df073925d63d7d",
+        "dwr/tasks/certificate_rank_audit.py": "cc890745ebc2ecdc580073d3affc5ddc4e9f06e69e2b6a15349a979183461a36",
+        "dwr/tasks/certificate_rank_generator.py": "e75c29171092b3ee93eea2426646879b8bc774bb22a8c2aeb2bb60334df6d95a",
+        "dwr/tasks/certificate_rank_study.py": "2aabb1e92577fb9ef7bd0647a70e6266318e82ab03bc640c77bb7ac910a335ed",
+        "dwr/tasks/certificate_rank_support_diagnosis.py": "49aeeec0509eebef4c33f563bd5dc04a4adfb9a9ac0328b84125f80dc1fa2c44",
+        "dwr/tasks/certificate_study.py": "46974cbd18fdd26379aa601bcfa5bd4c4e5c334f97213941b1dcf6275c2067d1",
+        "dwr/tasks/certificate_support.py": "f67a994f9fe241279dcb7afd7a447276fa74adf78c84289280b729d782ae9de5",
+        "dwr/tasks/cli.py": "79e1609798f4f586718cd2f00c645452c4655c1fde251cd3f938992a4116d823",
+        "dwr/tasks/cli_v2.py": "79538fdc53b28fbd5814fa7b424f5e03f3c8283ef1f0e5b4752e894ce61f6d38",
+        "dwr/tasks/cli_v3.py": "74afa8f0600dd4677fbfc668353e1c5eaecbd08329971ec69c03212dda1d972e",
+        "dwr/tasks/config_probe_v4.py": "80bdb36a54b31fe7e00e53b538855c07860c9917c53fc5a44f06be30dda46d37",
+        "dwr/tasks/config_v2.py": "31fd4b9d5c086f68b93dd0cc480171b565d4d02c2a9b6d82573c44aacd539fba",
+        "dwr/tasks/config_v3.py": "15dfaaac9d548e90e1cd6fa8e3ff2c3994a5ec7f21b338590e62cbef28bba151",
+        "dwr/tasks/dataset.py": "48ba181e51595e6894045ebeaddb01eda9acaaa1c0f7e6a5efe6cd5ec1aea024",
+        "dwr/tasks/dataset_v2.py": "03aeb55fda0e33ecb648c51aaf35097a1201c667d077065e45846506cc2911ad",
+        "dwr/tasks/f3.py": "fd16531bd548a40f5da7d18e1c65ed43206e1aadacd7e59bf5efdc7dafa8ad1b",
+        "dwr/tasks/generator.py": "9558be045f9f72fd102d4a4188e7b158a0f577ebc3abd39b0fac17223f4f902e",
+        "dwr/tasks/generator_probe_v4.py": "8cf18e00d995ae5f0a55bfa49b268e00a962ed7621f4e34d78ea0fe5a3839afb",
+        "dwr/tasks/generator_v2.py": "b7ca157ee18dde651217063fad0d5c9d2016a038dc25a4b5bdf0fbea9fdf600c",
+        "dwr/tasks/generator_v3.py": "67861a0b06fe2a8cc9840c67325982f25dec270a8d64a42bf3dc89c6eb3ea8c9",
+        "dwr/tasks/local_propagation.py": "ea25b19a116a73dbda68415fc1a8f21f4d761572e7ee286f76d2300650dcb5c6",
+        "dwr/tasks/manifest_v2.py": "35f6789684038d52bac2681296d28194097f1d32a66d56114f5410c81b6bdcbc",
+        "dwr/tasks/oracle.py": "227088aabfb979036b8bc8ab1a89a35ebd4aaa4eb5af4ee8a853fcf45c61f217",
+        "dwr/tasks/probe_cli_v4.py": "c548ee43c056d09c7bc7e4e099c105b827ddea6b16a7a6231a13ea65348e6bae",
+        "dwr/tasks/probe_v4.py": "bbad4e018377bb683c81343271c2eaade607dd19275a567da4e2100ea4ef119f",
+        "dwr/tasks/replay_v2.py": "555472be8e2c976b1e85bef6e1e3f883ca90dc1eb0886a970ba88477f76973f1",
+        "dwr/tasks/run_support.py": "d7e124b543ad0ccb2883d45e0e93ff58bd260c80c0a6d3338666eab633d56d05",
+        "dwr/tasks/schema.py": "112daa4949907da49b1d71aadee76a363a5b3fe4234f45f26231ef6333a34129",
+        "dwr/tasks/solver.py": "aef1f74a4cedec827c3123b8627605b8af57cb6d3c592cdba08b2b64ba04a9ac",
+        "dwr/tasks/stream_contract.py": "a71eb7c34a7586804bef59051c8fab301911ad22a120fb994cf91b34b7459c57",
+        "dwr/tasks/verifier.py": "4ef99a2f2b55d28d35b568f7eed884aaab97bdfb10580701499e1f41d6925c11"
+      },
+      "status": "PASS_QUALIFICATION"
+    },
+    "raw_attempts": {
+      "development": 12123,
+      "final": 2197,
+      "source": 8398
+    },
+    "resources": {
+      "accounting_boundary": "through report hash; final manifest write is guard-checked",
+      "artifact_write_cpu_seconds": 0.0,
+      "artifact_write_wall_seconds": 0.0,
+      "cpu_seconds": 822.21875,
+      "elapsed_seconds": 825.875,
+      "peak_rss_bytes": 298905600
+    },
+    "run_path": "runs/certificate-five-stratum-full-20261014-v1",
+    "source_gate": {
+      "floors": {
+        "accepted_groups": true,
+        "accepted_signatures": true,
+        "source_id_test_support": true,
+        "source_quota": true,
+        "source_sensitivity_all_splits": true,
+        "source_test_minimum_A": true,
+        "source_train": true,
+        "source_train_minimum_A": true,
+        "source_validation_minimum_A": true,
+        "values_and_givens": true
+      },
+      "given_counts": [
+        2,
+        3
+      ],
+      "partition": "source",
+      "qualification_floors": {
+        "a3_source_primitive_presence": true,
+        "cell_min": true,
+        "common_support": true,
+        "eligible_envelope_fraction": true,
+        "given_counts": true,
+        "primitives": true,
+        "profile_cell_capacity": true,
+        "profile_signatures": true,
+        "raw_yield": true,
+        "sensitive_signatures": true,
+        "sensitivity": true,
+        "train_groups": true,
+        "train_signatures": true,
+        "value_mass": true
+      },
+      "source_A": 3000,
+      "source_E": 3243,
+      "source_id_test": {
+        "eligible": 336,
+        "mass": 0.8898809523809523,
+        "pass": true,
+        "stratum_counts": {
+          "A2": 51,
+          "A3": 23,
+          "B2": 77,
+          "C2": 62,
+          "D2": 86
+        }
+      },
+      "value_counts": {
+        "0": 5995,
+        "1": 6060,
+        "2": 5945
+      },
+      "value_fractions": {
+        "0": 0.33305555555555555,
+        "1": 0.33666666666666667,
+        "2": 0.3302777777777778
+      }
+    },
+    "structural_floors": {
+      "content_split_closure": true,
+      "development_stage": true,
+      "development_structure_closure": true,
+      "final_stage": true,
+      "heldout_compositions_absent_from_source_train": true,
+      "lineage_consistency": true,
+      "row_schema": true,
+      "source_stage": true
+    }
+  },
+  "future_model_gate": {
+    "backbone_interface": "not_implemented",
+    "confirmatory_precision": "not_assessed",
+    "eq_neq_diagnostic_A3_examples": 7,
+    "gpu_full_training_memory": "not_assessed",
+    "training_registration": "not_complete"
+  },
+  "g2_status": "pass",
+  "independent_person_reproduction": false,
+  "qualification": {
+    "artifact_sha256": {
+      "manifest.initial.json": "ab2d27e82f51a46b1063647a7a8e1f248a471f968fa02062ddac2da0d8ace243",
+      "manifest.json": "fd51b2e0350f91f4fa6bae8f03b817c0bc070baa8705cab3dbdd15f338184aa2",
+      "outcomes.jsonl": "1c8292ede7e4bdb8cb7d23ab2e9657fcd59226bbbd00411c1e2383c904f7a090",
+      "records.jsonl": "98eebe985c4b8424cfe2c3b605279883bc29324792c8e24117ffbdda6674007d",
+      "replay.json": "feeb059f4e89b86440ca7a41af6f8172573a36467665c609a51c21fcbd1d2f73",
+      "report.json": "c629f82fbed0ba01768a92196dbf9a4a550fb4584903442f830f464005442c17"
+    },
+    "config_sha256": "d66ad33da9111287223e7e94ab849e8b710692db32f71f94410f305ce1cf1002",
+    "controller_checks": {
+      "all_floors_pass": true,
+      "artifacts": true,
+      "budgets": true,
+      "clean": true,
+      "config_hash": true,
+      "config_path": true,
+      "counts": true,
+      "current_runtime_git_blobs": true,
+      "g2_unassessed": true,
+      "output_dir": true,
+      "production": true,
+      "replay": true,
+      "requested_command": true,
+      "resolved_config": true,
+      "source_commit": true,
+      "source_initial": true,
+      "terminal_equal": true
+    },
+    "controller_wrapper": {
+      "command": [
+        "C:\\Users\\Hank47\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+        "-m",
+        "dwr.tasks.certificate_rank_study",
+        "--config",
+        "configs/tasks/certificate_five_stratum_qualification_v1.json",
+        "--output",
+        "runs/certificate-five-stratum-qualification-20261014-v1"
+      ],
+      "exit_code": 0,
+      "external_watchdog_seconds": 1805,
+      "git_status_after": "",
+      "log_sha256": "d35975997bec44c107b5e80d2f88f5ae4acae5a50875e1073abedbfdfc7ef31c",
+      "source_commit": "6ad827784e3887295db05c4e1e651f6e5a6648f3",
+      "source_commit_after": "6ad827784e3887295db05c4e1e651f6e5a6648f3",
+      "started_utc": "20261014T171550033374Z",
+      "timed_out": false,
+      "wall_seconds": 316.141
+    },
+    "development_gate": {
+      "A": 1019,
+      "E": 1160,
+      "common_support": {
+        "development_validation_eq/add_mod": {
+          "eligible": 643,
+          "mass": 0.8538102643856921,
+          "pass": true,
+          "stratum_counts": {
+            "A2": 136,
+            "A3": 60,
+            "B2": 135,
+            "C2": 120,
+            "D2": 98
+          }
+        },
+        "development_validation_eq/neq": {
+          "eligible": 206,
+          "mass": 0.9805825242718447,
+          "pass": true,
+          "stratum_counts": {
+            "A2": 40,
+            "A3": 11,
+            "B2": 24,
+            "C2": 42,
+            "D2": 85
+          }
+        },
+        "development_validation_neq/add_mod": {
+          "eligible": 311,
+          "mass": 0.8617363344051447,
+          "pass": true,
+          "stratum_counts": {
+            "A2": 52,
+            "A3": 65,
+            "B2": 31,
+            "C2": 50,
+            "D2": 70
+          }
+        },
+        "source_train": {
+          "eligible": 1276,
+          "mass": 0.9239811912225705,
+          "pass": true,
+          "stratum_counts": {
+            "A2": 233,
+            "A3": 73,
+            "B2": 250,
+            "C2": 278,
+            "D2": 345
+          }
+        }
+      },
+      "floors": {
+        "common_support": true,
+        "eq/add_mod/A_fraction": true,
+        "eq/add_mod/A_groups": true,
+        "eq/add_mod/E_fraction": true,
+        "eq/add_mod/SigA": true,
+        "eq/add_mod/cell_min": true,
+        "eq/add_mod/hard_core_g2": true,
+        "eq/add_mod/hard_core_g3": true,
+        "eq/add_mod/support": true,
+        "eq/neq/A_fraction": true,
+        "eq/neq/A_groups": true,
+        "eq/neq/E_fraction": true,
+        "eq/neq/SigA": true,
+        "eq/neq/cell_min": true,
+        "eq/neq/support": true,
+        "neq/add_mod/A_fraction": true,
+        "neq/add_mod/A_groups": true,
+        "neq/add_mod/E_fraction": true,
+        "neq/add_mod/SigA": true,
+        "neq/add_mod/cell_min": true,
+        "neq/add_mod/hard_core_g2": true,
+        "neq/add_mod/hard_core_g3": true,
+        "neq/add_mod/support": true,
+        "pooled_stall_count": true,
+        "pooled_stall_fraction": true,
+        "profiles_with_stalls": true
+      },
+      "hard_E": 418,
+      "ordinary_E": 742,
+      "profiles": {
+        "eq/add_mod": {
+          "A": 549,
+          "E": 643,
+          "E_only": 94,
+          "SigA": 524,
+          "SigE": 601,
+          "SigE_only": 77,
+          "U": 781,
+          "cell_A": {
+            "A": 136,
+            "B": 135,
+            "C": 120,
+            "D": 98
+          },
+          "core_signatures": {
+            "eq/add_mod/g2": 82,
+            "eq/add_mod/g3": 27
+          },
+          "hard_A": 219,
+          "hard_E": 276,
+          "support": {
+            "eligible": 643,
+            "mass": 0.8538102643856921,
+            "pass": true,
+            "stratum_counts": {
+              "A2": 136,
+              "A3": 60,
+              "B2": 135,
+              "C2": 120,
+              "D2": 98
+            }
+          }
+        },
+        "eq/neq": {
+          "A": 202,
+          "E": 206,
+          "E_only": 4,
+          "SigA": 181,
+          "SigE": 185,
+          "SigE_only": 4,
+          "U": 285,
+          "cell_A": {
+            "A": 40,
+            "B": 24,
+            "C": 42,
+            "D": 85
+          },
+          "core_signatures": {},
+          "hard_A": 0,
+          "hard_E": 0,
+          "support": {
+            "eligible": 206,
+            "mass": 0.9805825242718447,
+            "pass": true,
+            "stratum_counts": {
+              "A2": 40,
+              "A3": 11,
+              "B2": 24,
+              "C2": 42,
+              "D2": 85
+            }
+          }
+        },
+        "neq/add_mod": {
+          "A": 268,
+          "E": 311,
+          "E_only": 43,
+          "SigA": 265,
+          "SigE": 305,
+          "SigE_only": 40,
+          "U": 336,
+          "cell_A": {
+            "A": 52,
+            "B": 31,
+            "C": 50,
+            "D": 70
+          },
+          "core_signatures": {
+            "neq/add_mod/g2": 74,
+            "neq/add_mod/g3": 13
+          },
+          "hard_A": 110,
+          "hard_E": 142,
+          "support": {
+            "eligible": 311,
+            "mass": 0.8617363344051447,
+            "pass": true,
+            "stratum_counts": {
+              "A2": 52,
+              "A3": 65,
+              "B2": 31,
+              "C2": 50,
+              "D2": 70
+            }
+          }
+        }
+      },
+      "stalled_E": 482,
+      "stalled_fraction_E": 0.41551724137931034
+    },
+    "raw_attempts": {
+      "development": 4800,
+      "final": 0,
+      "source": 3600
+    },
+    "resources": {
+      "accounting_boundary": "through report hash; final manifest write is guard-checked",
+      "artifact_write_cpu_seconds": 0.0,
+      "artifact_write_wall_seconds": 0.0,
+      "cpu_seconds": 314.921875,
+      "elapsed_seconds": 315.969,
+      "peak_rss_bytes": 130412544
+    },
+    "run_path": "runs/certificate-five-stratum-qualification-20261014-v1",
+    "source_gate": {
+      "A": 1179,
+      "A_fraction": 0.9239811912225705,
+      "A_per_raw_attempt": 0.3275,
+      "E": 1276,
+      "E_only": 97,
+      "a3_source_primitives": [
+        "add_mod",
+        "eq",
+        "neq"
+      ],
+      "cell_counts": {
+        "A": 233,
+        "B": 250,
+        "C": 278,
+        "D": 345
+      },
+      "eligible": 1276,
+      "eligible_fraction": 1.0,
+      "first_seen_unique": 1276,
+      "floors": {
+        "a3_source_primitive_presence": true,
+        "cell_min": true,
+        "common_support": true,
+        "eligible_envelope_fraction": true,
+        "given_counts": true,
+        "primitives": true,
+        "profile_cell_capacity": true,
+        "profile_signatures": true,
+        "raw_yield": true,
+        "sensitive_signatures": true,
+        "sensitivity": true,
+        "train_groups": true,
+        "train_signatures": true,
+        "value_mass": true
+      },
+      "given_counts": [
+        2,
+        3
+      ],
+      "node2_cell_counts": {
+        "A": 233,
+        "B": 250,
+        "C": 278,
+        "D": 345
+      },
+      "sensitive": 1276,
+      "sensitive_fraction": 1.0,
+      "signature_A": 935,
+      "signature_E": 1021,
+      "signature_E_only": 86,
+      "source_primitive_by_fine_stratum": {
+        "add_mod": {
+          "A2": 130,
+          "A3": 59,
+          "B2": 185,
+          "C2": 196,
+          "D2": 196
+        },
+        "eq": {
+          "A2": 70,
+          "A3": 5,
+          "B2": 32,
+          "C2": 18,
+          "D2": 90
+        },
+        "neq": {
+          "A2": 33,
+          "A3": 9,
+          "B2": 33,
+          "C2": 64,
+          "D2": 59
+        }
+      },
+      "support": {
+        "eligible": 1276,
+        "mass": 0.9239811912225705,
+        "pass": true,
+        "stratum_counts": {
+          "A2": 233,
+          "A3": 73,
+          "B2": 250,
+          "C2": 278,
+          "D2": 345
+        }
+      },
+      "value_counts": {
+        "0": 2340,
+        "1": 2417,
+        "2": 2317
+      },
+      "value_fractions": {
+        "0": 0.33078880407124683,
+        "1": 0.34167373480350577,
+        "2": 0.3275374611252474
+      }
+    },
+    "status": "PASS_QUALIFICATION"
+  },
+  "record_version": "dwr-five-stratum-result-v1",
+  "recorded_date": "2026-10-14",
+  "scope": "registered five-stratum structural task gate; no model result or power claim",
+  "source_commit": "6ad827784e3887295db05c4e1e651f6e5a6648f3",
+  "status": "PASS_G2_FIVE_STRATUM_V1"
+}

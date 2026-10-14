@@ -2,7 +2,7 @@
 
 Studying whether exchangeable latent workspaces learn reusable computation that transfers to unseen task compositions and structures.
 
-**Status (2026-10-14):** The reviewed rank implementation passed474 CPU tests. Its single [qualification](docs/certificate_rank_qualification_result.md) closed **NO_GO_DEVELOPMENT** with PASS_REPLAY: capacity/diversity/difficulty passed, but both ADD compositions missed the fixed80% support-mass floor. The [retained diagnosis](docs/rank_support_diagnosis_result.md) completed PASS_DIAGNOSIS with493 passing CPU tests, identifying a supported A/g2c8 high-node stratum. A separately [registered five-stratum redesign](docs/five_stratum_study_design.md) has [verified implementation](docs/five_stratum_implementation.md) with528 passing CPU tests and release review READY; its fresh replication is next. Full G2, final generation, workspace and training remain unattempted. Earlier negative studies remain unchanged; the exchangeable workspace hypothesis is untested. Read the [project history](docs/project_history_and_status.md), [execution state](docs/execution_state.md) and [todo.md](todo.md).
+**Status (2026-10-14):** The separately registered [five-stratum study](docs/five_stratum_study_result.md) passed its sole qualification and complete structural G2 at clean source `6ad8277`, following 528 passing CPU tests. It produced 3,000 source, 2,907 development and 600 final accepted tasks; independent checks passed for uniqueness, difficulty, support and held-out compositions absent from training. The actual [fixed-N EX/IDX tensor core and set reader](docs/fixed_workspace_core_verification.md) are independently reviewed and verified by528 standard-library and20 tensor checks in separate environments; the original monolithic memory-guard failure is preserved. Native backbone integration, training infrastructure, GPU feasibility and prospective statistical precision remain outstanding; there are no neural results. Earlier negative studies remain unchanged. Read the [project history](docs/project_history_and_status.md), [execution state](docs/execution_state.md) and [todo.md](todo.md).
 
 The main question is whether one trained workspace and decoder interface can transfer without task-specific retraining. Exchangeability is the central architectural hypothesis. Variable slot count is a supporting experiment after a fixed-size transfer study; diffusion and other alternatives are parked.
 
@@ -32,8 +32,8 @@ The earlier [four-variable mechanism check](docs/constructive_task_design.md) ve
 
 | Component | Initial scope |
 | --- | --- |
-| Task | Controlled finite-domain constraint compositions; implemented grammar and verifier, with suitability still gated; Sudoku remains optional fixture work |
-| Backbone | One frozen 1.5B–2B decoder-only base model; checkpoint selection pending |
+| Task | Controlled finite-domain constraint compositions; five-stratum structural G2 passed, model precision remains unassessed; Sudoku stays an optional fixture |
+| Backbone | One frozen 1.5B–2B decoder-only base model; pinned Qwen2.5-1.5B native integration is prospective |
 | Workspace | 64 slots, dimension 768, iid Gaussian initialization |
 | Update | `Z_next = Z + F(LN(Z), X)`, shared parameters across steps |
 | Interface | Newly added trainable set cross-attention adapters, fixed across core methods |
@@ -47,7 +47,7 @@ Target hardware: one RTX 5060 Ti with 16 GB VRAM, 32 GB system RAM, Windows 11. 
 
 ## Local setup
 
-Python 3.11 or 3.12 is the initial supported runtime. The bootstrap package has no runtime dependencies. PyTorch/CUDA and model dependencies will be added when the backbone is selected; there are no training commands yet.
+Python 3.11 or 3.12 is supported. Task generation/verification uses the standard library; neural components require the optional `ml` extra with pinned torch2.11.0. The current isolated Windows `.venv-ml` uses the official2.11.0+cu128 build. Global environments are untouched. Native model dependencies follow in a separate integration step; there are no task-training commands yet.
 
 Windows PowerShell:
 
@@ -83,7 +83,7 @@ Keep dataset splits and decoder access matched. Check exchangeable updates for p
 
 Every experiment must capture source/configuration/model/data identities, environment, RNG streams, per-example outcomes, parameter counts and full costs. Confirmatory effects require a preregistered comparison, at least three training seeds, suitable uncertainty analysis and a fixed test-access policy. Preserve failed and negative runs. See the protocol for exact requirements.
 
-**Next work:** freeze clean verified source and execute the single fresh five-stratum qualification and conditional full G2. This is a new population/estimand with explicit weights; it cannot reclassify the old NO-GO. Training still requires complete separate registration.
+**Next work:** implement the [native frozen-backbone integration](docs/native_backbone_design.md), strict run/evaluation/resume infrastructure and a separately registered full GPU memory/backward probe. The five-stratum qualification/full allowances are closed. Task training still requires a complete separate registration; no protected model evaluation occurs during implementation.
 
 ## Licensing
 

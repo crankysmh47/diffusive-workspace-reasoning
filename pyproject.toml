@@ -10,5 +10,8 @@ readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = []
 
+[project.optional-dependencies]
+ml = ["torch==2.11.0"]
+
 [tool.setuptools.packages.find]
 include = ["dwr*"]
