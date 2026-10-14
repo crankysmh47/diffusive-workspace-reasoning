@@ -194,3 +194,5 @@ Next, create a versioned **development-only design task** for the observed sourc
 | Register only one short temporary Windows sharing-lock probe. | Tests a narrow I/O mechanism without a scientific rerun; it cannot identify the real run's lock owner, so causality remains unresolved. |
 
 The authoritative implementation ledger remains in the ignored `.superpowers/sdd/transfer-v1/progress.md`; this table carries its design rulings, rationale and trade-offs into tracked project documentation.
+
+2026-10-14 checkpoint: [PR #2](https://github.com/crankysmh47/diffusive-workspace-reasoning/pull/2) records reviewed retained support diagnosis and prospective five-stratum registration. Root opened it against main without merging; implementation continues on research/transfer-cpu-v1. Raw artifacts remain local/ignored.
