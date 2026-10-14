@@ -1,3 +1,7 @@
+# Active execution: prospective five-stratum study
+
+Updated2026-10-14. The retained support diagnosis atcleanbb9540e completed PASS_DIAGNOSIS in1.734s after493 passing CPU tests; old qualification NO_GO remains unchanged. See [diagnosis result](rank_support_diagnosis_result.md) and [new five-stratum design](five_stratum_study_design.md). Scientific readiness passed and exact fresh configs/seeds/caps/weights are frozen. Luna implements policy/audit, then runner/linkage; root reviews/freezes/executes. No new five-stratum qualification/full/final/model/training has yet run.
+
 # Execution state: rank qualification closed NO-GO
 
 Updated: 2026-10-14. Branch `research/transfer-cpu-v1`; main unchanged. Clean source `41bd7846f8435d02616a526ef6dbdbae9663271d` completed the sole3600-source/4800-development/final0 qualification, with PASS_REPLAY8400 and **NO_GO_DEVELOPMENT**. Source and development capacity/diversity/difficulty/core floors passed; EQ/ADD support mass0.779089 and NEQ/ADD0.702532 missed the fixed0.8 floor. See [result](certificate_rank_qualification_result.md) and [compact manifest](../configs/splits/certificate-rank-qualification-result.json). G2 is not assessed. No full/final/model/training ran; no retry allowance remains.

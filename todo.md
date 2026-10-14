@@ -2,12 +2,20 @@
 
 Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_v2.md), amended by the binding [v2.2 protocol](docs/research_protocol.md); the terminal v4 proposal record is [v4](docs/task_spec_v4.md). This is the sole live checklist. Check an item only when its output and recorded verification exist. Planning does not count as implementing a gate.
 
+## Prospective five-stratum study — 2026-10-14
+
+- [x] Register exact five fine strata, fresh seeds/counts/quotas/caps and new estimand/weights. Scientific readiness review passed. See [design](docs/five_stratum_study_design.md), [plan](docs/superpowers/plans/2026-10-14-five-stratum-study.md) and closed qualification/full configs.
+- [ ] Luna implement/review support policy and fine-cohort audit, preserving legacy behavior.
+- [ ] Luna implement/review strict new runner/linkage/projections; pass stable-byte CPU suite and freeze clean source.
+- [ ] Execute the sole fresh qualification; only PASS admits its frozen full G2. Preserve every negative/partial outcome; no retry or policy change from new test feedback.
+- [ ] Only full G2 PASS: next fixed-N infrastructure milestone; no unregistered model training.
+
 ## Retained rank support diagnosis — 2026-10-14
 
 - [x] Register one bounded retained-data diagnosis before another population design. See [scope](docs/rank_support_diagnosis.md), [plan](docs/superpowers/plans/2026-10-14-rank-support-diagnosis.md) and closed config. No raw rows/new tasks were inspected at registration; original NO_GO unchanged.
 - [x] Luna implement and independently review permitted-only bin/branch/stall inventories and strict bounded runner. Root493 CPU tests passed in43.653s on stable bytes; final review READY. See [implementation verification](docs/rank_support_diagnosis_implementation.md). Freeze clean source before the sole invocation.
-- [ ] Execute once (60s/256MiB/oneworker/watchdog65), verify exact retained input/public linkage, record descriptive result. No generation or protected/final choices.
-- [ ] Decide a justified prospective support-population design from complete unselected inventories, or stop on substantive lack of overlap; no automatic new population, model or floor change.
+- [x] Execute once (60s/256MiB/oneworker/watchdog65). PASS_DIAGNOSIS atbb9540e in1.734s; all controller identities/hashes passed. See [result](docs/rank_support_diagnosis_result.md). No new examples or protected/final choices.
+- [x] Select and independently review the prospective five-stratum design from complete predeclared inventories. This changes population/weights and requires fresh registration/replication; old NO_GO remains unchanged. No automatic model advance.
 
 ## Rank-certified qualification — 2026-10-12
 
