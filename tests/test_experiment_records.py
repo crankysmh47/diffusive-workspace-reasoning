@@ -245,6 +245,45 @@ class RunRecordTests(unittest.TestCase):
         self.assertEqual(events.read_bytes(), original_events)
         self.assertEqual(terminal.read_bytes(), terminal_bytes)
 
+    def test_finish_budget_callback_runs_after_artifacts_and_before_seal(self):
+        record = self.create()
+        (record.output_dir / "artifact.bin").write_bytes(b"large artifact fixture")
+        stages = []
+
+        def check(stage):
+            stages.append(stage)
+            if stage == "artifacts_complete":
+                record.append_event("terminal_artifact_budget_check", {"scope": "hashed artifacts"})
+
+        terminal = record.finish("completed", counts={"examples": 1}, artifacts=["artifact.bin"],
+                                 budget_check=check)
+        self.assertEqual(stages, ["artifact_hashed", "artifacts_complete", "before_seal"])
+        verified = verify_artifacts(record.output_dir)
+        self.assertEqual(verified, terminal)
+        events = (record.output_dir / "events.jsonl").read_bytes()
+        self.assertEqual(verified["events_sha256"], hashlib.sha256(events).hexdigest())
+        self.assertEqual(verified["event_count"], 1)
+
+    def test_artifact_budget_failure_leaves_success_unpublished_and_allows_failed_record(self):
+        for crossing_stage, error in (("artifact_hashed", MemoryError("rss cap crossed while hashing")),
+                                      ("before_seal", TimeoutError("wall cap crossed before success seal"))):
+            with self.subTest(stage=crossing_stage):
+                record = self.create("budget_" + crossing_stage)
+                (record.output_dir / "artifact.bin").write_bytes(b"artifact")
+
+                def check(stage):
+                    if stage == crossing_stage:
+                        raise error
+
+                with self.assertRaises(type(error)):
+                    record.finish("completed", counts={"examples": 1}, artifacts=["artifact.bin"],
+                                  budget_check=check)
+                self.assertFalse((record.output_dir / "manifest.json").exists())
+                failed = record.finish("failed", counts={"FEASIBILITY_FAILED": 1},
+                                       artifacts=["artifact.bin"], error=str(error))
+                self.assertEqual(failed["status"], "failed")
+                self.assertEqual(verify_artifacts(record.output_dir)["status"], "failed")
+
     def test_verifier_requires_terminal_start_to_match_initial_start(self):
         record = self.create()
         self.finish(record)

@@ -1,0 +1,77 @@
+{
+  "archival_backup": false,
+  "config_path": "configs/tasks/source_export_v1.json",
+  "config_sha256": "662395596baa37f432a2eff7003e99c22697172cf6dff584a39e96e734ecd7f8",
+  "dataset_sha256": "73502736c17b9867f723d22710e4a643a54c7ca8543fb47d122ef7d3d6e7a0fc",
+  "gpu_operations": false,
+  "independent_person_reproduction": false,
+  "manifest_sha256": "7db0b61ba40bea60bf17bc5faf615bb2c8ae21320739c3bea589e4d62aea0069",
+  "model_execution": false,
+  "run_dir": "runs/source-export-20261015-v1",
+  "schema_version": "dwr-source-export-result-v1",
+  "source_clean_before_after": true,
+  "source_commit": "6f0ea98c83356b7ebb53f887a394726a81f9edb6",
+  "status": "completed",
+  "summary": {
+    "access": {
+      "forbidden_payload_splits": [
+        "source_test",
+        "development_validation",
+        "development_diagnostic_test",
+        "final_test"
+      ],
+      "full_file_opaque_hashes": true,
+      "permitted_payload_splits": [
+        "source_train",
+        "source_validation"
+      ],
+      "protected_task_payloads_semantically_parsed": 0,
+      "raw_json_parsing": "full outcomes JSONL strict parse materializes row fields; route first, then skip task, witness and values semantics outside permitted source splits"
+    },
+    "allowed_task_payloads_parsed": 2701,
+    "construction_failed_null_split_rows": 5288,
+    "costs": {
+      "artifact_write_cpu_seconds": null,
+      "artifact_write_wall_seconds": null,
+      "flops": null,
+      "gpu": null,
+      "peak_rss_bytes": 51703808,
+      "total_cpu_seconds": 46.71875,
+      "total_wall_seconds": 49.814421899998706
+    },
+    "exported_counts": {
+      "source_train": 2436,
+      "source_validation": 265
+    },
+    "exported_records": 2701,
+    "fine_stratum_counts": {
+      "A2": 509,
+      "A3": 208,
+      "B2": 624,
+      "C2": 629,
+      "D2": 731
+    },
+    "generation_config_sha256": "3aff6fcaba6143a26ad6d8a86cc83f9782ff63d689912f5fb04ffc4e9cc81afa",
+    "input_sha256": {
+      "manifest.initial.json": "996263024f52e57d327333007927dba299e09eae2b4b7ee5c5deef0c4f6ebc9a",
+      "manifest.json": "07a321f6471175537200a8c2db724682220cbae59f39eaedb2923280ac1e4baf",
+      "outcomes.jsonl": "13ce3f4cec7240c387d9bbfd42bb3d4eb23a51e917906be3810c647da2ae6103",
+      "records.jsonl": "24478cb8c9a9a0f190a38163187faeabf56445bbda0938c48f57ac06eb2e05b4",
+      "replay.json": "f2b7062bea5034cd4faa1351af6f2d708016b78fa7e1bb71ac47557b59e635e2",
+      "report.json": "fe29bb8fe8e51e9015c58e06dfee7b916e9b2d730efa259dfe54fb20c0eebe70"
+    },
+    "operation": "source-only-retained-corpus-conversion",
+    "output_sha256": "73502736c17b9867f723d22710e4a643a54c7ca8543fb47d122ef7d3d6e7a0fc",
+    "protected_task_payloads_semantically_parsed": 0,
+    "schema_version": "dwr-source-export-summary-v1",
+    "skipped_raw_rows": 20017
+  },
+  "summary_sha256": "8d7d318837010f26db263080feea2e326260a08f4d9a7b42bc5f71a0f554b542",
+  "wrapper": {
+    "exit_code": 0,
+    "external_watchdog_seconds": 305,
+    "log_sha256": "0e7e70fc3ae6f0e8815d746a4ed914cf9b2f26392b960dea003cd5b36dc78275",
+    "timed_out": false,
+    "wall_seconds": 49.984
+  }
+}

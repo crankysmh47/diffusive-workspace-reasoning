@@ -14,7 +14,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from dwr.tasks.run_support import stable_json, strict_json_loads
 
@@ -415,7 +415,13 @@ class RunRecord:
             stream.flush()
             os.fsync(stream.fileno())
 
-    def finish(self, status: str, *, counts: Mapping[str, Any], artifacts: list[str], error: str | None = None) -> dict[str, Any]:
+    def finish(self, status: str, *, counts: Mapping[str, Any], artifacts: list[str], error: str | None = None,
+               budget_check: Callable[[str], None] | None = None) -> dict[str, Any]:
+        """Seal the terminal record; optional success checks run after artifact reads and pre-seal.
+
+        The callback stages are ``artifact_hashed``, ``artifacts_complete`` and
+        ``before_seal``. With no callback, existing callers retain the prior path.
+        """
         terminal_path = self.output_dir / "manifest.json"
         if self._sealed or self._finished or terminal_path.exists():
             self._sealed = True
@@ -426,6 +432,7 @@ class RunRecord:
         _require((error is None or (isinstance(error, str) and bool(error.strip()))), "error must be null or a nonempty string")
         _require((status == "completed" and error is None) or (status != "completed" and error is not None),
                  "failed and interrupted outcomes require an error; completed rejects one")
+        _require(budget_check is None or callable(budget_check), "budget_check must be callable or null")
         reserved = {"manifest.initial.json", "manifest.json", "events.jsonl"}
         seen: set[str] = set()
         resolved_artifacts: list[dict[str, Any]] = []
@@ -437,6 +444,12 @@ class RunRecord:
             seen.add(artifact_key)
             raw = _read_regular(path, "artifact")
             resolved_artifacts.append({"path": normalized, "size_bytes": len(raw), "sha256": _digest(raw)})
+            if status == "completed" and budget_check is not None:
+                budget_check("artifact_hashed")
+        if status == "completed" and budget_check is not None:
+            # This point is after potentially large artifact reads/hashes and before
+            # the event stream is captured into the terminal record.
+            budget_check("artifacts_complete")
         initial, initial_raw = _parse_json_file(self.output_dir / "manifest.initial.json", "initial manifest")
         _validate_initial(initial)
         _require(_digest(initial_raw) == self._initial_sha256, "initial manifest changed after run creation")
@@ -457,6 +470,8 @@ class RunRecord:
             "error": error,
         }
         _require(set(terminal) == _TERMINAL_KEYS, "internal terminal schema mismatch")
+        if status == "completed" and budget_check is not None:
+            budget_check("before_seal")
         # Seal before the exclusive write: even a flush/fsync failure may leave a terminal file.
         self._sealed = True
         _write_json_exclusive(terminal_path, terminal)

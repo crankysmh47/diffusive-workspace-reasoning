@@ -1,4 +1,14 @@
-# Active execution: native integration and run infrastructure
+# Active execution: pretrained GPU feasibility implementation
+
+Updated 2026-10-15. Native/run/export/evaluation/resume infrastructure is committed and pushed at `6f0ea98`, with independently reviewed647 distinct root CPU checks on exact committed runtime bytes. The sole [permitted-source export](source_export_result.md) completed at that clean source:2436 training and265 validation records, zero protected task semantics. The [complete tokenizer audit](source_token_cap_audit.md) passed all2701 records; maxima407 prompt/34 answer/441 total remain below unchanged1024/128/1152 caps.
+
+The [GPU feasibility design](gpu_feasibility_design.md), [closed config](../configs/models/pretrained_gpu_feasibility_v1.json) and [implementation plan](superpowers/plans/2026-10-15-gpu-feasibility.md) passed independent design/config review. Luna completed the runner and actual tiny CPU checks. Independent review and a bounded fix wave cleared exact-config and full-scope RAM/terminal-budget defects. Root665 distinct CPU methods pass in71.891s on stable runtime/config/test bytes; see [implementation verification](gpu_feasibility_implementation.md). Root retains scientific settings and release decisions. A reviewed stable-byte CPU release and substantial clean source checkpoint are mandatory before the sole GPU invocation. No pretrained GPU arithmetic, task training, model-quality result or transfer effect has occurred. PR#2 remains open without merge; owner original checkout/main and historical negative evidence are preserved.
+
+Launch availability currently blocks the GPU step: read-only NVIDIA metadata reported13,745MiB free versus the registered14,500MiB minimum, with matching UUID/name/driver. This is volatile environment evidence, not a failed probe; zero attempts consumed. The owner can free GPU resources and resume; unrelated applications remain untouched.
+
+This current note supersedes older next-action/status paragraphs below; the historical entries retain their original context. Local ignored evidence is not archival backup or independent-person reproduction.
+
+## Prior native-infrastructure checkpoint
 
 Updated 2026-10-14. At clean source `6ad827784e3887295db05c4e1e651f6e5a6648f3`, the sole new five-stratum qualification passed, then the conditional full run passed **PASS_G2_FIVE_STRATUM_V1**. All 22,718 full attempts replayed; accepted source/development/final counts are 3,000/2,907/600. Root verified public terminal aggregates and opaque artifact/config/source bindings; no raw target payloads guided design. See [result](five_stratum_study_result.md), [compact manifest](../configs/splits/certificate-five-stratum-study-result.json) and [implementation verification](five_stratum_implementation.md). Both scientific run allowances are consumed without retry; previous NO-GOs remain unchanged.
 

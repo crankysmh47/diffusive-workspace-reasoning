@@ -1,5 +1,7 @@
 # Infrastructure release — 2026-10-15
 
+2026-10-15 continuation: the verified native/run/export/evaluation/resume infrastructure was consolidated and pushed at `6f0ea98`, with PR#2 updated and left open. The sole clean-source [export](source_export_result.md) then completed2436 train/265 validation records. The [complete source-token audit](source_token_cap_audit.md) passed all2701 records, maxima407/34/441 tokens. The conservative GPU shape remains1024+128=1152. The [GPU probe implementation](gpu_feasibility_implementation.md) now passes independent fix review and665 distinct root CPU methods in71.891s. A clean checkpoint and exact hardware gate remain before its sole invocation; actual pretrained GPU math and task training have not started. Historical state descriptions below remain preserved.
+
 The [native/run/export/generation/resume foundation](native_infrastructure_verification.md) passes647 distinct root checks and independent whole-stage review on stable bytes. [Pinned pretrained artifacts and a real-tokenizer synthetic check](pretrained_artifact_preparation.md) are verified without loading model tensors. Actual source export, pretrained benchmark/GPU feasibility and learned research results still follow. One consolidated checkpoint precedes the registered source-only conversion; ignored artifacts remain local. The review/test-history limitations are explicitly preserved in the verification record.
 
 # Current checkpoint — 2026-10-15

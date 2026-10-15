@@ -1,0 +1,32 @@
+# Closed pretrained GPU feasibility implementation plan
+
+> **For agentic workers:** use superpowers:subagent-driven-development; Luna implements, root chooses scientific settings. No per-task commit or source main merge.
+
+**Goal:** One closed maximum-shape pretrained forward/backward/Adam/state-roundtrip probe, executed only after CPU release and clean source freeze.
+
+**Spec:** [gpu_feasibility_design.md](../../gpu_feasibility_design.md); closed non-null [config](../../../configs/models/pretrained_gpu_feasibility_v1.json). Root independently verifies actual retained source export/token-cap receipts before launch.
+
+**Architecture:** One explicit Qwen2 probe module with real shared synthetic input/step/state-roundtrip code, plus tiny actual CPU tests. No model registry, general trainer, fallback or hidden public fixture mode. Production command `python -m dwr.experiments.gpu_feasibility --config configs/models/pretrained_gpu_feasibility_v1.json`.
+
+## Task1 — registered runner and actual tiny CPU integration
+
+- [ ] Own only new `dwr/experiments/gpu_feasibility.py` and `tests/test_gpu_feasibility.py`; root owns config/spec/status. No old verified component edits, dependencies, downloads, pretrained model tensor loading, actual corpus semantics, GPU calls, full suite, commits or nested agents during implementation.
+- [ ] Strict byte-hash/baseline/schema validation for the entire closed config, safe registered paths/unique output, strong clean-source physical-byte checks and exact package/artifact/precondition identities. Source export and token audit are completed; precondition reads only their small metadata/opaque hashes. All initial/access records precede any CUDA/model operation. No null/default settings or public bypass.
+- [ ] Real CPU synthetic input factory with explicit local RNG, strict prompt/answer/EOS labels and hashes. A frozen `ProbeBatch` with the five tensor fields is enough; do not mislabel synthetic tensors as source_train examples. No hidden global noise draw.
+- [ ] One shared measured step uses actual host.encode_prompt once, exact dtype cast/autocast-off workspace K4 with return_states, same final Z into host.decode_with_workspace, strict answer loss, backward and AdamW/schedule step. Retain live state gradients, require all active grads finite and workspace/each-reader aggregate nonzero; report legitimate individual zeros. Check actual original bytes immutability, state/parameter/moment/dtype/device costs and full peak accounting. Profiler/FLOPs explicitly unmeasured/null; first step includes initialization, no latency benchmark.
+- [ ] Same-host post-step checkpoint roundtrip with fresh optimizer/scheduler/sampler/noise (no second base/update), deliberate new-state/RNG perturbation and exact restored state comparisons. Preserve base bytes, original grad=None and zero_grad boundary. CPU fixture tests actual supported paths; CUDA roundtrip remains actual probe evidence only.
+- [ ] Production loader exact local Qwen2ForCausalLM BF16/safetensors/no remote code/automatic device map; separate workspace/reader CPU init streams and explicit CUDA noise. Set declared SDPA/TF32/cuDNN/determinism flags without manual fallback. Hardware UUID/driver/free/caps match before candidate allocation, reset peaks before allocation, synchronize stages and enforce total caps through checkpoint/evidence. No unrelated process termination.
+- [ ] Genuine TDD RED/GREEN, strict input/config/path/precondition/failure classification and no-early-CUDA controller unit tests (mocks label control flow only). Actual tiny eager-vs-SDPA CPU causal/padding/backward tests at existing1e-6 tolerance; actual tiny full step and checkpoint state tests on CPU, no mocked-model validation. Narrow optional-dependency handling supports stdlib discovery.
+- [ ] Scoped `.venv-ml/Scripts/python.exe -m unittest discover -s tests -p test_gpu_feasibility.py -v`, cap90s, plus genuine stdlib-absence scope if added. Capture original RED/GREEN/snapshots/hashes/API under ignored `.superpowers/sdd/gpu-feasibility-20261015/task1/`; independent review and fixes.
+
+## Task2 — root release and sole invocation
+
+- [ ] Independent whole new-stage review and full separate stdlib/actual ML CPU suites on stopped/stable source. Bind all input/result hashes, freeze one substantial clean source commit, push/update existingPR#2 without merge.
+- [ ] Root verifies completed source export/token-cap/pretrained artifacts, exact source/package/hardware config; launch once under900s/12288MiB process/14336MiB allocated+reserved caps and905s watchdog, no automatic retry. Preserve ENVIRONMENT_BLOCKED/FEASIBILITY_FAILED and partials.
+- [ ] Root verify receipts, gradients/update/original bytes/state-roundtrip/memory/costs, then record actual verdict. PASS_FEASIBILITY is not G3/G4 or a learned effect. Frozen reference benchmark/per-example cost wrapper and separately registered exploratory training/overfit/pilot remain next; do not stop at component completion without a genuine blocker.
+
+Preflight: Task1 creates only probe/test, consumes all previously reviewed host/core/loss/checkpoint/run-record APIs. Task2 consumes cleared implementation, never shares a writer. Config maximum1152 exceeds actual source maximum441 and is unchanged after its audit. Root registration pins all seeds and source/model identities; no source/target task semantically enters the synthetic probe.
+
+## Pre-launch review correction - 2026-10-15
+
+First stable CPU release passed660 distinct methods in82.735s, but independent review found two launch-blocking production/resource handoffs. This is CPU evidence only. Fix round1 additionally authorizes Luna to edit `dwr/experiments/records.py` and `tests/test_experiment_records.py` for an optional terminal budget callback with unchanged default behavior and exclusive-write sealing. The [design amendment](../../gpu_feasibility_design.md) requires true process high-water RAM gating, evidence work checked before success sealing, exact registered synthetic settings through the factory, a different sampler restoration destination and actual SDPA/numeric policy readback. No config/cap/run allowance changes. Preserve pre-fix tests/review, add failing regressions before fixes, then scoped checks, rereview and fresh stable fullCPU release before checkpointB. The earlier two-file ownership rule is superseded only for this narrow four-file fix scope.
