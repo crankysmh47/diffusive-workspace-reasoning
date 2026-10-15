@@ -33,15 +33,22 @@ else:
 
 
 class GPUFeasibilityValidationTests(unittest.TestCase):
+    def test_startup_repair_registration_changes_only_version_output_and_source_base(self):
+        original = json.loads((ROOT / "configs/models/pretrained_gpu_feasibility_v1.json").read_text(encoding="utf-8"))
+        current = json.loads((ROOT / "configs/models/pretrained_gpu_feasibility_startup_repair_v2.json").read_text(encoding="utf-8"))
+        for key in ("config_version", "output_dir", "source_base_commit"):
+            original[key] = current[key]
+        self.assertEqual(current, original)
+
     def test_registered_config_has_exact_bytes_and_rejects_mutation(self):
-        raw = (ROOT / "configs/models/pretrained_gpu_feasibility_v1.json").read_bytes()
+        raw = (ROOT / "configs/models/pretrained_gpu_feasibility_startup_repair_v2.json").read_bytes()
         config = probe.validate_config_bytes(raw)
-        self.assertEqual(config["config_version"], "dwr-pretrained-gpu-feasibility-v1")
+        self.assertEqual(config["config_version"], "dwr-pretrained-gpu-feasibility-startup-repair-v2")
         with self.assertRaisesRegex(ValueError, "registered SHA-256"):
             probe.validate_config_bytes(raw + b" ")
 
     def test_config_object_rejects_unknown_and_null_fields(self):
-        value = json.loads((ROOT / "configs/models/pretrained_gpu_feasibility_v1.json").read_text(encoding="utf-8"))
+        value = json.loads((ROOT / "configs/models/pretrained_gpu_feasibility_startup_repair_v2.json").read_text(encoding="utf-8"))
         with self.assertRaisesRegex(ValueError, "unknown or missing"):
             probe.validate_config_object(dict(value, unregistered=True))
         malformed = json.loads(json.dumps(value))
@@ -55,7 +62,7 @@ class GPUFeasibilityValidationTests(unittest.TestCase):
                 probe.validate_relative_path(path)
         with tempfile.TemporaryDirectory() as temp:
             root = pathlib.Path(temp)
-            expected = "runs/pretrained-gpu-feasibility-20261015-v1"
+            expected = "runs/pretrained-gpu-feasibility-20261015-startup-repair-v2"
             (root / "runs").mkdir()
             self.assertEqual(probe.validate_output_directory(root, expected), root / expected)
             (root / expected).mkdir()
@@ -95,7 +102,7 @@ class GPUFeasibilityValidationTests(unittest.TestCase):
         """Injected policy objects verify control flow only; no CUDA work occurs."""
         from types import SimpleNamespace
 
-        config = probe.validate_config_bytes((ROOT / "configs/models/pretrained_gpu_feasibility_v1.json").read_bytes())
+        config = probe.validate_config_bytes((ROOT / "configs/models/pretrained_gpu_feasibility_startup_repair_v2.json").read_bytes())
         state = {"flash": False, "efficient": False, "math": False, "cudnn": True,
                  "tf32_matmul": True, "tf32_cudnn": True, "benchmark": True,
                  "precision": "highest", "deterministic": False}
@@ -140,13 +147,13 @@ class GPUFeasibilityValidationTests(unittest.TestCase):
         self.assertEqual(order, ["initial", "access", "hardware", "candidate"])
 
     def test_preconditions_check_only_receipt_metadata_and_opaque_artifact_hashes(self):
-        config = probe.validate_config_bytes((ROOT / "configs/models/pretrained_gpu_feasibility_v1.json").read_bytes())
+        config = probe.validate_config_bytes((ROOT / "configs/models/pretrained_gpu_feasibility_startup_repair_v2.json").read_bytes())
         result = probe._data_preconditions(ROOT, config)
         self.assertEqual(result["token_audit_status"], "PASS_SOURCE_TOKEN_CAPS")
         self.assertFalse(result["task_semantics_read"])
 
     def test_precondition_receipts_fail_closed_on_status_counts_and_caps(self):
-        config = probe.validate_config_bytes((ROOT / "configs/models/pretrained_gpu_feasibility_v1.json").read_bytes())
+        config = probe.validate_config_bytes((ROOT / "configs/models/pretrained_gpu_feasibility_startup_repair_v2.json").read_bytes())
         conditions = config["data_preconditions"]
         counts = conditions["allowed_source_counts"]
         export_terminal = {"status": "completed"}
@@ -186,6 +193,116 @@ import dwr.experiments.gpu_feasibility
         result = subprocess.run([sys.executable, "-c", script], cwd=ROOT,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+
+class GPUFeasibilityControllerRecordTests(unittest.TestCase):
+    """Real controller and RunRecord lifecycle with external execution boundaries stubbed."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self.temp.name)
+        self.config_relative = pathlib.Path("configs/models/pretrained_gpu_feasibility_startup_repair_v2.json")
+        self.config_path = self.root / self.config_relative
+        self.config_path.parent.mkdir(parents=True)
+        source_config = ROOT / self.config_relative
+        self.config_path.write_bytes(source_config.read_bytes())
+        (self.root / "runs").mkdir()
+        for args in (
+            ["init", "--quiet"],
+            ["config", "user.name", "DWR CPU Fixture"],
+            ["config", "user.email", "dwr-fixture@example.invalid"],
+            ["add", str(self.config_relative)],
+            ["commit", "--quiet", "-m", "controller fixture"],
+        ):
+            subprocess.run(["git", *args], cwd=self.root, check=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
+        self.config = json.loads(self.config_path.read_text(encoding="utf-8"))
+        self.output = self.root / self.config["output_dir"]
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def _run(self, *, hardware_error=None):
+        source_commit = "a" * 40
+
+        def candidate(_root, _config, _hardware, output, _started, _guard, _artifact_receipt):
+            (output / "outcome.json").write_bytes(b'{"status":"PASS_FEASIBILITY"}\n')
+            (output / "state.pt").write_bytes(b"CPU controller fixture only")
+            return {"status": "PASS_FEASIBILITY", "checkpoint_roundtrip": {"sha256": "b" * 64},
+                    "elapsed_seconds_before_terminal_record_finalization": 0.01}
+
+        patches = [
+            mock.patch.object(probe, "_repo_root", return_value=self.root),
+            mock.patch.object(probe, "validate_clean_source",
+                              return_value={"commit": source_commit, "clean": True}),
+            mock.patch.object(probe, "_data_preconditions", return_value={
+                "source_export_manifest_sha256": "c" * 64,
+                "token_audit_manifest_sha256": "d" * 64,
+                "task_semantics_read": False,
+            }),
+            mock.patch.object(probe, "_artifact_inventory", return_value={"manifest_sha256": "e" * 64}),
+            mock.patch.object(probe, "_check_environment", return_value={"mocked": True}),
+            mock.patch.object(probe, "_hardware_metadata", side_effect=hardware_error or {"mocked": True}),
+            mock.patch.object(probe, "_production_candidate", side_effect=candidate),
+        ]
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6]:
+            try:
+                outcome = probe.run_probe(
+                    self.config_path,
+                    command=[sys.executable, "-m", "dwr.experiments.gpu_feasibility",
+                             "--config", self.config_relative.as_posix()],
+                )
+            except RuntimeError:
+                outcome = None
+        from dwr.experiments.records import verify_artifacts
+        terminal = verify_artifacts(self.output)
+        initial = json.loads((self.output / "manifest.initial.json").read_text(encoding="utf-8"))
+        events = [json.loads(line) for line in (self.output / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+        return outcome, terminal, initial, events
+
+    def test_actual_controller_projects_registered_contract_into_real_run_record(self):
+        outcome, terminal, initial, events = self._run()
+
+        self.assertEqual(outcome["status"], "PASS_FEASIBILITY")
+        self.assertEqual(terminal["status"], "completed")
+        self.assertEqual(initial["config"]["sha256"], "840615e265a427946627f3320f667154e17bc56c53c15b6f90a453c10693144f")
+        self.assertEqual(set(initial["identities"]), {"source", "config", "data", "model", "tokenizer", "schedule"})
+        self.assertEqual({key: (value["name"], value["revision"])
+                          for key, value in initial["identities"].items()}, {
+            "source": ("dwr-source-commit", "a" * 40),
+            "config": ("dwr-gpu-feasibility-config", self.config["config_version"]),
+            "data": ("source-token-cap-audit", self.config["data_preconditions"]["token_audit_status"]),
+            "model": (self.config["model"]["repo_id"], self.config["model"]["revision"]),
+            "tokenizer": ("pinned-model-tokenizer-inventory", self.config["model"]["revision"]),
+            "schedule": ("optimizer-schedule", self.config["schedule"]["type"]),
+        })
+        for identity in initial["identities"].values():
+            self.assertEqual(set(identity), {"name", "revision", "sha256"})
+            self.assertRegex(identity["sha256"], r"^[0-9a-f]{64}$")
+        self.assertEqual(initial["budgets"], {"wall_seconds": 900, "memory_mib": 12288, "attempts": 1})
+        kinds = [event["kind"] for event in events]
+        self.assertEqual(kinds[:3], ["initial_manifest_written", "precondition_access_started",
+                                     "precondition_access_verified"])
+        self.assertIn("probe_complete", kinds)
+        self.assertEqual(terminal["event_count"], len(events))
+        self.assertEqual(terminal["initial_manifest_sha256"], hashlib.sha256(
+            (self.output / "manifest.initial.json").read_bytes()).hexdigest())
+        self.assertEqual(terminal["events_sha256"], hashlib.sha256(
+            (self.output / "events.jsonl").read_bytes()).hexdigest())
+
+    def test_actual_controller_records_hardware_preflight_failure(self):
+        _, terminal, initial, events = self._run(hardware_error=RuntimeError("mock hardware preflight failure"))
+
+        self.assertEqual(initial["budgets"], {"wall_seconds": 900, "memory_mib": 12288, "attempts": 1})
+        self.assertEqual(terminal["status"], "failed")
+        self.assertEqual(terminal["counts"], {"ENVIRONMENT_BLOCKED": 1})
+        self.assertEqual(terminal["event_count"], len(events))
+        self.assertIn("probe_stopped", [event["kind"] for event in events])
+        self.assertEqual(terminal["initial_manifest_sha256"], hashlib.sha256(
+            (self.output / "manifest.initial.json").read_bytes()).hexdigest())
+        self.assertEqual(terminal["events_sha256"], hashlib.sha256(
+            (self.output / "events.jsonl").read_bytes()).hexdigest())
+        self.assertTrue((self.output / "outcome.json").is_file())
 
 
 @unittest.skipIf(torch is None or Qwen2Config is None, "install the optional backbone extra")
@@ -253,7 +370,7 @@ class GPUFeasibilityCPUIntegrationTests(unittest.TestCase):
             probe.make_probe_batch(dict(self.settings(), extra=True), generator=torch.Generator(), vocab_size=32)
 
     def test_exact_registered_synthetic_input_reaches_maximum_framing(self):
-        config = probe.validate_config_bytes((ROOT / "configs/models/pretrained_gpu_feasibility_v1.json").read_bytes())
+        config = probe.validate_config_bytes((ROOT / "configs/models/pretrained_gpu_feasibility_startup_repair_v2.json").read_bytes())
         settings = config["synthetic_input"]
         batch = probe.make_probe_batch(
             settings, generator=torch.Generator(device="cpu").manual_seed(config["seeds"]["synthetic_ids"]),

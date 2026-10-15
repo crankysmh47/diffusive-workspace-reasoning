@@ -21,11 +21,11 @@ import time
 from typing import Any, Callable, Mapping
 
 
-CONFIG_SHA256 = "781beb8ab5c1a26c8bcaafb9804d6c2b3d20a70b620df8842bd16a617d45e743"
+CONFIG_SHA256 = "840615e265a427946627f3320f667154e17bc56c53c15b6f90a453c10693144f"
 MODEL_MANIFEST_SHA256 = "166492a8c0ae52d5b0a766fa281528a2348eca43f2b128f86da70936a4289606"
 EXPORT_MANIFEST_SHA256 = "7db0b61ba40bea60bf17bc5faf615bb2c8ae21320739c3bea589e4d62aea0069"
 TOKEN_AUDIT_MANIFEST_SHA256 = "aec131295af1d015d9ef7619ad35d0ad03792a7f147cdf5164bc4c8e4e800826"
-_CONFIG_PATH = "configs/models/pretrained_gpu_feasibility_v1.json"
+_CONFIG_PATH = "configs/models/pretrained_gpu_feasibility_startup_repair_v2.json"
 _OUTCOME_PATH = "outcome.json"
 _HASH = re.compile(r"[0-9a-f]{64}\Z")
 _TOP_LEVEL = {
@@ -128,7 +128,7 @@ def validate_config_object(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != _TOP_LEVEL:
         raise ValueError("config top-level schema has unknown or missing fields")
     _no_nulls(value)
-    if value["config_version"] != "dwr-pretrained-gpu-feasibility-v1":
+    if value["config_version"] != "dwr-pretrained-gpu-feasibility-startup-repair-v2":
         raise ValueError("unsupported config version")
     if value["task_training"] is not False or value["protected_payload_access"] is not False:
         raise ValueError("config does not preserve the registered probe boundary")
@@ -176,7 +176,7 @@ def _resolve_registered(root: Path, relative: str, *, must_exist: bool = True) -
 
 
 def validate_output_directory(root: Path, relative: str) -> Path:
-    validate_relative_path(relative, expected="runs/pretrained-gpu-feasibility-20261015-v1")
+    validate_relative_path(relative, expected="runs/pretrained-gpu-feasibility-20261015-startup-repair-v2")
     output = _resolve_registered(root, relative, must_exist=False)
     if output.exists():
         raise FileExistsError(f"registered output directory already exists: {relative}")
@@ -1049,11 +1049,26 @@ def run_probe(config_path: str | os.PathLike[str], *, command: list[str]) -> dic
         "tokenizer": config["model"]["artifact_inventory_sha256"],
         "schedule": _sha256(json.dumps(config["schedule"], sort_keys=True, separators=(",", ":")).encode("utf-8")),
     }
+    identity_metadata = {
+        "source": ("dwr-source-commit", source["commit"]),
+        "config": ("dwr-gpu-feasibility-config", config["config_version"]),
+        "data": ("source-token-cap-audit", config["data_preconditions"]["token_audit_status"]),
+        "model": (config["model"]["repo_id"], config["model"]["revision"]),
+        "tokenizer": ("pinned-model-tokenizer-inventory", config["model"]["revision"]),
+        "schedule": ("optimizer-schedule", config["schedule"]["type"]),
+    }
+    record_identities = {
+        key: {"name": name, "revision": revision, "sha256": identities[key]}
+        for key, (name, revision) in identity_metadata.items()
+    }
     record = RunRecord.create(output, command=command, config_path=config_file,
-        expected_config_sha256=CONFIG_SHA256, identities=identities, rng_streams=config["seeds"],
+        expected_config_sha256=CONFIG_SHA256, identities=record_identities, rng_streams=config["seeds"],
         settings={"attention": config["attention"], "layout": config["layout"],
                   "precision": config["precision"], "numerics": config["numerics"]},
-        budgets=config["limits"], confirmatory=False, source_root=root)
+        budgets={"wall_seconds": config["limits"]["wall_seconds"],
+                 "memory_mib": config["limits"]["resident_memory_mib"],
+                 "attempts": config["limits"]["attempts"]},
+        confirmatory=False, source_root=root)
     guard.check()
     phase = "preflight"
     outcome: dict[str, Any] | None = None
