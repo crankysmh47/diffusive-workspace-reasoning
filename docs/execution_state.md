@@ -1,8 +1,24 @@
-# Active execution: fixed-N workspace components
+# Active execution: native integration and run infrastructure
 
 Updated 2026-10-14. At clean source `6ad827784e3887295db05c4e1e651f6e5a6648f3`, the sole new five-stratum qualification passed, then the conditional full run passed **PASS_G2_FIVE_STRATUM_V1**. All 22,718 full attempts replayed; accepted source/development/final counts are 3,000/2,907/600. Root verified public terminal aggregates and opaque artifact/config/source bindings; no raw target payloads guided design. See [result](five_stratum_study_result.md), [compact manifest](../configs/splits/certificate-five-stratum-study-result.json) and [implementation verification](five_stratum_implementation.md). Both scientific run allowances are consumed without retry; previous NO-GOs remain unchanged.
 
 The next authorized step is the real [fixed-N EX/IDX tensor core and set reader](fixed_workspace_core_design.md), implemented by Luna with root scientific decisions and independent review. Components are independently reviewed and verified:528 stdlib checks and20 actual tensor checks passed on stable bytes under one44.140s combined180s watchdog. The initial monolithic failure is preserved; no CPU guard/config was weakened. See [verification](fixed_workspace_core_verification.md). Root created isolated stable torch2.11.0+cu128 and stdlib-only environments without changing the global nightly installation. This component result covers only synthetic CPU correctness/gradient checks. Native decoder integration, run/evaluation/checkpoint infrastructure, separately registered full GPU memory/backward probe and complete training registration follow. No neural learning or GPU training result exists. Confirmatory precision remains unassessed, including the seven-example EQ/NEQ diagnostic A3 cell. Owner requested minimal commits: consolidate this result and verified components in one checkpoint, push/update [PR #2](https://github.com/crankysmh47/diffusive-workspace-reasoning/pull/2), never merge.
+
+## Native integration release — 2026-10-15
+
+Luna completed the actual native host and source collation/answer-only loss; task reviews and whole-stage review are READY. Root530 stdlib plus45 actual ML checks passed in46.313s with stable source/config bytes; [verification](native_backbone_verification.md) gives counts, commands and hashes. This supersedes the earlier native-integration-next note above. Run records and exact permitted-source export are now designed; Luna is implementing run records. Autoregressive evaluation/costs, full resume and registered pretrained GPU feasibility follow. No GPU training or neural learning result exists. Owner minimum-commit and no-agent-merge instructions remain active.
+
+## Active G3 components and artifact preparation — 2026-10-15
+
+Run records and the permitted-source conversion core are independently READY after preserved failure-handling/Windows-path regression fixes. Native CPU greedy generation is independently READY after missing-dependency and real decoder-failure regressions. Complete training resume is being corrected for strict Adam state, K0 reader-only policy and meaningful global-RNG restoration; the closed source-export runner/reader is being implemented. No actual retained source task payloads have been exported/consumed yet. Original service-limit interruptions were preserved and owner resume retried the same pending tasks without redoing completed work.
+
+Pinned Qwen2.5-1.5B files are verified locally:9 files/3,098,970,704 bytes, header-only338BF16 tensors/1,543,714,304 elements. A real offline Qwen2TokenizerFast synthetic framing check passes (318 prompt+34 answer tokens). See [preparation/receipts](pretrained_artifact_preparation.md). No model tensors, GPU arithmetic or task training. Source export needs reviewed clean source first; a complete separately registered GPU probe follows infrastructure gates. Owner minimal-commit/no-agent-merge rules remain active.
+
+## Infrastructure release cleared — 2026-10-15
+
+Independent component and whole-stage reviews are READY. Root647 distinct methods execute across585 stdlib and72 ML checks (10 overlap),64.672s combined under180s, stable runtime/config bytes. See [release verification](native_infrastructure_verification.md). This supersedes the in-progress component notes above: strict source-export runner/reader, complete CPU resume and native CPU generation are now cleared. Preserve the explicit missing Task2 preimplementation behavioral RED and real Windows symlink fixture skip. No source payload export or GPU/model run yet.
+
+Next: one consolidated clean commit, push/update existingPR#2 without merge; execute the closed source-only export once, root verify counts/hash/access disclosure; then freeze the exact GPU registration/runner after source-cap audit. Pinned files/tokenizer fixture are prepared, but no pretrained tensors/GPU arithmetic/task learning has occurred.
 
 # Historical execution state: rank qualification closed NO-GO
 

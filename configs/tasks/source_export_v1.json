@@ -1,0 +1,43 @@
+{
+  "artifact_sha256": {
+    "manifest.initial.json": "996263024f52e57d327333007927dba299e09eae2b4b7ee5c5deef0c4f6ebc9a",
+    "manifest.json": "07a321f6471175537200a8c2db724682220cbae59f39eaedb2923280ac1e4baf",
+    "outcomes.jsonl": "13ce3f4cec7240c387d9bbfd42bb3d4eb23a51e917906be3810c647da2ae6103",
+    "records.jsonl": "24478cb8c9a9a0f190a38163187faeabf56445bbda0938c48f57ac06eb2e05b4",
+    "replay.json": "f2b7062bea5034cd4faa1351af6f2d708016b78fa7e1bb71ac47557b59e635e2",
+    "report.json": "fe29bb8fe8e51e9015c58e06dfee7b916e9b2d730efa259dfe54fb20c0eebe70"
+  },
+  "config_version": "dwr-source-export-v1",
+  "expected_counts": {
+    "source_train": 2436,
+    "source_validation": 265
+  },
+  "forbidden_payload_splits": [
+    "source_test",
+    "development_validation",
+    "development_diagnostic_test",
+    "final_test"
+  ],
+  "generation_config_path": "configs/tasks/certificate_five_stratum_full_v1.json",
+  "generation_config_sha256": "3aff6fcaba6143a26ad6d8a86cc83f9782ff63d689912f5fb04ffc4e9cc81afa",
+  "input_dir": "runs/certificate-five-stratum-full-20261014-v1",
+  "limits": {
+    "attempts": 1,
+    "cpu_workers": 1,
+    "external_watchdog_seconds": 305,
+    "memory_mib": 512,
+    "wall_seconds": 300
+  },
+  "model_execution": false,
+  "operation": "source-only-retained-corpus-conversion",
+  "output_dir": "runs/source-export-20261015-v1",
+  "output_filename": "source_examples.jsonl",
+  "permitted_payload_splits": [
+    "source_train",
+    "source_validation"
+  ],
+  "producer_commit": "6ad827784e3887295db05c4e1e651f6e5a6648f3",
+  "root_seed_unused": 20261019,
+  "structural_result_path": "configs/splits/certificate-five-stratum-study-result.json",
+  "structural_result_sha256": "8008c16815063f83cedbfaa2892a796bd2b00f1bdc44b9b08f241a602bb512d8"
+}

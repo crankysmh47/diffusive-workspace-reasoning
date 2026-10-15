@@ -1,3 +1,11 @@
+# Infrastructure release — 2026-10-15
+
+The [native/run/export/generation/resume foundation](native_infrastructure_verification.md) passes647 distinct root checks and independent whole-stage review on stable bytes. [Pinned pretrained artifacts and a real-tokenizer synthetic check](pretrained_artifact_preparation.md) are verified without loading model tensors. Actual source export, pretrained benchmark/GPU feasibility and learned research results still follow. One consolidated checkpoint precedes the registered source-only conversion; ignored artifacts remain local. The review/test-history limitations are explicitly preserved in the verification record.
+
+# Current checkpoint — 2026-10-15
+
+The [native backbone and answer-loss integration](native_backbone_verification.md) has passed independent task/stage review and root separated CPU release checks:530 stdlib methods and45 actual core/native/loss methods,46.313s combined, stable bytes. No pretrained weights, actual corpus model consumption, GPU arithmetic or task training. Run records, permitted-source export, evaluation/costs and full training resume precede a separately registered pretrained GPU feasibility probe. Minimal consolidated commits remain the owner preference. Historical entries below retain the state at their original dates.
+
 # DWR: ideas, work completed and current research status
 
 Updated 2026-10-13 for the owner-requested GitHub handoff. This account describes the repository's recorded work, not a new experiment or literature review. The active branch is `research/transfer-cpu-v1`; the original checkout's earlier planning edits are separately preserved on `backup/bootstrap-planning-20261013`. Generated data, weights, checkpoints, credentials and ignored run/review logs remain local. GitHub preserves the source, registrations, reports and small evidence manifests; this push does not archive the raw experiments or establish independent reproduction.

@@ -11,6 +11,14 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 - [x] Specify the next fixed-N component architecture and verification plan. Independent design review READY_FOR_CORE_IMPLEMENTATION; this is design evidence, not model validation. See [design](docs/fixed_workspace_core_design.md) and [plan](docs/superpowers/plans/2026-10-14-fixed-workspace-core.md).
 - [x] Implement and independently review the actual EX/IDX tensor core and set reader; verify recurrence, permutation, masks, RNG and frozen-tail gradient flow. Root528 stdlib checks and20 actual tensor checks passed in separate environments under44.140s combined; the original monolithic memory-guard failure is preserved. See [verification](docs/fixed_workspace_core_verification.md). No native-model training or full-resume claim follows.
 
+## Native CPU integration — 2026-10-15
+
+- [x] Implement and independently review the actual pinned Qwen2 host, prompt-only extraction, matched readers and strict source token collation/answer-only loss. Root release checks passed530 stdlib and45 actual ML methods in46.313s combined on stable bytes; see [verification](docs/native_backbone_verification.md). Two import-regression checks overlap between processes. No pretrained/GPU/training result follows.
+- [x] Independently clear run-record lifecycle/integrity, permitted-source conversion core and native CPU greedy generation components after fixes; 647 distinct root release checks and whole-stage review now pass; actual production export remains pending. See active [execution state](docs/execution_state.md).
+- [x] Retrieve exact pinned pretrained files and verify hashes/header without loading model tensors; real pretrained tokenizer passes one synthetic framing check. See [preparation](docs/pretrained_artifact_preparation.md). No corpus-length/GPU/model-quality claim.
+- [x] Complete independently reviewed run records, source-only converter/runner/reader, native CPU generation and complete learned-state CPU resume; whole-stage review READY, root585 stdlib+72 ML checks pass64.672s (647 distinct). See [verification](docs/native_infrastructure_verification.md).
+- [ ] Execute the sole source-only export at clean source, audit exact permitted-source token caps, then register/implement full pretrained GPU feasibility. Per-example benchmark/cost and exploratory pilot launchers remain separate.
+
 ## Retained rank support diagnosis — 2026-10-14
 
 - [x] Register one bounded retained-data diagnosis before another population design. See [scope](docs/rank_support_diagnosis.md), [plan](docs/superpowers/plans/2026-10-14-rank-support-diagnosis.md) and closed config. No raw rows/new tasks were inspected at registration; original NO_GO unchanged.
@@ -142,12 +150,12 @@ Gate G2: **PASS_G2_FIVE_STRATUM_V1**, the registered structural gate only. All p
 
 ## 3. Run infrastructure and frozen-backbone reference
 
-- [ ] Implement resolved run manifests/status logging under `dwr/experiments/` with strict configuration validation, source/data identities, separate RNG streams, environment and unique run directories; add CPU tests for invalid/missing config and artifact identity.
+- [x] Implement resolved run manifests/status logging under `dwr/experiments/` with strict configuration validation, source/data identities, separate RNG streams, environment and unique run directories; add CPU tests for invalid/missing config and artifact identity.
 - [ ] Select a candidate base backbone and tokenizer, pin revisions/terms and exact environment; add ML dependencies only here. Check frozen encoding/decoding memory; keep workspace/adapters provisional until the full training probe in G4.
-- [ ] Fix prompt-only encoding with adapters disabled and cache identity; verify answer changes cannot affect X, and padding/batching do not alter valid prompt states.
+- [x] Fix prompt-only encoding with adapters disabled; verify answer changes cannot affect X, and padding/batching do not alter valid prompt states. Cache is explicitly disabled; see [native verification](docs/native_backbone_verification.md).
 - [ ] Implement strict autoregressive evaluation and per-example records under `dwr/evaluation/`; fix greedy decoding, output cap, parser, single-draw noise seeds and invalid-output accounting.
 - [ ] Benchmark the unaugmented frozen backbone with the same prompt/answer rules on development/validation data; record valid-solution rate, latency and memory.
-- [ ] Implement checkpoint identity and RNG/sampler-state serialization with CPU tests; validate complete learned-model resume after the optimizer and adapters exist in G4.
+- [x] Implement checkpoint identity and RNG/sampler-state serialization with CPU tests; complete actual native learned-model/AdamW/schedule/RNG/sampler CPU resume also passes. See [verification](docs/native_infrastructure_verification.md); CUDA replay remains a probe prerequisite.
 - [ ] Establish warmup/synchronization/repetition settings and FLOPs scope; include prompt encoding, workspace and answer decoding, with cache policy fixed.
 
 Gate G3: run identities, repeatable frozen-backbone evaluation and measurement infrastructure. Full training feasibility remains a G4 prerequisite to the pilot.
@@ -155,12 +163,12 @@ Gate G3: run identities, repeatable frozen-backbone evaluation and measurement i
 ## 4. One-shot workspace and interface controls
 
 - [x] Implement the actual shared residual EX/IDX block and invariant set reader under `dwr/models/`. Independently reviewed CPU tests verify the fixed-N component contract; see [verification](docs/fixed_workspace_core_verification.md).
-- [ ] Integrate the matched readers into actual frozen native decoder layers and verify prompt-only encoding, causal logits and complete answer loss. Follow the [native design](docs/native_backbone_design.md); this is not established by the frozen linear-tail fixture.
+- [x] Integrate the matched readers into actual frozen native decoder layers and verify prompt-only encoding, causal logits and complete answer loss. Follow the [native design](docs/native_backbone_design.md); see [native verification](docs/native_backbone_verification.md) for actual random native CPU evidence.
 - [ ] Train only new parameters using shifted answer-token cross-entropy, masking prompt/padding tokens; retain gradients through frozen decoder computations and all workspace updates.
-- [x] Add actual CPU tensor checks for EX equivariance, reader invariance/query independence, masks, shapes, all recurrent gradients and new-parameter SGD changes with frozen-tail bytes unchanged for EX/IDX. Native causal logits and GPU checks remain outstanding.
+- [x] Add actual CPU tensor checks for EX equivariance, reader invariance/query independence, masks, shapes, all recurrent gradients and new-parameter SGD changes with frozen-tail bytes unchanged for EX/IDX. Native causal logits now pass; GPU checks remain outstanding.
 - [x] Implement K=4 shared recurrence and K0/K1 forward paths; verify finite states and gradients through Z0..Z4. This does not implement trained K0-control bookkeeping or deferred wider-K studies.
 - [ ] Measure full forward/backward/optimizer memory at maximum planned training K, sequence length and batch, plus any separately registered extrapolation horizon; freeze model/workspace/adapter/precision settings consistently across methods before the pilot.
-- [ ] Verify complete optimizer/scheduler/scaler/RNG/sampler resume against uninterrupted tiny training with stated tolerances.
+- [x] Verify complete AdamW/LambdaLR/scaler=None/global+local RNG/sampler resume against uninterrupted actual tiny CPU native training at1e-12, including K0 reader-only control and missing-state regressions. CUDA replay is still unverified; see [verification](docs/native_infrastructure_verification.md).
 - [ ] Overfit a tiny verified batch; diagnose integration failures before development comparisons.
 - [ ] Implement separately trained K=0 noise-memory adapter control and K=1 EX using the same initialization/interface; record parameter differences.
 - [ ] Run a bounded one-seed validation pilot of K=0, EX K=1 and EX K=4. Freeze pilot step/GPU-hour limits and retry allowance first; save learning curves and latent norms.
@@ -207,6 +215,6 @@ Gate G7: a reproducible technical report, not guaranteed venue acceptance. Choos
 
 See [spare_research_ideas.md](docs/spare_research_ideas.md) for task-structure theory, persistent repair, learned slot allocation, flow distillation and adaptive stopping. These are not active milestones. Public datasets and larger backbones also require a new evidence-backed scope decision; preserve problem-level grouping and usage-term checks if activated.
 
-At this revision, CPU task generation, replay/audit, the new five-stratum structural G2 and fixed-N tensor components are verified. All historical attempts remain preserved. Native backbone integration, run/evaluation/resume machinery, GPU task training, fixed-size transfer, variable-slot experiments, paper reporting, archival backup and independent-person reproduction remain incomplete.
+At this revision, CPU task generation, replay/audit, the new five-stratum structural G2 and fixed-N tensor components are verified. All historical attempts remain preserved. Native and run/export/generation/resume components now pass CPU verification; actual source export, pretrained benchmark/GPU feasibility/task training, fixed-size transfer, variable-slot experiments, paper reporting, archival backup and independent-person reproduction remain incomplete.
 
 2026-10-14 checkpoint: [PR #2](https://github.com/crankysmh47/diffusive-workspace-reasoning/pull/2) records reviewed retained support diagnosis and prospective five-stratum registration. Root opened it against main without merging; implementation continues on research/transfer-cpu-v1. Raw artifacts remain local/ignored.
