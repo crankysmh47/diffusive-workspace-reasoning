@@ -20,12 +20,12 @@ from dwr.tasks import canonical
 from dwr.tasks.run_support import stable_json
 from dwr.tasks.schema import parse_task_json, serialize_model_input
 
-CONFIG_SHA256 = "9af9196c59b4b65774ac82aebb57378cb2fc23513b382b40cdf5b6dfe55c824b"
+CONFIG_SHA256 = "e3a67600b9bada872bd4523f319378a2088e25824df82d90c44d2fb00b42144f"
 COHORT_SHA256 = "bca9505b817a9b75b9d7aba33710ddc17b47596bdb9a9772924348d15b4b64bd"
 FEASIBILITY_CONFIG_SHA256 = "840615e265a427946627f3320f667154e17bc56c53c15b6f90a453c10693144f"
 FEASIBILITY_MODULE_SHA256 = "5c8c8f36f198f08ab906be86e88c2dbac04471f7e6f5585b93d1fb402a3c5139"
 PASS_STATUS = "PASS_FROZEN_REFERENCE_OPERATIONAL_V1"
-_CONFIG_PATH = "configs/models/frozen_source_reference_v1.json"
+_CONFIG_PATH = "configs/models/frozen_source_reference_startup_repair_v2.json"
 _HEX = frozenset("0123456789abcdef")
 
 
@@ -38,7 +38,7 @@ def _repo_root() -> Path:
 
 
 def _validate_output_directory(root: Path, relative: str) -> Path:
-    if relative != "runs/frozen-source-reference-20261016-v1" or "\\" in relative:
+    if relative != "runs/frozen-source-reference-20261016-startup-repair-v2" or "\\" in relative:
         raise ValueError("output directory differs from the closed registration")
     target = root.joinpath(*PurePosixPath(relative).parts)
     resolved_root = root.resolve(strict=True)
@@ -430,6 +430,7 @@ def _run_model(root: Path, reg: Mapping[str, Any], helper: Any, full: Mapping[st
     torch.manual_seed(config["seeds"]["torch_cpu_global"])
     if getattr(device, "type", None) == "cuda":
         torch.cuda.manual_seed_all(config["seeds"]["torch_cuda_global"])
+        torch.cuda.synchronize(device)
         torch.cuda.reset_peak_memory_stats(device)
     check()
     load_started = time.perf_counter()

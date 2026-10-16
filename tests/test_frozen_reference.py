@@ -42,11 +42,13 @@ class CohortAndPromptTests(unittest.TestCase):
                 for item in self.cohort["selected"]]
 
     def test_exact_closed_registration_maps_full_feasibility_proof_and_cohort(self):
-        resolved = runner._load_registration(ROOT, "configs/models/frozen_source_reference_v1.json")
-        self.assertEqual(resolved["config_sha256"], "9af9196c59b4b65774ac82aebb57378cb2fc23513b382b40cdf5b6dfe55c824b")
+        resolved = runner._load_registration(ROOT, "configs/models/frozen_source_reference_startup_repair_v2.json")
+        self.assertEqual(resolved["config_sha256"], "e3a67600b9bada872bd4523f319378a2088e25824df82d90c44d2fb00b42144f")
         self.assertEqual(resolved["cohort_sha256"], "bca9505b817a9b75b9d7aba33710ddc17b47596bdb9a9772924348d15b4b64bd")
         self.assertEqual(resolved["feasibility_config"]["config_version"], "dwr-pretrained-gpu-feasibility-startup-repair-v2")
         self.assertEqual(resolved["selected"], tuple(self.cohort["selected"]))
+        with self.assertRaisesRegex(ValueError, "only the registered"):
+            runner._load_registration(ROOT, "configs/models/frozen_source_reference_v1.json")
 
     def test_source_rows_are_exactly_cohort_ordered_and_source_validation_only(self):
         selected = runner._select_source_rows(self.rows(), self.cohort)
@@ -58,7 +60,7 @@ class CohortAndPromptTests(unittest.TestCase):
             runner._select_source_rows(bad, self.cohort)
 
     def test_reader_adapter_requests_only_registered_source_validation(self):
-        config = json.loads((ROOT / "configs/models/frozen_source_reference_v1.json").read_text(encoding="utf-8"))
+        config = json.loads((ROOT / "configs/models/frozen_source_reference_startup_repair_v2.json").read_text(encoding="utf-8"))
         calls = []
         def reader(path, **kwargs):
             calls.append((path, kwargs)); return ()
@@ -140,6 +142,70 @@ class TinyCpuEvaluationTests(unittest.TestCase):
         self.assertFalse(cap_score["valid"])
         self.assertEqual(cap_score["termination"], "token_cap")
         self.assertEqual(cap_score["verifier_reason"], "valid")
+
+
+@unittest.skipUnless(__import__("importlib").util.find_spec("torch"), "optional ML dependency is unavailable")
+class ModelStartupOrderTests(unittest.TestCase):
+    class ModelLoadReached(Exception):
+        pass
+
+    def _run_until_model_load(self, device, events):
+        import torch
+
+        class Helper:
+            @staticmethod
+            def _set_numerics(_full, *, torch_module):
+                return {"fixture": True}
+
+        reg = {"config": {"seeds": {"python_global": 1, "numpy_global": 2,
+                                     "torch_cpu_global": 3, "torch_cuda_global": 4}}}
+        def load(*_args):
+            events.append("load")
+            raise self.ModelLoadReached
+        with patch.object(torch, "manual_seed"), \
+             patch.object(runner, "_load_original_model", side_effect=load), \
+             patch.object(runner.random, "seed"), \
+             patch("numpy.random.seed"):
+            return runner._run_model(Path("."), reg, Helper(), {"model": {}}, (), None, object(),
+                                     lambda: None, device=device)
+
+    def test_cuda_startup_synchronizes_exact_device_then_resets_before_model_load(self):
+        import torch
+        device = torch.device("cuda:0")
+        events = []
+        initialized = False
+
+        def synchronize(actual):
+            nonlocal initialized
+            self.assertEqual(actual, device)
+            events.append("synchronize")
+            initialized = True
+
+        def reset(actual):
+            self.assertEqual(actual, device)
+            events.append("reset")
+            if not initialized:
+                raise RuntimeError("Invalid device argument: allocator is uninitialized")
+
+        with patch.object(torch.cuda, "synchronize", side_effect=synchronize), \
+             patch.object(torch.cuda, "reset_peak_memory_stats", side_effect=reset):
+            with self.assertRaises(self.ModelLoadReached):
+                self._run_until_model_load(device, events)
+
+        self.assertEqual(events, ["synchronize", "reset", "load"])
+
+    def test_cpu_startup_does_not_call_runner_cuda_startup_or_measurement_apis(self):
+        import torch
+        device = torch.device("cpu")
+        events = []
+        cuda_apis = ("synchronize", "reset_peak_memory_stats", "manual_seed_all",
+                     "memory_allocated", "memory_reserved", "max_memory_allocated",
+                     "max_memory_reserved", "get_rng_state_all", "set_rng_state_all")
+        with patch.multiple(torch.cuda, **{name: unittest.mock.Mock(side_effect=AssertionError(name))
+                                           for name in cuda_apis}):
+            with self.assertRaises(self.ModelLoadReached):
+                self._run_until_model_load(device, events)
+        self.assertEqual(events, ["load"])
 
 
 @unittest.skipUnless(__import__("importlib").util.find_spec("torch") and __import__("importlib").util.find_spec("transformers"),
@@ -284,7 +350,7 @@ class RunReferenceControllerTests(unittest.TestCase):
         git(self.root, "config", "core.autocrlf", "false")
         git(self.root, "config", "core.eol", "lf")
         git(self.root, "-c", "core.autocrlf=false", "checkout", "--detach", "HEAD")
-        for relative in ("configs/models/frozen_source_reference_v1.json",
+        for relative in ("configs/models/frozen_source_reference_startup_repair_v2.json",
                          "configs/models/pretrained_gpu_feasibility_startup_repair_v2.json",
                          "configs/splits/frozen_reference_source_validation_cohort_v1.json",
                          "dwr/experiments/frozen_reference.py"):
@@ -292,14 +358,14 @@ class RunReferenceControllerTests(unittest.TestCase):
             shutil.copyfile(ROOT / relative, destination)
         (self.root / "runs").mkdir()
         (self.root / "runs/.keep").write_bytes(b"fixture\n")
-        git(self.root, "add", "configs/models/frozen_source_reference_v1.json",
+        git(self.root, "add", "configs/models/frozen_source_reference_startup_repair_v2.json",
             "configs/models/pretrained_gpu_feasibility_startup_repair_v2.json",
             "configs/splits/frozen_reference_source_validation_cohort_v1.json",
             "dwr/experiments/frozen_reference.py")
         git(self.root, "add", "-f", "runs/.keep")
         git(self.root, "-c", "user.name=Runner Test", "-c", "user.email=runner@example.invalid",
             "commit", "-qm", "registered frozen-reference controller fixture")
-        self.config = self.root / "configs/models/frozen_source_reference_v1.json"
+        self.config = self.root / "configs/models/frozen_source_reference_startup_repair_v2.json"
         self.ref_config = json.loads(self.config.read_text(encoding="utf-8"))
         self.cohort = json.loads((self.root / self.ref_config["dependencies"]["cohort_path"]).read_text(encoding="utf-8"))
 
