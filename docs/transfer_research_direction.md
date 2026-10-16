@@ -1,5 +1,7 @@
 # Main direction: transferable computation with exchangeable workspaces
 
+2026-10-16 status update: native integration/run/export/evaluation/CPU-resume infrastructure and the [actual pretrained GPU feasibility](pretrained_gpu_feasibility_result.md) pass. Device-aware frozen reference is the next operational stage; no task-learning or transfer result exists. G3/G4 and confirmatory precision remain incomplete. This note supersedes older status summaries below without changing the binding scientific protocol.
+
 Decision date: 2026-10-07. User selected reusable computation across tasks as the main direction. Gate status updated 2026-10-14: the separately registered [five-stratum study](five_stratum_study_result.md) passed qualification/full structural G2; every prior NO-GO/unassessed result remains unchanged. Fixed-N [tensor components](fixed_workspace_core_verification.md) are independently reviewed and verified on CPU. Native backbone integration, training infrastructure, GPU feasibility and prospective confirmatory precision remain outstanding. No model training or transfer result exists. See [execution state](execution_state.md). This status note does not amend v2.2. Other directions remain parked in [spare_research_ideas.md](spare_research_ideas.md).
 
 ## Central question

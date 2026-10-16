@@ -102,24 +102,59 @@ def _torch():
     return torch
 
 
-def _validate_model_cpu(model: object, *, label: str) -> None:
-    torch = _torch()
+def _validate_model_device(model: object, *, label: str):
     parameters = list(model.parameters())
     buffers = list(model.buffers())
     if not parameters:
         raise ValueError(f"{label} must have parameters")
-    if any(tensor.device.type != "cpu" for tensor in (*parameters, *buffers)):
-        raise ValueError(f"{label} and all its tensors must be on CPU")
+    devices = [tensor.device for tensor in (*parameters, *buffers)]
+    if any(device.type not in ("cpu", "cuda") for device in devices):
+        raise ValueError(f"{label} tensors must be on one supported CPU or CUDA device")
+    if any(device != devices[0] for device in devices[1:]):
+        raise ValueError(f"{label} tensors must share one device")
+    return devices[0]
+
+
+def _validate_supported_device(device, *, label: str):
+    if device.type not in ("cpu", "cuda"):
+        raise ValueError(f"{label} must be on a supported CPU or CUDA device")
+    return device
+
+
+def _validate_check(check: object) -> None:
+    if check is not None and not callable(check):
+        raise TypeError("check must be callable or None")
+
+
+def _check_budget(check: Callable | None) -> None:
+    if check is not None:
+        check()
+
+
+def _synchronize_device(torch, device) -> None:
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+
+
+def _autocast_off(torch, device):
+    return torch.autocast(device_type=device.type, enabled=False)
+
+
+def _validate_prompt_devices(prompt_ids: object, prompt_mask: object, *, device) -> None:
+    torch = _torch()
+    if not isinstance(prompt_ids, torch.Tensor) or not isinstance(prompt_mask, torch.Tensor):
+        raise TypeError("prompt_ids and prompt_mask must be tensors")
+    _validate_supported_device(prompt_ids.device, label="prompt_ids")
+    _validate_supported_device(prompt_mask.device, label="prompt_mask")
+    if prompt_ids.device != device or prompt_mask.device != device:
+        raise ValueError("model, prompt_ids and prompt_mask must share one device")
 
 
 def _validate_prompt(prompt_ids: object, prompt_mask: object, *, vocab_size: int,
                      eos_token_id: int, pad_token_id: int | None,
-                     max_new_tokens: int, max_total_tokens: int):
+                     max_new_tokens: int, max_total_tokens: int, device):
     torch = _torch()
-    if not isinstance(prompt_ids, torch.Tensor) or not isinstance(prompt_mask, torch.Tensor):
-        raise TypeError("prompt_ids and prompt_mask must be tensors")
-    if prompt_ids.device.type != "cpu" or prompt_mask.device.type != "cpu":
-        raise ValueError("prompt_ids and prompt_mask must be on CPU")
+    _validate_prompt_devices(prompt_ids, prompt_mask, device=device)
     if prompt_ids.dtype != torch.long:
         raise TypeError("prompt_ids must use torch.long")
     if prompt_mask.dtype != torch.bool:
@@ -166,11 +201,13 @@ def _validate_generation_args(eos_token_id: int, max_new_tokens: int,
 
 
 def _greedy_loop(decode: Callable, prompt_ids, prompt_mask, *, vocab_size: int,
-                 eos_token_id: int, max_new_tokens: int) -> tuple[int, ...]:
+                 eos_token_id: int, max_new_tokens: int,
+                 check: Callable | None = None) -> tuple[int, ...]:
     """Run the shared full-prefix loop; scripted callbacks are algorithm tests only."""
     torch = _torch()
     if not callable(decode):
         raise TypeError("decode must be callable")
+    _validate_check(check)
     vocab_size = _positive_int("vocab_size", vocab_size)
     eos_token_id = _nonnegative_int("eos_token_id", eos_token_id)
     if eos_token_id >= vocab_size:
@@ -178,8 +215,9 @@ def _greedy_loop(decode: Callable, prompt_ids, prompt_mask, *, vocab_size: int,
     max_new_tokens = _positive_int("max_new_tokens", max_new_tokens)
     if not isinstance(prompt_ids, torch.Tensor) or not isinstance(prompt_mask, torch.Tensor):
         raise TypeError("prompt_ids and prompt_mask must be tensors")
-    if prompt_ids.device.type != "cpu" or prompt_mask.device.type != "cpu":
-        raise ValueError("greedy loop inputs must be on CPU")
+    device = _validate_supported_device(prompt_ids.device, label="greedy loop inputs")
+    if prompt_mask.device != device:
+        raise ValueError("greedy loop inputs must share one device")
     if (prompt_ids.dtype != torch.long or prompt_mask.dtype != torch.bool or
             prompt_ids.ndim != 2 or prompt_ids.shape[0] != 1 or prompt_ids.shape[1] <= 0 or
             prompt_mask.shape != prompt_ids.shape or not prompt_mask.all().item()):
@@ -188,12 +226,13 @@ def _greedy_loop(decode: Callable, prompt_ids, prompt_mask, *, vocab_size: int,
     generated: list[int] = []
     with torch.no_grad():
         for _ in range(max_new_tokens):
+            _check_budget(check)
             mask = torch.ones_like(prefix, dtype=torch.bool)
             logits = decode(prefix, mask)
             if not isinstance(logits, torch.Tensor):
                 raise TypeError("decoder logits must be a tensor")
-            if logits.device.type != "cpu":
-                raise ValueError("decoder logits must be on CPU")
+            if logits.device != device:
+                raise ValueError("decoder logits must share the input device")
             if logits.ndim != 3 or logits.shape != (1, prefix.shape[1], vocab_size):
                 raise ValueError("decoder logits must have shape (1, current_length, vocab_size)")
             if not logits.is_floating_point():
@@ -204,7 +243,9 @@ def _greedy_loop(decode: Callable, prompt_ids, prompt_mask, *, vocab_size: int,
             generated.append(token)
             if token == eos_token_id:
                 break
-            prefix = torch.cat((prefix, torch.tensor([[token]], dtype=torch.long)), dim=1)
+            prefix = torch.cat((prefix, torch.tensor(
+                [[token]], dtype=torch.long, device=prefix.device
+            )), dim=1)
     return tuple(generated)
 
 
@@ -228,20 +269,25 @@ def _generation_result(token_ids: tuple[int, ...], *, eos_token_id: int,
 
 def greedy_workspace(host, prompt_ids, prompt_mask, *, noise, steps: int,
                      eos_token_id: int, max_new_tokens: int,
-                     max_total_tokens: int) -> GenerationResult:
-    """Greedily decode through one actual Qwen2 workspace host on CPU."""
+                     max_total_tokens: int,
+                     check: Callable | None = None) -> GenerationResult:
+    """Greedily decode through one actual Qwen2 workspace host on CPU or CUDA."""
     torch = _torch()
     from dwr.models.qwen2 import Qwen2WorkspaceLM
 
+    _validate_check(check)
+    _check_budget(check)
     if not isinstance(host, Qwen2WorkspaceLM):
         raise TypeError("host must be an actual Qwen2WorkspaceLM")
     if host.training or any(module.training for module in host.modules()):
         raise ValueError("workspace host and all its modules must already be in eval mode")
-    _validate_model_cpu(host, label="workspace host")
+    device = _validate_model_device(host, label="workspace host")
     if not isinstance(noise, torch.Tensor):
         raise TypeError("noise must be a tensor")
-    if noise.device.type != "cpu":
-        raise ValueError("noise must be on CPU")
+    _validate_prompt_devices(prompt_ids, prompt_mask, device=device)
+    _validate_supported_device(noise.device, label="workspace noise")
+    if noise.device != device:
+        raise ValueError("workspace noise must share the host device")
     if noise.ndim != 3 or noise.shape != (
         1, host.workspace.num_slots, host.workspace.latent_dim
     ):
@@ -263,25 +309,32 @@ def greedy_workspace(host, prompt_ids, prompt_mask, *, noise, steps: int,
         prompt_ids, prompt_mask, vocab_size=vocab_size,
         eos_token_id=eos_token_id, pad_token_id=host.backbone.config.pad_token_id,
         max_new_tokens=max_new_tokens, max_total_tokens=max_total_tokens,
+        device=device,
     )
+    _synchronize_device(torch, device)
     started = time.perf_counter()
-    with torch.no_grad():
-        x_original = host.encode_prompt(prompt_ids, prompt_mask)
-        if x_original.requires_grad:
-            raise ValueError("prompt representation must be detached")
-        x = x_original.to(device=parameter.device, dtype=parameter.dtype)
-        with torch.autocast(device_type="cpu", enabled=False):
-            workspace = host.workspace(
-                x, noise=noise, prompt_padding_mask=~prompt_mask, steps=steps
+    try:
+        with torch.no_grad():
+            x_original = host.encode_prompt(prompt_ids, prompt_mask)
+            if x_original.device != device:
+                raise ValueError("prompt representation must remain on the host device")
+            if x_original.requires_grad:
+                raise ValueError("prompt representation must be detached")
+            x = x_original.to(device=parameter.device, dtype=parameter.dtype)
+            with _autocast_off(torch, device):
+                workspace = host.workspace(
+                    x, noise=noise, prompt_padding_mask=~prompt_mask, steps=steps
+                )
+
+            def decode(prefix, mask):
+                return host.decode_with_workspace(prefix, mask, workspace)
+
+            token_ids = _greedy_loop(
+                decode, prompt_ids, prompt_mask, vocab_size=vocab_size,
+                eos_token_id=eos_token_id, max_new_tokens=max_new_tokens, check=check,
             )
-
-        def decode(prefix, mask):
-            return host.decode_with_workspace(prefix, mask, workspace)
-
-        token_ids = _greedy_loop(
-            decode, prompt_ids, prompt_mask, vocab_size=vocab_size,
-            eos_token_id=eos_token_id, max_new_tokens=max_new_tokens,
-        )
+    finally:
+        _synchronize_device(torch, device)
     return _generation_result(
         token_ids, eos_token_id=eos_token_id, prompt_tokens=prompt_ids.shape[1],
         prompt_encoder_calls=1, workspace_updates=steps, started=started,
@@ -289,8 +342,9 @@ def greedy_workspace(host, prompt_ids, prompt_mask, *, noise, steps: int,
 
 
 def greedy_frozen(backbone, prompt_ids, prompt_mask, *, eos_token_id: int,
-                  max_new_tokens: int, max_total_tokens: int) -> GenerationResult:
-    """Greedily decode with the actual unaugmented, frozen native Qwen2 model."""
+                  max_new_tokens: int, max_total_tokens: int,
+                  check: Callable | None = None) -> GenerationResult:
+    """Greedily decode with the frozen native Qwen2 model on CPU or CUDA."""
     torch = _torch()
     try:
         from transformers import Qwen2ForCausalLM
@@ -298,6 +352,8 @@ def greedy_frozen(backbone, prompt_ids, prompt_mask, *, eos_token_id: int,
         if error.name == "transformers":
             raise RuntimeError("native generation requires the optional transformers dependency") from error
         raise
+    _validate_check(check)
+    _check_budget(check)
     if not isinstance(backbone, Qwen2ForCausalLM):
         raise TypeError("backbone must be an actual Qwen2ForCausalLM")
     if any(module.training for module in backbone.modules()):
@@ -311,7 +367,7 @@ def greedy_frozen(backbone, prompt_ids, prompt_mask, *, eos_token_id: int,
     for module in backbone.modules():
         if module._forward_hooks or module._forward_pre_hooks:
             raise ValueError("foreign hooks on frozen Qwen2 modules are unsupported")
-    _validate_model_cpu(backbone, label="frozen Qwen2 backbone")
+    device = _validate_model_device(backbone, label="frozen Qwen2 backbone")
     vocab_size = _model_vocab(backbone)
     eos_token_id, max_new_tokens, max_total_tokens = _validate_generation_args(
         eos_token_id, max_new_tokens, max_total_tokens, vocab_size
@@ -320,7 +376,9 @@ def greedy_frozen(backbone, prompt_ids, prompt_mask, *, eos_token_id: int,
         prompt_ids, prompt_mask, vocab_size=vocab_size,
         eos_token_id=eos_token_id, pad_token_id=backbone.config.pad_token_id,
         max_new_tokens=max_new_tokens, max_total_tokens=max_total_tokens,
+        device=device,
     )
+    _synchronize_device(torch, device)
     started = time.perf_counter()
 
     def decode(prefix, mask):
@@ -335,11 +393,14 @@ def greedy_frozen(backbone, prompt_ids, prompt_mask, *, eos_token_id: int,
         )
         return output.logits
 
-    with torch.no_grad():
-        token_ids = _greedy_loop(
-            decode, prompt_ids, prompt_mask, vocab_size=vocab_size,
-            eos_token_id=eos_token_id, max_new_tokens=max_new_tokens,
-        )
+    try:
+        with torch.no_grad():
+            token_ids = _greedy_loop(
+                decode, prompt_ids, prompt_mask, vocab_size=vocab_size,
+                eos_token_id=eos_token_id, max_new_tokens=max_new_tokens, check=check,
+            )
+    finally:
+        _synchronize_device(torch, device)
     return _generation_result(
         token_ids, eos_token_id=eos_token_id, prompt_tokens=prompt_ids.shape[1],
         prompt_encoder_calls=0, workspace_updates=0, started=started,

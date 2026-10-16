@@ -22,8 +22,10 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 - [x] Luna implement/review the closed GPU feasibility runner and actual tiny CPU checks; fix exact-config and full-scope resource issues before launch. Root665 distinct CPU methods pass on stable bytes in71.891s; independent fix review READY. See [implementation evidence](docs/gpu_feasibility_implementation.md).
 - [x] Freeze/push reviewed checkpointf2c402b and invoke v1 once after owner-authorized GPU cleanup. The command failed in RunRecord.create after4.844s before directory/model/CUDA operations; preserve [failure](configs/models/pretrained_gpu_feasibility_v1_startup_failure.json), close its allowance and make no feasibility claim.
 - [x] Complete/review separately registered [startup repair](docs/gpu_feasibility_startup_repair.md): exact structured run identities/budget projection, actual controller/RunRecord CPU regression and stable fullCPU release668 distinct methods in72.797s. Original failure preserved; scientific settings unchanged.
-- [ ] Freeze/push the startup repair and invoke v2 once after hardware preflight, preserving all outcomes; no automatic retry. CPU controller evidence is not GPU validation.
-- [ ] After actual feasibility passes, complete frozen-reference/per-example cost evaluation and separately registered bounded exploratory overfit/pilots. Confirmatory precision and training registration remain separate. No learned results exist.
+- [x] Freeze/push startup repair83406bb and invoke v2 once: PASS_FEASIBILITY, exit0,40.875s wrapper; actual maximum-shape pretrained forward/backward/AdamW and perturbed-state checkpoint restoration,7.151GiB allocated/8.053GiB reserved. Both v1/v2 allowances closed. See [actual result](docs/pretrained_gpu_feasibility_result.md); no task-learning result.
+- [x] Implement/review the [fixed15 frozen reference](docs/frozen_reference_design.md): device-aware generation, strict runner and real record/candidate/proof regressions. Root694 distinct CPU checks pass83.110s on stable bytes; final release review READY. See [implementation verification](docs/frozen_reference_implementation.md), including preserved TDD/test-isolation limitations.
+- [ ] Consolidate/push one clean reviewed checkpoint, then invoke the sole45-prediction reference after hardware preflight. No training/protected evaluation, fallback or automatic retry.
+- [ ] After operational reference passes, separately register and execute bounded source-overfit/K0/K1/K4 exploratory pilots with fresh matched initialization. Closest-method audit, confirmatory precision and training registration remain separate. No learned results exist.
 
 ## Retained rank support diagnosis — 2026-10-14
 
@@ -157,9 +159,9 @@ Gate G2: **PASS_G2_FIVE_STRATUM_V1**, the registered structural gate only. All p
 ## 3. Run infrastructure and frozen-backbone reference
 
 - [x] Implement resolved run manifests/status logging under `dwr/experiments/` with strict configuration validation, source/data identities, separate RNG streams, environment and unique run directories; add CPU tests for invalid/missing config and artifact identity.
-- [ ] Select a candidate base backbone and tokenizer, pin revisions/terms and exact environment; add ML dependencies only here. Check frozen encoding/decoding memory; keep workspace/adapters provisional until the full training probe in G4.
+- [x] Pin the original Qwen2.5-1.5B/tokenizer revision, artifacts/terms and isolated environment; verify full maximum-shape EX forward/backward/optimizer feasibility. See [preparation](docs/pretrained_artifact_preparation.md) and [actual GPU result](docs/pretrained_gpu_feasibility_result.md). IDX and task-learning evidence remain separate.
 - [x] Fix prompt-only encoding with adapters disabled; verify answer changes cannot affect X, and padding/batching do not alter valid prompt states. Cache is explicitly disabled; see [native verification](docs/native_backbone_verification.md).
-- [ ] Implement strict autoregressive evaluation and per-example records under `dwr/evaluation/`; fix greedy decoding, output cap, parser, single-draw noise seeds and invalid-output accounting.
+- [x] Implement/review strict CPU/CUDA autoregressive generation, per-example reference records, greedy caps/verifier/invalid accounting and stable single-draw workspace seeds. See [verification](docs/frozen_reference_implementation.md); actual pretrained reference generation remains the next gate.
 - [ ] Benchmark the unaugmented frozen backbone with the same prompt/answer rules on development/validation data; record valid-solution rate, latency and memory.
 - [x] Implement checkpoint identity and RNG/sampler-state serialization with CPU tests; complete actual native learned-model/AdamW/schedule/RNG/sampler CPU resume also passes. See [verification](docs/native_infrastructure_verification.md); CUDA replay remains a probe prerequisite.
 - [ ] Establish warmup/synchronization/repetition settings and FLOPs scope; include prompt encoding, workspace and answer decoding, with cache policy fixed.
@@ -184,7 +186,7 @@ Gate G4: interpretable learning or a documented failure/no-go. Do not force anti
 
 ## 5. Registered fixed-size transfer study — main experiment
 
-- [ ] Complete the closest-method audit before comparative training, explicitly including Latent Recurrent Thoughts (arXiv:2609.01117), Slot Attention and relevant compositional-generalization work; distinguish custom controls from faithful reproductions.
+- [x] Complete the independently reviewed [targeted primary-method audit](docs/closest_method_audit.md) for bounded local pilots, including LRT, original SoftCoT/Coconut, Slot Attention, Perceiver/Set Transformer, AdaSlot and SCAN. No external method reproduction or novelty priority is established; pin author code before any faithful reproduction and refresh the broader search before submission.
 - [ ] Freeze a study registration: primary EX-IDX macro valid-solution-rate difference on held-out composition groups, absolute transfer and ID criteria, group weights, practical delta, uncertainty, seeds, finite tuning/training costs and stop rules.
 - [ ] Train one EX and one IDX workspace/interface on the same source mixture at fixed N/d/K (provisional 64/768/4), matching all settings except learned initial identities and reporting their extra parameters.
 - [ ] Train K=0 noise-memory interface and K=1 EX controls on the same source mixture. Freeze every learned component for target evaluation; no target-specific modules or checkpoint selection.

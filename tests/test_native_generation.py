@@ -7,6 +7,8 @@ import json
 import math
 import random
 import unittest
+from contextlib import nullcontext
+from unittest.mock import patch
 
 try:
     import torch
@@ -17,7 +19,10 @@ except ModuleNotFoundError as error:  # pragma: no cover - optional ML extra
 
 from dwr.evaluation.generation import (
     GenerationResult,
+    _autocast_off,
     _greedy_loop,
+    _validate_model_device,
+    _synchronize_device,
     evaluation_noise_seed,
     greedy_frozen,
     greedy_workspace,
@@ -107,6 +112,50 @@ class ScriptedGreedyTests(unittest.TestCase):
             with self.subTest(decode=decode), self.assertRaises(ValueError):
                 _greedy_loop(decode, ids, mask, vocab_size=5,
                              eos_token_id=4, max_new_tokens=1)
+
+    @unittest.skipIf(torch is None, "scripted logits require the optional torch dependency")
+    def test_greedy_loop_rejects_meta_inputs_and_wrong_device_logits(self):
+        ids = torch.tensor([[1]], dtype=torch.long)
+        mask = torch.ones_like(ids, dtype=torch.bool)
+        with self.assertRaises(ValueError):
+            _greedy_loop(lambda *_: torch.zeros(1, 1, 3), ids.to("meta"), mask.to("meta"),
+                         vocab_size=3, eos_token_id=2, max_new_tokens=1)
+        with self.assertRaises(ValueError):
+            _greedy_loop(lambda *_: torch.empty(1, 1, 3, device="meta"), ids, mask,
+                         vocab_size=3, eos_token_id=2, max_new_tokens=1)
+
+    @unittest.skipIf(torch is None, "scripted logits require the optional torch dependency")
+    def test_appended_token_tensor_explicitly_uses_prefix_device(self):
+        ids = torch.tensor([[1]], dtype=torch.long)
+        mask = torch.ones_like(ids, dtype=torch.bool)
+        original_tensor = torch.tensor
+        token_devices = []
+
+        def observe_tensor(data, *args, **kwargs):
+            token_devices.append(kwargs.get("device"))
+            return original_tensor(data, *args, **kwargs)
+
+        with patch.object(torch, "tensor", side_effect=observe_tensor):
+            _greedy_loop(lambda prefix, _mask: torch.zeros(1, prefix.shape[1], 3),
+                         ids, mask, vocab_size=3, eos_token_id=2, max_new_tokens=1)
+        self.assertEqual(token_devices, [ids.device])
+
+    @unittest.skipIf(torch is None, "device checks require the optional torch dependency")
+    def test_model_tensors_on_different_cuda_indices_are_rejected_without_cuda_calls(self):
+        class DeviceOnlyTensor:
+            def __init__(self, device):
+                self.device = torch.device(device)
+
+        class Model:
+            def parameters(self):
+                return [DeviceOnlyTensor("cuda:0")]
+
+            def buffers(self):
+                return [DeviceOnlyTensor("cuda:1")]
+
+        with patch.object(torch.cuda, "is_available", side_effect=AssertionError("CUDA queried")):
+            with self.assertRaises(ValueError):
+                _validate_model_device(Model(), label="fake model")
 
     def test_noise_seed_is_order_independent_and_does_not_touch_rng(self):
         examples = [hashlib.sha256(f"example-{i}".encode()).hexdigest() for i in range(3)]
@@ -392,6 +441,143 @@ class NativeGreedyTests(unittest.TestCase):
         self.assertEqual(result.decoder_calls, len(expected))
         self.assertTrue(torch.equal(torch.random.get_rng_state(), before_rng))
         self.assertTrue(all(torch.equal(a, b) for a, b in zip(before_parameters, backbone.parameters())))
+
+    def test_budget_check_runs_at_entry_and_each_decode_boundary(self):
+        backbone = self.make_backbone()
+        prompt_ids, prompt_mask, _ = self.sample()
+        events = []
+        original_forward = backbone.forward
+
+        def observe_forward(*args, **kwargs):
+            events.append("decode")
+            return original_forward(*args, **kwargs)
+
+        backbone.forward = observe_forward
+        result = greedy_frozen(
+            backbone, prompt_ids, prompt_mask, eos_token_id=15,
+            max_new_tokens=2, max_total_tokens=5,
+            check=lambda: events.append("check"),
+        )
+        self.assertEqual(events, ["check", "check", "decode", "check", "decode"])
+        self.assertEqual(result.decoder_calls, 2)
+
+    def test_budget_check_failure_after_decode_propagates_without_changing_model_state(self):
+        backbone = self.make_backbone()
+        prompt_ids, prompt_mask, _ = self.sample()
+        events = []
+        parameters_before = [p.detach().clone() for p in backbone.parameters()]
+
+        def check():
+            events.append("check")
+            if len(events) == 3:
+                raise RuntimeError("budget exhausted")
+
+        with self.assertRaisesRegex(RuntimeError, "budget exhausted"):
+            greedy_frozen(backbone, prompt_ids, prompt_mask, eos_token_id=15,
+                          max_new_tokens=2, max_total_tokens=5, check=check)
+        self.assertEqual(events, ["check", "check", "check"])
+        self.assertTrue(all(torch.equal(before, after) for before, after in
+                            zip(parameters_before, backbone.parameters())))
+
+    def test_workspace_budget_failure_cleans_native_hooks(self):
+        host = self.make_host()
+        prompt_ids, prompt_mask, noise = self.sample()
+        original_decode = host.decode_with_workspace
+
+        def non_eos_decode(*args, **kwargs):
+            logits = original_decode(*args, **kwargs).clone()
+            logits[..., 15] = -100
+            return logits
+
+        host.decode_with_workspace = non_eos_decode
+        layers = host.backbone.model.layers
+        hooks_before = [len(layer._forward_hooks) for layer in layers]
+        checks = []
+
+        def check():
+            checks.append(None)
+            if len(checks) == 3:
+                raise RuntimeError("budget exhausted")
+
+        with self.assertRaisesRegex(RuntimeError, "budget exhausted"):
+            greedy_workspace(host, prompt_ids, prompt_mask, noise=noise, steps=1,
+                             eos_token_id=15, max_new_tokens=2, max_total_tokens=5,
+                             check=check)
+        host.decode_with_workspace = original_decode
+        self.assertEqual(len(checks), 3)
+        self.assertEqual([len(layer._forward_hooks) for layer in layers], hooks_before)
+
+    def test_cpu_generation_does_not_query_or_initialize_cuda(self):
+        backbone = self.make_backbone()
+        prompt_ids, prompt_mask, _ = self.sample()
+        with patch.object(torch.cuda, "synchronize", side_effect=AssertionError("CUDA queried")), \
+             patch.object(torch.cuda, "is_available", side_effect=AssertionError("CUDA queried")), \
+             patch.object(torch.cuda, "current_device", side_effect=AssertionError("CUDA queried")):
+            result = greedy_frozen(backbone, prompt_ids, prompt_mask, eos_token_id=15,
+                                   max_new_tokens=1, max_total_tokens=4)
+        self.assertEqual(result.decoder_calls, 1)
+
+    def test_workspace_rejects_meta_noise_and_meta_model_buffer_before_tensor_values(self):
+        host = self.make_host()
+        prompt_ids, prompt_mask, noise = self.sample()
+        with self.assertRaises(ValueError):
+            greedy_workspace(host, prompt_ids, prompt_mask, noise=noise.to("meta"),
+                             steps=1, eos_token_id=15, max_new_tokens=1,
+                             max_total_tokens=4)
+        with self.assertRaises(ValueError):
+            greedy_workspace(host, prompt_ids.to("meta"), prompt_mask.to("meta"), noise=noise,
+                             steps=1, eos_token_id=15, max_new_tokens=1,
+                             max_total_tokens=4)
+        host.register_buffer("meta_probe", torch.empty(1, device="meta"))
+        with self.assertRaises(ValueError):
+            greedy_workspace(host, prompt_ids, prompt_mask, noise=noise,
+                             steps=1, eos_token_id=15, max_new_tokens=1,
+                             max_total_tokens=4)
+
+    def test_workspace_checks_all_devices_before_any_noise_value_check(self):
+        host = self.make_host()
+        prompt_ids, prompt_mask, noise = self.sample()
+        original_isfinite = torch.isfinite
+        checked = []
+
+        def observe_isfinite(value, *args, **kwargs):
+            checked.append(value.device)
+            return original_isfinite(value, *args, **kwargs)
+
+        cases = (
+            (prompt_ids.to("meta"), prompt_mask.to("meta"), noise),
+            (prompt_ids, prompt_mask.to("meta"), noise),
+            (prompt_ids, prompt_mask, noise.to("meta")),
+        )
+        for ids, mask, sample_noise in cases:
+            checked.clear()
+            with self.subTest(ids=ids.device, mask=mask.device, noise=sample_noise.device):
+                with patch.object(torch, "isfinite", side_effect=observe_isfinite):
+                    with self.assertRaises(ValueError):
+                        greedy_workspace(host, ids, mask, noise=sample_noise, steps=1,
+                                         eos_token_id=15, max_new_tokens=1,
+                                         max_total_tokens=4)
+                self.assertEqual(checked, [])
+
+    def test_public_checks_must_be_callable(self):
+        backbone = self.make_backbone()
+        prompt_ids, prompt_mask, _ = self.sample()
+        with self.assertRaises(TypeError):
+            greedy_frozen(backbone, prompt_ids, prompt_mask, eos_token_id=15,
+                          max_new_tokens=1, max_total_tokens=4, check=1)
+
+    def test_mocked_cuda_timing_syncs_actual_device_and_uses_device_type_policy(self):
+        device = torch.device("cuda:3")
+        with patch.object(torch.cuda, "synchronize") as synchronize:
+            _synchronize_device(torch, device)
+            synchronize.assert_called_once_with(device)
+            synchronize.reset_mock()
+            _synchronize_device(torch, torch.device("cpu"))
+            synchronize.assert_not_called()
+        with patch.object(torch, "autocast", return_value=nullcontext()) as autocast:
+            with _autocast_off(torch, device):
+                pass
+            autocast.assert_called_once_with(device_type="cuda", enabled=False)
 
     def test_forced_native_decoder_exception_cleans_hooks_and_restores_config(self):
         host = self.make_host()

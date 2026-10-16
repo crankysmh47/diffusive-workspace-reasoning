@@ -1,0 +1,146 @@
+{
+  "model_predictions_accessed": false,
+  "primary_research_estimand": false,
+  "schema_version": "dwr-frozen-reference-measurement-cohort-v1",
+  "selected": [
+    {
+      "example_id": "f9629e9d03cb0c72c3a7fed4f9c772b8391b91b072d8ac24a4e76962b706af98",
+      "fine_stratum": "A2",
+      "profile": "eq",
+      "prompt_tokens": 366
+    },
+    {
+      "example_id": "ada7c5f4f80ac35790b0b2ef2330b97cf95f2d7618c3c9116fcabc3790082563",
+      "fine_stratum": "A3",
+      "profile": "eq",
+      "prompt_tokens": 366
+    },
+    {
+      "example_id": "706f221af1415a693efa8e1028b2666f8227316d8876c29fdb3559626c6ae9d4",
+      "fine_stratum": "B2",
+      "profile": "eq",
+      "prompt_tokens": 349
+    },
+    {
+      "example_id": "a813242f48d2c65b5af1437ee091e0cec817c504be011a1b528e9d8759cdea33",
+      "fine_stratum": "C2",
+      "profile": "eq",
+      "prompt_tokens": 362
+    },
+    {
+      "example_id": "7311d3579dab8758fed01b56585624c2fcad67882014f625bf8862e73c4f5ca2",
+      "fine_stratum": "D2",
+      "profile": "eq",
+      "prompt_tokens": 375
+    },
+    {
+      "example_id": "84a6015922420f7688955429a16ae918c7168ac267572c9b677ac4100a8110b7",
+      "fine_stratum": "A2",
+      "profile": "neq",
+      "prompt_tokens": 374
+    },
+    {
+      "example_id": "81546b3334f08b96db485c504fa7f9d324c3cb81367bd89ffe596c098082a0ee",
+      "fine_stratum": "B2",
+      "profile": "neq",
+      "prompt_tokens": 355
+    },
+    {
+      "example_id": "4ffbf2d4bed0253c7bacd81e98da3e00151f27e99c8154f39a67bbb724d617a8",
+      "fine_stratum": "C2",
+      "profile": "neq",
+      "prompt_tokens": 369
+    },
+    {
+      "example_id": "43615f00fc4463859cff17acd6f3bf5674caed5383ab1f5208fca95299864b01",
+      "fine_stratum": "D2",
+      "profile": "neq",
+      "prompt_tokens": 383
+    },
+    {
+      "example_id": "e3c87a519dfc22aa26d0d4d86320b1b5ccfe4f2271fb3353bba11aed14518e98",
+      "fine_stratum": "C2",
+      "profile": "neq",
+      "prompt_tokens": 369
+    },
+    {
+      "example_id": "762fb714a355a366f0005275b0207becec2938568a6be751245f6fad613a582a",
+      "fine_stratum": "A2",
+      "profile": "add_mod",
+      "prompt_tokens": 398
+    },
+    {
+      "example_id": "5b9516bf9cfd96beeb398f2de0ad28cca43aac048ebf18b1828c57e82a33312b",
+      "fine_stratum": "A3",
+      "profile": "add_mod",
+      "prompt_tokens": 398
+    },
+    {
+      "example_id": "e41bb4a63e9c2814a2ee0d7473056da812498f0c91f5cf601da9dbd7eb8b9c47",
+      "fine_stratum": "B2",
+      "profile": "add_mod",
+      "prompt_tokens": 373
+    },
+    {
+      "example_id": "a0f3a28bf69a06a75ebd3f2ef66f182b926930ec6ebc6f0bd0ff282df697cb93",
+      "fine_stratum": "C2",
+      "profile": "add_mod",
+      "prompt_tokens": 390
+    },
+    {
+      "example_id": "de704d89fd6e4b934161328d9b4fd45fc0ab8eac36be03c9b965a83902c22d93",
+      "fine_stratum": "D2",
+      "profile": "add_mod",
+      "prompt_tokens": 407
+    }
+  ],
+  "selection_recipe": {
+    "fine_order": [
+      "A2",
+      "A3",
+      "B2",
+      "C2",
+      "D2"
+    ],
+    "gpu_calls": false,
+    "hash_domain": "dwr-frozen-reference-source-validation-v1",
+    "input_sha256": "b26a54dc18099601d146c1c2a53609a72b848b282a5761a063972e72851c30de",
+    "model_execution": false,
+    "operation": "prospective source-validation measurement cohort from already-bound token-length metadata only",
+    "per_profile": 5,
+    "profiles": [
+      "eq",
+      "neq",
+      "add_mod"
+    ],
+    "recorded_before_metadata_read_utc": "2026-10-16T03:42:47.505885+00:00",
+    "selection": "one minimum versioned-hash example per observed fine stratum within profile, then minimum-hash remaining examples until5; fail if profile<5; no accuracy/difficulty retuning",
+    "task_payload_semantics": false
+  },
+  "source_export_manifest_sha256": "7db0b61ba40bea60bf17bc5faf615bb2c8ae21320739c3bea589e4d62aea0069",
+  "source_token_audit_manifest_sha256": "aec131295af1d015d9ef7619ad35d0ad03792a7f147cdf5164bc4c8e4e800826",
+  "source_validation_metadata_counts": {
+    "add_mod": {
+      "A2": 28,
+      "A3": 14,
+      "B2": 44,
+      "C2": 49,
+      "D2": 63
+    },
+    "eq": {
+      "A2": 10,
+      "A3": 3,
+      "B2": 7,
+      "C2": 3,
+      "D2": 13
+    },
+    "neq": {
+      "A2": 4,
+      "A3": 0,
+      "B2": 10,
+      "C2": 9,
+      "D2": 8
+    }
+  },
+  "task_semantics_read": false
+}
