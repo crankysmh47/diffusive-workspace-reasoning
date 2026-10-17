@@ -2,7 +2,7 @@
 
 Studying whether exchangeable latent workspaces learn reusable computation that transfers to unseen task compositions and structures.
 
-**Status (2026-10-16):** The five-stratum structural G2, fixed-N EX/IDX components, native Qwen2 integration and source-only export/token audit are verified. The separately registered [pretrained GPU feasibility run](docs/pretrained_gpu_feasibility_result.md) passed at clean83406bb: actual maximum-shape forward/backward/AdamW and checkpoint-state restoration, with7.151GiB allocated/8.053GiB reserved VRAM. The original startup failure remains preserved and both allowances are closed. The [15-example reference implementation](docs/frozen_reference_implementation.md) is independently cleared with694 distinct stable-byte CPU checks. Its first operational invocation atclean7b37520 failed at CUDA allocator startup before model loading or predictions; the [failure and bounded repair](docs/frozen_reference_startup_repair.md) are recorded and the original allowance closed. Task learning, transfer effects, G3/G4 completion and confirmatory precision remain outstanding. Read the [project history](docs/project_history_and_status.md), [execution state](docs/execution_state.md) and [todo.md](todo.md).
+**Status (2026-10-17):** Structural G2, fixed-N EX/IDX components, native integration and maximum-shape pretrained GPU feasibility pass. The [frozen reference](docs/frozen_reference_result.md) passes its operational gate:45 exact-repeat predictions,0/15 strict valid,369.485s; earlier failures remain preserved. The [recoverable tiny-source worker](docs/source_overfit_implementation.md) now clears independent implementation review, including detached CPU interruption/resume checks. Its actual GPU job has not launched at this source checkpoint. Task learning, G4, transfer effects and confirmatory precision remain outstanding. Read the [project history](docs/project_history_and_status.md), [execution state](docs/execution_state.md) and [todo.md](todo.md).
 
 The main question is whether one trained workspace and decoder interface can transfer without task-specific retraining. Exchangeability is the central architectural hypothesis. Variable slot count is a supporting experiment after a fixed-size transfer study; diffusion and other alternatives are parked.
 
@@ -47,7 +47,7 @@ Target hardware: one RTX 5060 Ti with 16 GB VRAM, 32 GB system RAM, Windows 11. 
 
 ## Local setup
 
-Python 3.11 or 3.12 is supported. Task generation/verification uses the standard library; neural components require the optional `ml` extra with pinned torch2.11.0. The current isolated Windows `.venv-ml` uses the official2.11.0+cu128 build. Global environments are untouched. The optional `backbone` extra additionally pins transformers4.57.1; native CPU integration is verified. There are no task-training commands yet.
+Python 3.11 or 3.12 is supported. Task generation/verification uses the standard library; neural components require the optional `ml` extra with pinned torch2.11.0. The current isolated Windows `.venv-ml` uses the official2.11.0+cu128 build. Global environments are untouched. The optional `backbone` extra additionally pins transformers4.57.1; native CPU integration is verified.
 
 Windows PowerShell:
 
@@ -83,7 +83,16 @@ Keep dataset splits and decoder access matched. Check exchangeable updates for p
 
 Every experiment must capture source/configuration/model/data identities, environment, RNG streams, per-example outcomes, parameter counts and full costs. Confirmatory effects require a preregistered comparison, at least three training seeds, suitable uncertainty analysis and a fixed test-access policy. Preserve failed and negative runs. See the protocol for exact requirements.
 
-**Next work:** the [bounded CUDA startup repair](docs/frozen_reference_startup_repair.md) is independently cleared with696 distinct CPU checks; release its clean consolidated checkpoint and invoke the separately registered v2 allowance once. The original failed reference is preserved with zero predictions. After operational reference PASS, separately register source overfit and K0/K1/K4 pilots. No synthetic diagnostic-checkpoint reuse or automatic retry. Actual task learning, transfer and confirmatory precision remain outstanding.
+The registered three-example job has a study-specific background launcher and read-only status command. Run from this research worktree with the pinned environment and local artifacts; source must be clean and all registered preconditions must pass:
+
+```powershell
+.venv-ml\Scripts\python.exe -m dwr.experiments.source_overfit_job start --config configs/experiments/source_overfit_recoverable_v2.json
+.venv-ml\Scripts\python.exe -m dwr.experiments.source_overfit_job status --config configs/experiments/source_overfit_recoverable_v2.json
+```
+
+`start` detaches the supervisor and returns; repeating it attaches/reports rather than launching a competing worker. Each completed optimizer boundary is checkpointed. At most two process-interruption recoveries share the original budget; known scientific or integrity failures stop. After supervisor/computer loss, rerun the same command to discover verified progress within the remaining budget. Local checkpoints do not provide disk-failure or archival protection. See the [recovery design](docs/source_overfit_recovery_design.md) and [implementation evidence](docs/source_overfit_implementation.md).
+
+**Next work:** freeze the reviewed source and launch the single registered background GPU job. Only interpretable tiny-overfit PASS permits separately registered K0/K1/K4 pilots. No task-training job has launched at this source checkpoint.
 
 ## Licensing
 

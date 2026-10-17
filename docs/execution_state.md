@@ -1,4 +1,10 @@
-# Active execution: frozen reference after GPU feasibility PASS
+# Active execution: recoverable source-training worker
+
+2026-10-17 release preparation: Luna's worker, supervisor, independent watchdog and kernel recovery now clear the bounded stage/closure reviews. Real detached tiny-native checks cover worker loss, survivor attachment, post-probe continuation and durable-complete recovery; all earlier failed checks remain retained. See [implementation evidence](source_overfit_implementation.md). Root final separated CPU release and clean source checkpoint precede the one registered GPU launch. No task-training invocation has occurred at this source checkpoint.
+
+2026-10-17 owner requested a separate-shell training job unaffected by chat rate limits and automatic progress recovery. The [recovery amendment](source_overfit_recovery_design.md) preserves the3 IDs,192 net steps and all scientific settings, adds per-boundary checkpoints and at most2 interruption recoveries within the same total budget. The actual kernel/store now clear independent recovery review after two scoped fix rounds; see [implementation evidence](source_overfit_implementation.md). Luna is building the pinned worker/supervisor next. Authorized unused-browser/WhatsApp cleanup raised freeVRAM to14845MiB. No actual task-training job has launched.
+
+2026-10-16 current: [frozen reference](frozen_reference_result.md) passed at clean55e159d in369.485s:45 exact-repeat predictions,0/15 valid, all capped/malformed, original weights/RNG unchanged. Both reference allowances closed; G3 operational requirements established for this measurement cohort. Root independently registered/reviewed the [three-example source overfit](source_overfit_design.md); Luna is implementing its actual learning kernel/controller under the [bounded plan](superpowers/plans/2026-10-16-source-overfit.md). No task training or transfer yet.
 
 2026-10-16 startup repair release: Luna completed the single synchronize-before-reset correction and exact v2 retargeting. Independent review cleared it without Important findings; root696 distinct stable-byte CPU checks passed83.828s. See [repair evidence](frozen_reference_startup_repair.md). The original failed invocation remains closed. Next: clean checkpoint/push, physical-byte and hardware preflight, then the sole v2 reference; no task learning yet.
 

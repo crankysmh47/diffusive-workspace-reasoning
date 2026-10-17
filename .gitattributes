@@ -1,5 +1,16 @@
 * text=auto
+.gitattributes text eol=lf
 *.py text eol=lf
 *.md text eol=lf
 *.toml text eol=lf
 *.json text eol=lf
+
+# Preserve the exact bytes already hashed by the source-overfit registration/review.
+configs/experiments/source_overfit_recoverable_v2.json -text whitespace=cr-at-eol
+configs/experiments/source_overfit_v1.json -text whitespace=cr-at-eol
+configs/models/frozen_source_reference_startup_repair_v2_result.json -text whitespace=cr-at-eol
+configs/splits/source_overfit_cohort_v1.json -text whitespace=cr-at-eol
+dwr/training/recovery.py -text whitespace=cr-at-eol
+tests/test_source_overfit.py -text whitespace=cr-at-eol
+tests/test_source_overfit_learning.py -text whitespace=cr-at-eol
+tests/test_source_overfit_recovery.py -text whitespace=cr-at-eol

@@ -17,8 +17,8 @@ Own only dwr/experiments/frozen_reference.py and tests/test_frozen_reference.py 
 ## Task2 — root release and sole additional invocation
 
 - [x] Verify failed original terminal links, three-key config diff and unchanged scientific pins; preserve all failures/service interruptions.
-- [ ] Consolidate/push one clean reviewed checkpoint, update existingPR#2, verify every physical tracked byte against HEAD. Keep original main checkout untouched.
-- [ ] Recheck GPU; close only owner-authorized unused apps if required, preserving Zen/terminal/activeCodex/essentialWindows. Invoke only v2 once under905s, no automatic retry.
-- [ ] Verify terminal hashes/45 records/15 quality and repeat/base/RNG/parameter/cost invariants; record actual outcome. G3/learning follow their gates. A further failure closes this allowance and requires separate root assessment, not an automatic second repair.
+- [x] Consolidate/push one clean reviewed checkpoint, update existingPR#2, verify every physical tracked byte against HEAD. Keep original main checkout untouched.
+- [x] Recheck GPU; close only owner-authorized unused apps if required, preserving Zen/terminal/activeCodex/essentialWindows. Invoke only v2 once under905s, no automatic retry.
+- [x] Verify terminal hashes/45 records/15 quality and repeat/base/RNG/parameter/cost invariants; record actual outcome. G3/learning follow their gates. A further failure closes this allowance and requires separate root assessment, not an automatic second repair.
 
 Preflight: Task1 consumes passed reference/candidate/record/proof and exact new root config, produces same public functions with active closedCLI retargeting and one CUDA startup-order correction; Task2 consumes stopped cleared source. No shared writer. Owner-authorized routine operational correction, with no model prediction guiding the change.
