@@ -2,7 +2,7 @@
 
 Studying whether exchangeable latent workspaces learn reusable computation that transfers to unseen task compositions and structures.
 
-**Status (2026-10-14):** The reviewed rank implementation passed474 CPU tests. Its single [qualification](docs/certificate_rank_qualification_result.md) closed **NO_GO_DEVELOPMENT** with PASS_REPLAY: capacity/diversity/difficulty passed, but both ADD compositions missed the fixed80% support-mass floor. Full G2, final generation, workspace and training remain blocked/unattempted. Earlier negative studies remain unchanged; the exchangeable workspace hypothesis is untested. Read the [project history](docs/project_history_and_status.md), [execution state](docs/execution_state.md) and [todo.md](todo.md).
+**Status (2026-10-17):** Structural G2, fixed-N EX/IDX components, native integration and maximum-shape pretrained GPU feasibility pass. The [frozen reference](docs/frozen_reference_result.md) passes its operational gate:45 exact-repeat predictions,0/15 strict valid,369.485s. The single registered [tiny-source run](docs/source_overfit_result.md) completed `PASS_TINY_SOURCE_OVERFIT`: 3/3 selected source examples were valid after192 net updates, with0/3 valid initially. This establishes tiny-set memorization only. G4, general task learning, transfer effects, novelty and confirmatory precision remain unestablished. Read the [project history](docs/project_history_and_status.md), [execution state](docs/execution_state.md) and [todo.md](todo.md).
 
 The main question is whether one trained workspace and decoder interface can transfer without task-specific retraining. Exchangeability is the central architectural hypothesis. Variable slot count is a supporting experiment after a fixed-size transfer study; diffusion and other alternatives are parked.
 
@@ -32,8 +32,8 @@ The earlier [four-variable mechanism check](docs/constructive_task_design.md) ve
 
 | Component | Initial scope |
 | --- | --- |
-| Task | Controlled finite-domain constraint compositions; implemented grammar and verifier, with suitability still gated; Sudoku remains optional fixture work |
-| Backbone | One frozen 1.5B–2B decoder-only base model; checkpoint selection pending |
+| Task | Controlled finite-domain constraint compositions; five-stratum structural G2 passed, model precision remains unassessed; Sudoku stays an optional fixture |
+| Backbone | One frozen 1.5B–2B decoder-only base model; pinned Qwen2.5-1.5B native integration is prospective |
 | Workspace | 64 slots, dimension 768, iid Gaussian initialization |
 | Update | `Z_next = Z + F(LN(Z), X)`, shared parameters across steps |
 | Interface | Newly added trainable set cross-attention adapters, fixed across core methods |
@@ -47,7 +47,7 @@ Target hardware: one RTX 5060 Ti with 16 GB VRAM, 32 GB system RAM, Windows 11. 
 
 ## Local setup
 
-Python 3.11 or 3.12 is the initial supported runtime. The bootstrap package has no runtime dependencies. PyTorch/CUDA and model dependencies will be added when the backbone is selected; there are no training commands yet.
+Python 3.11 or 3.12 is supported. Task generation/verification uses the standard library; neural components require the optional `ml` extra with pinned torch2.11.0. The current isolated Windows `.venv-ml` uses the official2.11.0+cu128 build. Global environments are untouched. The optional `backbone` extra additionally pins transformers4.57.1; native CPU integration is verified.
 
 Windows PowerShell:
 
@@ -83,7 +83,16 @@ Keep dataset splits and decoder access matched. Check exchangeable updates for p
 
 Every experiment must capture source/configuration/model/data identities, environment, RNG streams, per-example outcomes, parameter counts and full costs. Confirmatory effects require a preregistered comparison, at least three training seeds, suitable uncertainty analysis and a fixed test-access policy. Preserve failed and negative runs. See the protocol for exact requirements.
 
-**Next work:** preserve the closed qualification and review its source/results PR. Any further population needs a new bounded prospective design for the support mismatch; no unregistered retry, filtering or threshold change. Only full G2 PASS permits fixed-N EX/IDX work, and training requires a separate study registration.
+The registered three-example job has a study-specific background launcher and read-only status command. Run from this research worktree with the pinned environment and local artifacts; source must be clean and all registered preconditions must pass:
+
+```powershell
+.venv-ml\Scripts\python.exe -m dwr.experiments.source_overfit_job start --config configs/experiments/source_overfit_recoverable_v2.json
+.venv-ml\Scripts\python.exe -m dwr.experiments.source_overfit_job status --config configs/experiments/source_overfit_recoverable_v2.json
+```
+
+`start` detaches the supervisor and returns; repeating it attaches/reports rather than launching a competing worker. Each completed optimizer boundary is checkpointed. At most two process-interruption recoveries share the original budget; known scientific or integrity failures stop. After supervisor/computer loss, rerun the same command to discover verified progress within the remaining budget. Local checkpoints do not provide disk-failure or archival protection. See the [recovery design](docs/source_overfit_recovery_design.md) and [implementation evidence](docs/source_overfit_implementation.md).
+
+**Next work:** prepare a separate prospective registration and review for a bounded K0/K1/K4 development pilot. This result does not authorize or establish that pilot; no transfer or confirmatory study has run.
 
 ## Licensing
 

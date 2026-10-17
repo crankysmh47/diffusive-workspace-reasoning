@@ -1,0 +1,72 @@
+{
+  "attempts": 1,
+  "config_sha256": "0e8c8aa86468aba09c9d32157ff4bc2301c7e6c50e4398960425b2ea71e66f77",
+  "files": [
+    {
+      "git_blob": "6634c8cc3133b3848ec74b9f275acaaa1ea618ab",
+      "lfs_sha256": null,
+      "name": "LICENSE",
+      "size": 11343
+    },
+    {
+      "git_blob": "b2861f7da85a5af5e321b57c7bbf98ae17255992",
+      "lfs_sha256": null,
+      "name": "README.md",
+      "size": 3850
+    },
+    {
+      "git_blob": "169d606d5cf502a5628a52381586679a6d0caaab",
+      "lfs_sha256": null,
+      "name": "config.json",
+      "size": 684
+    },
+    {
+      "git_blob": "cbbb3133034e192527e5321b4c679154e4819ab8",
+      "lfs_sha256": null,
+      "name": "generation_config.json",
+      "size": 138
+    },
+    {
+      "git_blob": "20024bfe7c83998e9aeaf98a0cd6a2ce6306c2f0",
+      "lfs_sha256": null,
+      "name": "merges.txt",
+      "size": 1671839
+    },
+    {
+      "git_blob": "de4b04359b427ed291b005f62b749531d45e3e5f",
+      "lfs_sha256": "a961db72e75d52b18e6b0c9d379e51a26973b233385e0e127fdda7d648aec796",
+      "name": "model.safetensors",
+      "size": 3087467144
+    },
+    {
+      "git_blob": "443909a61d429dff23010e5bddd28ff530edda00",
+      "lfs_sha256": null,
+      "name": "tokenizer.json",
+      "size": 7031645
+    },
+    {
+      "git_blob": "ba7e4c5637b9732dadcd66286ce48334e8b31e9e",
+      "lfs_sha256": null,
+      "name": "tokenizer_config.json",
+      "size": 7228
+    },
+    {
+      "git_blob": "4783fe10ac3adce15ac8f358ef5462739852c569",
+      "lfs_sha256": null,
+      "name": "vocab.json",
+      "size": 2776833
+    }
+  ],
+  "gpu_operations": false,
+  "max_workers": 2,
+  "memory_mib": 8192,
+  "model_execution": false,
+  "operation": "download-only-no-model-execution",
+  "output_dir": "models/qwen2.5-1.5b-8faed761d45a",
+  "remote_code": false,
+  "repo_id": "Qwen/Qwen2.5-1.5B",
+  "revision": "8faed761d45a263340a0528343f099c05c9a4323",
+  "run_dir": "runs/qwen-artifact-fetch-20261015-v1",
+  "schema_version": "dwr-model-artifact-fetch-v1",
+  "wall_seconds": 1800
+}

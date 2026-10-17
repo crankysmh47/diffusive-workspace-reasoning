@@ -1,0 +1,44 @@
+{
+  "analysis": "complete-unselected-cell-bin-cohort-capacity-and-branch-stall-inventories",
+  "artifact_names": [
+    "manifest.initial.json",
+    "permitted_rows.jsonl",
+    "report.json",
+    "manifest.json"
+  ],
+  "bin_definition": "frozen-sixvar-prompt-v1-node-v1",
+  "candidate_generation": false,
+  "config_version": "dwr-certificate-rank-support-diagnosis-v1",
+  "final_access": false,
+  "input_artifact_sha256": {
+    "manifest.initial.json": "ad9e4568a1330250b0aabeb72ec62c7cb6e21ebef1ab4365a57bf28e2061d5b6",
+    "manifest.json": "58c6d95f11e6f0766a7b8254ed1999badbe758ba3b9b7b142a52a1c2d8423860",
+    "outcomes.jsonl": "2b102531219d2d2d0594d90c0dbd2718ab08d05e62f1358806c7b28f71d9e7ac",
+    "records.jsonl": "d0d40e923adde42de0e829fd336e8a010ef7b73f85c4a33b62aef6ce2c96acc7",
+    "replay.json": "feeb059f4e89b86440ca7a41af6f8172573a36467665c609a51c21fcbd1d2f73",
+    "report.json": "54cb96f034174ed686bb6256787a0d6ef0981edb981d06b641cb92e1fed2235c"
+  },
+  "input_config_path": "configs/tasks/certificate_rank_qualification_v1.json",
+  "input_config_sha256": "8fa592fe2bedc012a1a10fb5ecd74bbd871df2f0cedcf5026562f5b518c2d601",
+  "input_run_path": "runs/certificate-rank-qualification-20261012-v1",
+  "input_scientific_source_commit": "41bd7846f8435d02616a526ef6dbdbae9663271d",
+  "input_terminal_status": "NO_GO_DEVELOPMENT",
+  "limits": {
+    "active_wall_seconds": 60,
+    "external_watchdog_seconds": 65,
+    "max_rss_bytes": 268435456,
+    "workers": 1
+  },
+  "output_path": "runs/certificate-rank-support-diagnosis-20261014-v1",
+  "permitted_splits": [
+    "source_train",
+    "development_validation"
+  ],
+  "registered_attempts": {
+    "development": 4800,
+    "final": 0,
+    "source": 3600
+  },
+  "retries": 0,
+  "test_allowance_seconds": 120
+}

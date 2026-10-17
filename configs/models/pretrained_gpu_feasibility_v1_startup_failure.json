@@ -1,0 +1,21 @@
+{
+  "allowance_closed": true,
+  "archival_backup": false,
+  "config_sha256": "781beb8ab5c1a26c8bcaafb9804d6c2b3d20a70b620df8842bd16a617d45e743",
+  "exit_code": 1,
+  "failure": "RunRecord.create identities require {name,revision,sha256}; launcher supplied checkpoint hash strings. Same boundary also passed unnormalized budgets, which would fail next.",
+  "gpu_tensor_math": false,
+  "independent_person_reproduction": false,
+  "invocations": 1,
+  "log_sha256": "006ee41af10bf42b56e740325172e9df6a8e8b72280c1fa8e1a582e0617c297d",
+  "model_tensors_loaded": false,
+  "output_directory_created": false,
+  "run_id": "pretrained-gpu-feasibility-20261015-v1",
+  "run_record_created": false,
+  "schema_version": "dwr-gpu-probe-startup-failure-v1",
+  "source_commit": "f2c402b611c81134dbdc82a4953641df4aec7857",
+  "status": "STARTUP_FAILED_RUN_RECORD_CONTRACT",
+  "timed_out": false,
+  "wrapper_receipt": ".superpowers/sdd/gpu-feasibility-20261015/actual-probe-20261015T183221065959Z.json",
+  "wrapper_wall_seconds": 4.844
+}

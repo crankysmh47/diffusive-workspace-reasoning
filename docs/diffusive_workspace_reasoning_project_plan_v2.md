@@ -1,7 +1,7 @@
 # Diffusive Workspace Reasoning
 ## Revised implementation-first research plan (v2)
 
-**Status:** Task correctness work can begin; research runs require the v2.2 gates
+**Status (2026-10-14):** Task correctness and separately registered five-stratum structural G2 pass; fixed-N tensor components are verified on CPU. Native integration, GPU feasibility, model precision and non-null training registration remain required by v2.2. See [current execution state](execution_state.md); original narrative below is historical where superseded.
 
 **Revision date:** 2026-10-04; amended 2026-10-07
 

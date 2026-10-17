@@ -32,7 +32,7 @@
   },
   "task": {
     "family": "finite_domain_constraint_composition",
-    "status": "grammar_and_split_specification_pending",
+    "status": "five_stratum_structural_g2_pass_model_precision_unassessed",
     "candidate_primitives": [
       "equality",
       "inequality",
@@ -40,8 +40,8 @@
     ],
     "unique_solution": true,
     "split_unit": "canonical_constraint_structure_and_generation_lineage",
-    "split_manifest": null,
-    "suitability_gate_passed": false,
+    "split_manifest": "configs/splits/certificate-five-stratum-study-result.json",
+    "suitability_gate_passed": true,
     "sudoku_role": "optional_correctness_fixture"
   },
   "training": {
@@ -104,7 +104,7 @@
     "report_transfer_groups_separately": true
   },
   "registration": {
-    "status": "blocked_until_task_and_hardware_gates_pass",
+    "status": "blocked_until_native_integration_hardware_and_precision_gates_pass",
     "practical_effect_percentage_points": null,
     "sample_and_group_counts": null,
     "training_steps": null,

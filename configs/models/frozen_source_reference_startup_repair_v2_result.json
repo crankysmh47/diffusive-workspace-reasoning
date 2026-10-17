@@ -1,0 +1,50 @@
+{
+  "allowance_closed": true,
+  "archival_backup": false,
+  "base_parameter_hashes_equal": true,
+  "first_repetition_reasons": {
+    "malformed_json": 15
+  },
+  "measurements": {
+    "decoder_calls_including_warmup": 5764,
+    "process_peak_working_set_bytes": 3862695936,
+    "quality": {
+      "denominator": 15,
+      "numerator": 0,
+      "repetition": 0,
+      "strict_valid_solution_rate": 0.0,
+      "valid_count": 0
+    },
+    "run_peak_memory_mib": {
+      "peak_allocated_mib": 3497,
+      "peak_reserved_mib": 9996
+    }
+  },
+  "parameter_counts": {
+    "new": 0,
+    "original": 1543714304,
+    "total": 1543714304,
+    "trainable": 0
+  },
+  "predictions": 45,
+  "quality_denominator": 15,
+  "quality_numerator": 0,
+  "repeated_ids_tokens_scores_equal": true,
+  "rng_fingerprints_equal": true,
+  "run_dir": "runs\\frozen-source-reference-20261016-startup-repair-v2",
+  "schema_version": "dwr-frozen-reference-result-v1",
+  "sha256_by_artifact": {
+    "events.jsonl": "40a9415116b416c608f64d42977e52f0805dc5fe2bbb5716a90bc5b7790468f5",
+    "manifest.initial.json": "22d1c0a8eb09a7dc5ef0dd13a35d5013d629e8acb90ff16dfbb0b42c6c70d092",
+    "manifest.json": "4cd5b8f754ee9b7861a536a6a819a36b9ea64771ae1d244a74774aebba644667",
+    "predictions.jsonl": "01a1c409578b75429e48e8f34d56702e83602c7e8956c6cf2b18eb7dc77fbc0e",
+    "summary.json": "9b5391e88d3f7f00dded943ba82195545a1ee51a1918902f3a116961eca6770a",
+    "warmup.json": "9facb7f42af4ca3c19c11ce8b9b1e97ad688fa7515969eaa3babb963be0ef875"
+  },
+  "source_clean_before_after": true,
+  "source_commit": "55e159d4bfbf0ddaf447810e63f2303825327cdb",
+  "status": "PASS_FROZEN_REFERENCE_OPERATIONAL_V1",
+  "task_training": false,
+  "transfer_evaluation": false,
+  "wrapper_wall_seconds": 369.485
+}

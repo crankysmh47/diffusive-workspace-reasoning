@@ -1,0 +1,168 @@
+{
+  "attention": {
+    "automatic_backend_dispatch": "predeclared_builtin_policy_no_manual_fallback",
+    "builtin_cudnn": false,
+    "builtin_flash": true,
+    "builtin_math": true,
+    "builtin_memory_efficient": true,
+    "implementation": "sdpa"
+  },
+  "config_version": "dwr-pretrained-gpu-feasibility-startup-repair-v2",
+  "data_preconditions": {
+    "allowed_source_counts": {
+      "source_train": 2436,
+      "source_validation": 265
+    },
+    "consume_corpus_task_semantics": false,
+    "opaque_dependency_hash_reads": true,
+    "source_export_dir": "runs/source-export-20261015-v1",
+    "source_export_manifest_sha256": "7db0b61ba40bea60bf17bc5faf615bb2c8ae21320739c3bea589e4d62aea0069",
+    "token_audit_dir": "runs/source-token-cap-audit-20261015-v1",
+    "token_audit_manifest_sha256": "aec131295af1d015d9ef7619ad35d0ad03792a7f147cdf5164bc4c8e4e800826",
+    "token_audit_status": "PASS_SOURCE_TOKEN_CAPS"
+  },
+  "environment": {
+    "cuda_build": "12.8",
+    "numpy": "2.4.6",
+    "python_major_minor": "3.11",
+    "torch": "2.11.0+cu128",
+    "transformers": "4.57.1"
+  },
+  "hardware": {
+    "device": "cuda:0",
+    "device_count": 1,
+    "driver_version": "616.92",
+    "maximum_peak_allocated_mib": 14336,
+    "maximum_peak_reserved_mib": 14336,
+    "minimum_initial_free_mib": 14500,
+    "minimum_total_mib": 16000,
+    "name": "NVIDIA GeForce RTX 5060 Ti",
+    "uuid": "GPU-949ee8ea-765f-abfd-fd90-16ad3923af6e"
+  },
+  "layout": {
+    "adapter_layers": [
+      8,
+      17,
+      26
+    ],
+    "context_dim": 1536,
+    "gate_init": 0.1,
+    "latent_dim": 768,
+    "max_steps": 4,
+    "num_slots": 64,
+    "prompt_layer": 9,
+    "reader_heads": 12,
+    "slot_identity": "exchangeable",
+    "steps": 4,
+    "workspace_heads": 12
+  },
+  "limits": {
+    "attempts": 1,
+    "automatic_retries": 0,
+    "external_watchdog_seconds": 905,
+    "resident_memory_mib": 12288,
+    "wall_seconds": 900,
+    "workers": 1
+  },
+  "measurement": {
+    "checkpoint_same_host_no_second_base": true,
+    "diagnostic_overhead_in_peak": true,
+    "extra_update_after_checkpoint": false,
+    "flops_policy": "unmeasured_null_no_efficiency_claim",
+    "hash_original_parameters_before_after": true,
+    "optimizer_steps": 1,
+    "profiler_enabled": false,
+    "retain_all_workspace_gradients": true,
+    "synchronize_stage_boundaries": true,
+    "timed_repetitions": 1,
+    "warmups": 0
+  },
+  "model": {
+    "artifact_inventory_sha256": "4d5c001069a7c1e225b72a5723fc4a23e6ab316ec940454bbd42b02440ad2dea",
+    "artifact_manifest": "runs/qwen-artifact-fetch-20261015-v1/manifest.json",
+    "artifact_manifest_sha256": "166492a8c0ae52d5b0a766fa281528a2348eca43f2b128f86da70936a4289606",
+    "config_sha256": "0e8c8aa86468aba09c9d32157ff4bc2301c7e6c50e4398960425b2ea71e66f77",
+    "device_map": "none",
+    "local_dir": "models/qwen2.5-1.5b-8faed761d45a",
+    "local_files_only": true,
+    "low_cpu_mem_usage": false,
+    "repo_id": "Qwen/Qwen2.5-1.5B",
+    "revision": "8faed761d45a263340a0528343f099c05c9a4323",
+    "trust_remote_code": false,
+    "use_safetensors": true,
+    "weight_sha256": "a961db72e75d52b18e6b0c9d379e51a26973b233385e0e127fdda7d648aec796"
+  },
+  "numerics": {
+    "cudnn_benchmark": false,
+    "default_float_dtype": "float32",
+    "deterministic_algorithms": false,
+    "float32_matmul_precision": "highest",
+    "tf32_cudnn": false,
+    "tf32_matmul": false
+  },
+  "optimizer": {
+    "amsgrad": false,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "capturable": false,
+    "differentiable": false,
+    "epsilon": 1e-08,
+    "foreach": false,
+    "fused": false,
+    "learning_rate": 0.0001,
+    "maximize": false,
+    "type": "AdamW",
+    "weight_decay": 0.01
+  },
+  "output_dir": "runs/pretrained-gpu-feasibility-20261015-startup-repair-v2",
+  "precision": {
+    "autocast_new": false,
+    "gradient_checkpointing": false,
+    "kv_cache": false,
+    "loss_accumulation": "float32",
+    "new": "float32",
+    "offload": false,
+    "original": "bfloat16",
+    "prompt_cache": false,
+    "quantization": "none",
+    "scaler": "none"
+  },
+  "primary_metric": "finite_max_shape_step_and_state_roundtrip_within_caps",
+  "protected_payload_access": false,
+  "schedule": {
+    "function": "1/(optimizer_step+1)",
+    "type": "LambdaLR"
+  },
+  "seeds": {
+    "numpy_global": 20261022,
+    "python_global": 20261021,
+    "reader_initialization": 20261027,
+    "source_sampler_fixture": 20261029,
+    "synthetic_ids": 20261025,
+    "torch_cpu_global": 20261023,
+    "torch_cuda_global": 20261024,
+    "workspace_initialization": 20261026,
+    "workspace_noise_cuda": 20261028
+  },
+  "source_base_commit": "f2c402b611c81134dbdc82a4953641df4aec7857",
+  "source_policy": "current_clean_commit_exact_worktree_bytes",
+  "stop_rule": "preserve_and_stop_on_preflight_oom_caps_nonfinite_missing_required_gradient_resume_or_base_mutation_no_silent_substitution",
+  "study_type": "hardware_integration_only_no_learned_effect",
+  "synthetic_input": {
+    "algorithm": "local_CPU_torch_randint_prompt_then_answer_append_EOS_v1",
+    "answer_tokens_including_eos": 128,
+    "batch_size": 1,
+    "embedding_vocab_size": 151936,
+    "eos_token_id": 151643,
+    "id_high_exclusive": 10000,
+    "id_low_inclusive": 100,
+    "mask_policy": "all_valid_no_padding",
+    "noise_requires_grad_diagnostic": true,
+    "pad_token_id": 151643,
+    "prompt_tokens": 1024,
+    "total_tokens": 1152
+  },
+  "task_training": false
+}

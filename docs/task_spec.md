@@ -1,6 +1,6 @@
 # Finite-domain composition task, v1
 
-Status: frozen CPU task contract, implemented and checked with standard-library correctness tests. A bounded corpus attempt exercised the contract but did not complete; G2 is not assessed and this is not a validated benchmark, confirmatory study, or authorization to train. The audit thresholds below are prospective suitability floors; they do not establish power or a practical effect size. See [the bounded suitability result](task_suitability.md).
+Status updated2026-10-14: frozen CPU grammar contract, implemented and checked with standard-library correctness tests. The original [bounded attempt](task_suitability.md) remains incomplete; a separately versioned [five-stratum study](five_stratum_study_result.md) now passes its registered structural G2. Its population/estimand amendments are explicit and do not retroPASS historical attempts. Structural floors do not establish model power, a practical effect size, neural difficulty or authorization for unregistered training.
 
 ## Question and scope
 

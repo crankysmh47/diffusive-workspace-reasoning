@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "study": "dwr-source-overfit-recoverable-v2",
+  "result": "PASS_TINY_SOURCE_OVERFIT",
+  "confirmatory": false,
+  "run_dir": "runs/source-overfit-20261017-recoverable-v2",
+  "run_artifacts_git_ignored": true,
+  "archival_backup": false,
+  "independent_reproduction": false,
+  "source": {
+    "commit": "745a74241a832946579b487f839acab383a455bc",
+    "clean": true,
+    "physical_file_count": 266,
+    "source_identity_sha256": "e3fbfb939a5e59639179bc48aea75c7eff20788047fde23050046f1a164dc740",
+    "pre_documentation_source_receipt_sha256": "059351e7e45f23e5bd84e49be58e98751610bea4c2f4713d8d37372520b1b14c"
+  },
+  "independent_terminal_audit": {
+    "path": ".superpowers/sdd/source-overfit-recovery-20261017/actual-terminal-independent-audit.json",
+    "sha256": "5f735f94bc626203d4f162fd260c85f4a61d191e29a69542198efa53f538ff72",
+    "result": "PASS"
+  },
+  "registration": {
+    "path": "configs/experiments/source_overfit_recoverable_v2.json",
+    "sha256": "e6c3de7e59e58c494b89052086c0840dcd3421d17396fd5a55cac40611049594",
+    "cohort_sha256": "b7319af014508a13dea46c19169ff36800c5db17c6d22d7c28c6e72d44b46932",
+    "data_proof_identity_sha256": "10a1895bf8838c5870091b1ba0cd7dda20d1b6bb04871ee7fb3dca1a0f4a1dbc",
+    "source_export_manifest_sha256": "7db0b61ba40bea60bf17bc5faf615bb2c8ae21320739c3bea589e4d62aea0069",
+    "source_export_data_sha256": "73502736c17b9867f723d22710e4a643a54c7ca8543fb47d122ef7d3d6e7a0fc",
+    "source_token_audit_manifest_sha256": "aec131295af1d015d9ef7619ad35d0ad03792a7f147cdf5164bc4c8e4e800826",
+    "token_lengths_sha256": "b26a54dc18099601d146c1c2a53609a72b848b282a5761a063972e72851c30de"
+  },
+  "model": {
+    "name": "Qwen/Qwen2.5-1.5B",
+    "revision": "8faed761d45a263340a0528343f099c05c9a4323",
+    "weight_identity_sha256": "a961db72e75d52b18e6b0c9d379e51a26973b233385e0e127fdda7d648aec796",
+    "tokenizer_inventory_sha256": "4d5c001069a7c1e225b72a5723fc4a23e6ab316ec940454bbd42b02440ad2dea"
+  },
+  "terminal": {
+    "status": "completed",
+    "started_utc": "2026-10-17T17:53:28.909561+00:00",
+    "ended_utc": "2026-10-17T18:02:28.601790+00:00",
+    "elapsed_seconds": 539.7030000000086,
+    "segments": 1,
+    "workers": 1,
+    "operational_recoveries": 0
+  },
+  "training": {
+    "net_optimizer_steps": 192,
+    "physical_optimizer_updates": 193,
+    "supervised_tokens_seen": 6528,
+    "new_parameter_elements": 31895811,
+    "original_parameter_elements": 1543714304,
+    "total_parameter_elements": 1575610115,
+    "original_parameter_hashes_equal": true,
+    "original_parameter_hash_count": 338
+  },
+  "evaluation": {
+    "example_count": 3,
+    "example_ids": [
+      "42c6f82d3c5101471a88bd58d8009c7559d54a88e32514567b82cd92d825a9ed",
+      "57059a8628193989dfe679be51c49440c5f25832d4f27cad485e510095346c74",
+      "dee7d4382541bbc0bf13429222201e1f5c80faf8fccb42f8cfd252ab51bc3b86"
+    ],
+    "initial_strict_valid": {"numerator": 0, "denominator": 3},
+    "final_strict_valid": {"numerator": 3, "denominator": 3},
+    "initial_ce": 0.4202528993288676,
+    "final_ce": 0.000005453095809571096,
+    "final_to_initial_ce_ratio": 0.000012975748217988598,
+    "gate_max_ce_ratio": 0.2,
+    "predictions": 6,
+    "conservative_decoder_calls": 486,
+    "official_denominator": 3
+  },
+  "replay": {
+    "passed": true,
+    "boundary_step": 96,
+    "replayed_step": 97,
+    "float_atol": 0.000001,
+    "float_rtol": 0.00001,
+    "comparison": "elementwise abs(actual-reference) <= atol + rtol*abs(reference); discrete state exact",
+    "max_parameter_abs_error": 3.725290298461914e-9,
+    "max_parameter_relative_error": 0.00003654013430427682,
+    "max_optimizer_abs_error": 5.002220859751105e-12,
+    "max_optimizer_relative_error": 17.678696087698754,
+    "max_loss_abs_error": 0.0,
+    "max_scheduler_abs_error": 0.0,
+    "max_rng_abs_error": 0.0,
+    "max_sampler_abs_error": 0.0,
+    "bitwise_equal": false,
+    "note": "Large relative optimizer maximum is near zero; the registered additive elementwise comparison passed."
+  },
+  "costs": {
+    "whole_job_seconds": 539.7030000000086,
+    "peak_allocated_mib": 4670.041015625,
+    "peak_reserved_mib": 13412.0,
+    "process_peak_working_set_mib": 3821.7109375,
+    "limits": {
+      "physical_updates": 197,
+      "predictions": 18,
+      "decoder_calls": 2304,
+      "peak_memory_mib": 14336,
+      "resident_memory_mib": 12288
+    }
+  },
+  "artifact_sha256": {
+    "job_initial_manifest": "be329bf8877e1c49fb751876af7e8541cdf8863170df7a2b1ace0c1901b44214",
+    "job_terminal_manifest": "2411b8bc9798c75cd7fb851963b6f0b5f95024a88d13389bdc0ad9c29491b7d0",
+    "worker_terminal_manifest": "28d9850eb843d3df018f5ee934be6063f12c3902d029694e0e934aa64088c90e",
+    "job_binding": "cf758c14a4f62cfc1e0ed58ef6f4eedbd1c1eb536a8360250b15650acd243485",
+    "physical_work_ledger": "e0b1b2522862774f63dd144a8a710012429bdbdc28c0a57cc384711c62cf564c",
+    "controller_audit": "4e599769483c7ed7f617094a167f40efa0340332b0ae45d4f347adce5a440e09",
+    "worker_outcome": "301dd65c210afc6e5878f23fdda6b3081a217cc5de2d9a7700fc464ae93ce4f6",
+    "recovery_cursor": "6b89e7bd011935bef7d825fdf6a215a3061d45c183a7059867153ad2c89dd3a0",
+    "complete_recovery_metadata": "48c25bed8d95ccfd46dc0605c63f9f49fb16b8de9be8ccc1d6a0ad26cbc84f34",
+    "initial_evaluation_receipt": "6f366c3d3fbe401fe919de93c823a1305eeb50830b679b8129f4236c1f34cfd2",
+    "final_evaluation_receipt": "32c447c139f99505ea4248ef5ed87730d353fce09d5df90f580b019313b3fabd",
+    "step_96_replay_checkpoint": "42a1247611f25d8f952f065e351214c6f08b82bfcf59a855b6dbc72ed7f2d9cb",
+    "step_192_final_checkpoint": "9ee46b07d9b6ee361ac0698df3e4fe6f67649f40861783e81201b4a1a4fea17a",
+    "replay_probe_state": "1519cbba7bfa58316a0ce9e07718568b0d732e9e170d08ea57e26bfaa2c2bbae"
+  },
+  "interpretation": {
+    "established": "memorization of the three registered source examples under the frozen-base/new-parameter training setup",
+    "not_established": ["G4", "general task learning", "transfer", "novelty", "confirmatory precision"],
+    "next_step": "separate prospective registration and review before any K0/K1/K4 pilot"
+  }
+}
