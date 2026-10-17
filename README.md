@@ -2,7 +2,7 @@
 
 Studying whether exchangeable latent workspaces learn reusable computation that transfers to unseen task compositions and structures.
 
-**Status (2026-10-17):** Structural G2, fixed-N EX/IDX components, native integration and maximum-shape pretrained GPU feasibility pass. The [frozen reference](docs/frozen_reference_result.md) passes its operational gate:45 exact-repeat predictions,0/15 strict valid,369.485s; earlier failures remain preserved. The [recoverable tiny-source worker](docs/source_overfit_implementation.md) now clears independent implementation review, including detached CPU interruption/resume checks. Its actual GPU job has not launched at this source checkpoint. Task learning, G4, transfer effects and confirmatory precision remain outstanding. Read the [project history](docs/project_history_and_status.md), [execution state](docs/execution_state.md) and [todo.md](todo.md).
+**Status (2026-10-17):** Structural G2, fixed-N EX/IDX components, native integration and maximum-shape pretrained GPU feasibility pass. The [frozen reference](docs/frozen_reference_result.md) passes its operational gate:45 exact-repeat predictions,0/15 strict valid,369.485s. The single registered [tiny-source run](docs/source_overfit_result.md) completed `PASS_TINY_SOURCE_OVERFIT`: 3/3 selected source examples were valid after192 net updates, with0/3 valid initially. This establishes tiny-set memorization only. G4, general task learning, transfer effects, novelty and confirmatory precision remain unestablished. Read the [project history](docs/project_history_and_status.md), [execution state](docs/execution_state.md) and [todo.md](todo.md).
 
 The main question is whether one trained workspace and decoder interface can transfer without task-specific retraining. Exchangeability is the central architectural hypothesis. Variable slot count is a supporting experiment after a fixed-size transfer study; diffusion and other alternatives are parked.
 
@@ -92,7 +92,7 @@ The registered three-example job has a study-specific background launcher and re
 
 `start` detaches the supervisor and returns; repeating it attaches/reports rather than launching a competing worker. Each completed optimizer boundary is checkpointed. At most two process-interruption recoveries share the original budget; known scientific or integrity failures stop. After supervisor/computer loss, rerun the same command to discover verified progress within the remaining budget. Local checkpoints do not provide disk-failure or archival protection. See the [recovery design](docs/source_overfit_recovery_design.md) and [implementation evidence](docs/source_overfit_implementation.md).
 
-**Next work:** freeze the reviewed source and launch the single registered background GPU job. Only interpretable tiny-overfit PASS permits separately registered K0/K1/K4 pilots. No task-training job has launched at this source checkpoint.
+**Next work:** prepare a separate prospective registration and review for a bounded K0/K1/K4 development pilot. This result does not authorize or establish that pilot; no transfer or confirmatory study has run.
 
 ## Licensing
 

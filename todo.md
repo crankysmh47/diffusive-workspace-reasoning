@@ -180,17 +180,17 @@ Gate G3: **operational reference PASS** for the fixed15 cohort and registered de
 
 - [x] Implement the actual shared residual EX/IDX block and invariant set reader under `dwr/models/`. Independently reviewed CPU tests verify the fixed-N component contract; see [verification](docs/fixed_workspace_core_verification.md).
 - [x] Integrate the matched readers into actual frozen native decoder layers and verify prompt-only encoding, causal logits and complete answer loss. Follow the [native design](docs/native_backbone_design.md); see [native verification](docs/native_backbone_verification.md) for actual random native CPU evidence.
-- [ ] Train only new parameters using shifted answer-token cross-entropy, masking prompt/padding tokens; retain gradients through frozen decoder computations and all workspace updates.
-- [x] Add actual CPU tensor checks for EX equivariance, reader invariance/query independence, masks, shapes, all recurrent gradients and new-parameter SGD changes with frozen-tail bytes unchanged for EX/IDX. Native causal logits now pass; GPU checks remain outstanding.
+- [x] Train only new parameters using shifted answer-token cross-entropy, masking prompt/padding tokens; retain gradients through frozen decoder computations and all workspace updates. The registered three-example run preserved all338 original parameter hashes; see [tiny-source result](docs/source_overfit_result.md).
+- [x] Add actual CPU tensor checks for EX equivariance, reader invariance/query independence, masks, shapes, all recurrent gradients and new-parameter SGD changes with frozen-tail bytes unchanged for EX/IDX. Native causal logits pass; the tiny-source result is not a general GPU-correctness claim.
 - [x] Implement K=4 shared recurrence and K0/K1 forward paths; verify finite states and gradients through Z0..Z4. This does not implement trained K0-control bookkeeping or deferred wider-K studies.
 - [x] Measure full maximum-shape EX K4 forward/backward/optimizer memory and freeze the pinned N64/d768/precision/layout for tiny overfit. See [GPU result](docs/pretrained_gpu_feasibility_result.md). Future IDX or extrapolation requirements need separate measurement; no general shape claim.
-- [x] Verify complete AdamW/LambdaLR/scaler=None/global+local RNG/sampler resume against uninterrupted actual tiny CPU native training at1e-12, including K0 reader-only control and missing-state regressions. CUDA replay is still unverified; see [verification](docs/native_infrastructure_verification.md).
-- [ ] Overfit a tiny verified batch; diagnose integration failures before development comparisons.
+- [x] Verify complete AdamW/LambdaLR/scaler=None/global+local RNG/sampler resume against uninterrupted actual tiny CPU native training at1e-12, including K0 reader-only control and missing-state regressions. The actual step96-to-97 CUDA probe also passes the registered elementwise `abs(actual-reference) <= 1e-6 + 1e-5*abs(reference)` rule with exact discrete state; it is not bitwise equality. See [tiny-source result](docs/source_overfit_result.md).
+- [x] Overfit a tiny verified batch; diagnose integration failures before development comparisons. The single registered three-example run passed its tiny-set gate; this does not establish G4 or transfer. See [result](docs/source_overfit_result.md).
 - [ ] Implement separately trained K=0 noise-memory adapter control and K=1 EX using the same initialization/interface; record parameter differences.
 - [ ] Run a bounded one-seed validation pilot of K=0, EX K=1 and EX K=4. Freeze pilot step/GPU-hour limits and retry allowance first; save learning curves and latent norms.
 - [ ] Measure workspace zero/noise/cross-example shuffle ablations and adapter magnitudes; distinguish distribution-shift diagnostics from trained controls.
 
-Gate G4: interpretable learning or a documented failure/no-go. Do not force anti-bypass losses into the first model.
+Gate G4: interpretable learning or a documented failure/no-go. Do not force anti-bypass losses into the first model. The tiny-source memorization result alone does not establish G4.
 
 ## 5. Registered fixed-size transfer study — main experiment
 
@@ -231,6 +231,6 @@ Gate G7: a reproducible technical report, not guaranteed venue acceptance. Choos
 
 See [spare_research_ideas.md](docs/spare_research_ideas.md) for task-structure theory, persistent repair, learned slot allocation, flow distillation and adaptive stopping. These are not active milestones. Public datasets and larger backbones also require a new evidence-backed scope decision; preserve problem-level grouping and usage-term checks if activated.
 
-At this revision, CPU task generation, replay/audit, the new five-stratum structural G2 and fixed-N tensor components are verified. All historical attempts remain preserved. Native and run/export/generation/resume components now pass CPU verification; actual source export, pretrained benchmark/GPU feasibility/task training, fixed-size transfer, variable-slot experiments, paper reporting, archival backup and independent-person reproduction remain incomplete.
+2026-10-17 current status: CPU task generation, replay/audit, five-stratum structural G2, fixed-N tensor components, native integration and the fixed-cohort reference are verified. The [single registered tiny-source training run](docs/source_overfit_result.md) completed `PASS_TINY_SOURCE_OVERFIT`; it establishes memorization of three source examples only. Fixed-size transfer, separately registered pilots, G4, variable-slot experiments, paper reporting, archival backup and independent-person reproduction remain incomplete. Historical attempt outcomes remain preserved.
 
 2026-10-14 checkpoint: [PR #2](https://github.com/crankysmh47/diffusive-workspace-reasoning/pull/2) records reviewed retained support diagnosis and prospective five-stratum registration. Root opened it against main without merging; implementation continues on research/transfer-cpu-v1. Raw artifacts remain local/ignored.
