@@ -1,0 +1,15 @@
+{
+  "config_sha256": "125ebe2ee9672b58f07f6511f29be28b5eef04382ee8a71cc7a9951e30503a31",
+  "failure": "initial free GPU memory below registered minimum",
+  "matrix_terminal_record": "unsealed; original status operational_failure preserved",
+  "optimizer_updates": 0,
+  "phase": "preflight",
+  "predictions": 0,
+  "pretrained_weights_loaded": false,
+  "retry": "one separately registered environment-only startup retry; same scientific settings",
+  "schema": "dwr-source-pilot-startup-failure-v1",
+  "source_commit": "5ff2593aef9730ca1d90cb70a895c128f88fb5b3",
+  "source_data_access": "2436 train and45 selected validation records; no protected task access",
+  "worker_events_sha256": "62169517ad00b55b99ce80e9cde48fd43e1102bab4b620a9811f99933ed186f4",
+  "worker_manifest_sha256": "87e94e39bcbbb41dd67e6de321e6ae619252ada40731ea517f4c6fd5aba7acde"
+}

@@ -20,7 +20,7 @@ from pathlib import PurePosixPath
 
 from dwr.experiments.records import RunRecord, verify_artifacts
 
-_CONFIG_PATH = "configs/experiments/source_validation_pilot_v1.json"
+_CONFIG_PATH = "configs/experiments/source_validation_pilot_startup_retry_v2.json"
 _MATRIX_LOCK_PATH = "runs/source-validation-pilot-20261017-v1.lock"
 _ARM_ORDER = ("K0", "K1", "K4")
 

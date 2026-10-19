@@ -15,6 +15,8 @@ from dwr.tasks.run_support import stable_json
 
 CONFIG_PATH = "configs/experiments/source_validation_pilot_v1.json"
 CONFIG_SHA256 = "125ebe2ee9672b58f07f6511f29be28b5eef04382ee8a71cc7a9951e30503a31"
+STARTUP_RETRY_CONFIG_PATH = "configs/experiments/source_validation_pilot_startup_retry_v2.json"
+STARTUP_RETRY_CONFIG_SHA256 = "e91739eb52cf3716c15c85710c563de2572f14ca1cc10838419c3e6e529b7e94"
 COHORT_PATH = "configs/splits/source_validation_pilot_cohort_v1.json"
 COHORT_SHA256 = "615e357ceff2a7b0a32e9509d68d1be2e881a233f6387088746b9f58bf32afe7"
 _HASH = re.compile(r"[0-9a-f]{64}\Z")
@@ -535,19 +537,58 @@ def _verify_dependencies(root: Path, config: Mapping[str, Any], token_rows: tupl
     return feasibility
 
 
+def _validate_startup_retry_config(config: Any) -> dict[str, Any]:
+    """Validate the same scientific study with its separately registered run identity."""
+    if not isinstance(config, dict) or config.get("config_version") != "dwr-source-validation-pilot-startup-retry-v2" or \
+            config.get("output_dir") != "runs/source-validation-pilot-20261019-startup-retry-v2":
+        raise ValueError("startup retry version or output path differs from registration")
+    baseline = copy.deepcopy(config)
+    baseline["config_version"] = "dwr-source-validation-pilot-v1"
+    baseline["output_dir"] = "runs/source-validation-pilot-20261017-v1"
+    original_raw = _read(Path(__file__).resolve().parents[2] / CONFIG_PATH, "original pilot registration")
+    if _sha(original_raw) != CONFIG_SHA256 or baseline != _json(original_raw, "original pilot registration"):
+        raise ValueError("startup retry must preserve every original scientific setting")
+    _validate_config(baseline)
+    return config
+
+
+def _verify_startup_memory_failure(root: Path) -> None:
+    from dwr.experiments.records import verify_artifacts
+    segment = root / "runs/source-validation-pilot-20261017-v1/arms/K0/segment-000"
+    if _sha(_read(segment / "manifest.json", "original startup failure")) != \
+            "87e94e39bcbbb41dd67e6de321e6ae619252ada40731ea517f4c6fd5aba7acde":
+        raise ValueError("startup retry requires the preserved original preflight failure")
+    terminal = verify_artifacts(segment)
+    rows = [_json(line.encode("utf-8"), "startup failure event")
+        for line in (segment / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+    if terminal["status"] != "failed" or [row["kind"] for row in rows] != [
+            "worker_receipt_published", "source_examples_access_authorized",
+            "source_examples_access_authorized", "known_fault"] or rows[-1]["payload"] != {
+                "exception_type": "RuntimeError", "phase": "preflight",
+                "message_sha256": "463078d1c0d20e1317adb085156762d451109190009861fc5c884a27be4b4c5a"}:
+        raise ValueError("startup retry is limited to the zero-model-work memory preflight failure")
+
+
 def load_pilot_registration(root: Path, config_path: Path) -> dict[str, Any]:
     """Load the only production registration and its metadata/proof identities."""
     root = Path(root).resolve(strict=True)
-    expected = root.joinpath(*PurePosixPath(CONFIG_PATH).parts)
-    _reject_links(expected)
     requested = Path(os.path.abspath(os.fspath(config_path)))
     _reject_links(requested)
-    if requested.resolve(strict=True) != expected.resolve(strict=True):
+    relative = requested.resolve(strict=True).relative_to(root).as_posix()
+    allowed = {CONFIG_PATH: (CONFIG_SHA256, False),
+        STARTUP_RETRY_CONFIG_PATH: (STARTUP_RETRY_CONFIG_SHA256, True)}
+    if relative not in allowed:
         raise ValueError("only the registered source-validation pilot config path is accepted")
+    expected = root.joinpath(*PurePosixPath(relative).parts)
+    config_sha256, startup_retry = allowed[relative]
+    _reject_links(expected)
     config_raw = _read(expected, "pilot config")
-    if _sha(config_raw) != CONFIG_SHA256:
+    if _sha(config_raw) != config_sha256:
         raise ValueError("pilot config bytes differ from the closed registration")
-    config = _validate_config(_json(config_raw, "pilot config"))
+    config = (_validate_startup_retry_config if startup_retry else _validate_config)(
+        _json(config_raw, "pilot config"))
+    if startup_retry:
+        _verify_startup_memory_failure(root)
     cohort_raw = _read(_resolve(root, config["data"]["cohort_path"]), "pilot cohort")
     if _sha(cohort_raw) != COHORT_SHA256:
         raise ValueError("frozen pilot cohort bytes differ from registration")
@@ -560,7 +601,7 @@ def load_pilot_registration(root: Path, config_path: Path) -> dict[str, Any]:
     if selected_ids & train_ids:
         raise ValueError("pilot validation selection overlaps source-training IDs")
     return {"config": config, "config_raw": config_raw, "config_path": expected,
-        "config_sha256": CONFIG_SHA256, "cohort": cohort, "cohort_raw": cohort_raw,
+        "config_sha256": config_sha256, "cohort": cohort, "cohort_raw": cohort_raw,
         "cohort_sha256": COHORT_SHA256, "token_rows": token_rows,
         "source_pins": {key: config["data"][key] for key in
             ("source_export_manifest_sha256", "source_export_data_sha256",
