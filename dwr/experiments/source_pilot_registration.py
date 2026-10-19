@@ -19,6 +19,8 @@ STARTUP_RETRY_CONFIG_PATH = "configs/experiments/source_validation_pilot_startup
 STARTUP_RETRY_CONFIG_SHA256 = "e91739eb52cf3716c15c85710c563de2572f14ca1cc10838419c3e6e529b7e94"
 REGISTRATION_REPAIR_CONFIG_PATH = "configs/experiments/source_validation_pilot_registration_repair_v3.json"
 REGISTRATION_REPAIR_CONFIG_SHA256 = "7e535a95dfb21bd7f45286f3cff586adbbd5c78a0a89c348a5f5160a2976070b"
+TOKENIZER_REPAIR_CONFIG_PATH = "configs/experiments/source_validation_pilot_tokenizer_repair_v4.json"
+TOKENIZER_REPAIR_CONFIG_SHA256 = "297fbd72496dd2706b85d6ad03b7cf3e265cd35aa46769af41e28581de191570"
 COHORT_PATH = "configs/splits/source_validation_pilot_cohort_v1.json"
 COHORT_SHA256 = "615e357ceff2a7b0a32e9509d68d1be2e881a233f6387088746b9f58bf32afe7"
 _HASH = re.compile(r"[0-9a-f]{64}\Z")
@@ -544,7 +546,9 @@ def _validate_startup_retry_config(config: Any) -> dict[str, Any]:
     outputs = {"dwr-source-validation-pilot-startup-retry-v2":
         "runs/source-validation-pilot-20261019-startup-retry-v2",
         "dwr-source-validation-pilot-registration-repair-v3":
-        "runs/source-validation-pilot-20261019-registration-repair-v3"}
+        "runs/source-validation-pilot-20261019-registration-repair-v3",
+        "dwr-source-validation-pilot-tokenizer-repair-v4":
+        "runs/source-validation-pilot-20261019-tokenizer-repair-v4"}
     if not isinstance(config, dict) or config.get("config_version") not in outputs or \
             config.get("output_dir") != outputs[config["config_version"]]:
         raise ValueError("startup retry version or output path differs from registration")
@@ -583,7 +587,8 @@ def load_pilot_registration(root: Path, config_path: Path) -> dict[str, Any]:
     relative = requested.resolve(strict=True).relative_to(root).as_posix()
     allowed = {CONFIG_PATH: (CONFIG_SHA256, False),
         STARTUP_RETRY_CONFIG_PATH: (STARTUP_RETRY_CONFIG_SHA256, True),
-        REGISTRATION_REPAIR_CONFIG_PATH: (REGISTRATION_REPAIR_CONFIG_SHA256, True)}
+        REGISTRATION_REPAIR_CONFIG_PATH: (REGISTRATION_REPAIR_CONFIG_SHA256, True),
+        TOKENIZER_REPAIR_CONFIG_PATH: (TOKENIZER_REPAIR_CONFIG_SHA256, True)}
     if relative not in allowed:
         raise ValueError("only the registered source-validation pilot config path is accepted")
     expected = root.joinpath(*PurePosixPath(relative).parts)
@@ -596,13 +601,28 @@ def load_pilot_registration(root: Path, config_path: Path) -> dict[str, Any]:
         _json(config_raw, "pilot config"))
     if startup_retry:
         _verify_startup_memory_failure(root)
-    if relative == REGISTRATION_REPAIR_CONFIG_PATH:
+    if relative in {REGISTRATION_REPAIR_CONFIG_PATH, TOKENIZER_REPAIR_CONFIG_PATH}:
         previous = root / "runs/source-validation-pilot-20261019-startup-retry-v2"
         if _sha(_read(previous / "status.json", "v2 startup failure")) != \
                 "656a95ee4eead66aec65116b9dc55e6b1a930463aeb7a4d48631e474e91905f3" or \
                 _read(previous / "arms/K0/segment-000/events.jsonl", "v2 worker events") != b"" or \
                 (previous / "arms/K0/segment-000/worker-receipt.json").exists():
             raise ValueError("registration repair requires the preserved zero-access v2 startup failure")
+    if relative == TOKENIZER_REPAIR_CONFIG_PATH:
+        from dwr.experiments.records import verify_artifacts
+        previous = root / "runs/source-validation-pilot-20261019-registration-repair-v3/arms/K0/segment-000"
+        if _sha(_read(previous / "manifest.json", "v3 load failure")) != \
+                "49971b569229f076f27f8fe947d0013cd6d3adbf67cf314e1e6882cf07464a59" or \
+                verify_artifacts(previous)["status"] != "failed":
+            raise ValueError("tokenizer repair requires the preserved v3 load failure")
+        rows = [_json(line.encode("utf-8"), "v3 startup event")
+            for line in (previous / "events.jsonl").read_text(encoding="utf-8").splitlines()]
+        if [row["kind"] for row in rows] != ["worker_receipt_published",
+                "source_examples_access_authorized", "source_examples_access_authorized",
+                "runtime_hardware_preflight", "known_fault"] or rows[-1]["payload"] != {
+                    "exception_type": "ValueError", "phase": "load",
+                    "message_sha256": "e30f7ccc79d76bad7485a60261e0b98baaa488c11b2819acff5c0cadda0e58f9"}:
+            raise ValueError("tokenizer repair cannot follow training or evaluation work")
     cohort_raw = _read(_resolve(root, config["data"]["cohort_path"]), "pilot cohort")
     if _sha(cohort_raw) != COHORT_SHA256:
         raise ValueError("frozen pilot cohort bytes differ from registration")

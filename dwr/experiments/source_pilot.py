@@ -25,6 +25,22 @@ def _is_sha256(value: object) -> bool:
     return isinstance(value, str) and len(value) == 64 and all(ch in _HEX for ch in value)
 
 
+def _tokenizer_vocabulary_size(tokenizer: Any) -> int:
+    """Count the full vocabulary, including added tokens, as pinned by metadata."""
+    get_vocab = getattr(tokenizer, "get_vocab", None)
+    if callable(get_vocab):
+        vocabulary = get_vocab()
+        if not isinstance(vocabulary, Mapping):
+            raise ValueError("tokenizer full vocabulary must be a mapping")
+        size = len(vocabulary)
+    else:
+        # Tiny private fixtures expose only their complete vocab_size property.
+        size = getattr(tokenizer, "vocab_size", None)
+    if type(size) is not int or size <= 0:
+        raise ValueError("tokenizer full vocabulary size is invalid")
+    return size
+
+
 def _verify_generated_text(envelope: Mapping[str, Any], tokenizer: Any, *, model_vocab_size: int,
                           token_cap: int = 128) -> None:
     """Re-decode a stored output with the live pinned tokenizer and model token bounds."""
@@ -397,9 +413,10 @@ def _execute_authorized_worker(authorization: Mapping[str, Any], receipt_publica
             inventory = factories.get("model_inventory", {"weight_sha256": registration["model_pins"]["weight_sha256"],
                 "inventory_sha256": registration["model_pins"]["artifact_inventory_sha256"]})
         check()
-        if getattr(tokenizer, "eos_token_id", None) != policy["expected_eos_token_id"] or \
-                getattr(tokenizer, "vocab_size", None) != policy["expected_tokenizer_vocab_size"]:
+        if getattr(tokenizer, "eos_token_id", None) != policy["expected_eos_token_id"]:
             raise ValueError("live tokenizer EOS differs from the registered EOS ID")
+        if _tokenizer_vocabulary_size(tokenizer) != policy["expected_tokenizer_vocab_size"]:
+            raise ValueError("live full tokenizer vocabulary differs from the registered vocabulary")
         vocab_size = int(host.backbone.config.vocab_size)
         if vocab_size != policy["expected_model_vocab_size"]:
             raise ValueError("loaded model vocabulary differs from the registered embedding vocabulary")
@@ -419,7 +436,7 @@ def _execute_authorized_worker(authorization: Mapping[str, Any], receipt_publica
         record.append_event("controller_host_initialized", {"arm_id": arm_id,
             "initial_module_sha256": initial_module_sha256, "initial_module_recipe": initial_module_recipe,
             "parameter_counts": parameter_counts, "original_parameter_count": len(initial_hashes),
-            "model_vocab_size": vocab_size, "tokenizer_vocab_size": getattr(tokenizer, "vocab_size", None),
+            "model_vocab_size": vocab_size, "tokenizer_vocab_size": _tokenizer_vocabulary_size(tokenizer),
             "eos_token_id": tokenizer.eos_token_id})
         initial_audit_dir = segment / "controller-audit"
         initial_audit_path = initial_audit_dir / "initial-frozen.json"
@@ -457,7 +474,7 @@ def _execute_authorized_worker(authorization: Mapping[str, Any], receipt_publica
                 "stage_receipts": audit_payload["stage_receipts"], "bank": audit_payload["bank"],
                 "original_parameter_hashes": final_hashes,
                 "details": {"parameter_counts": final_counts, "trainable_parameters": actual_trainable,
-                    "model_vocab_size": vocab_size, "tokenizer_vocab_size": getattr(tokenizer, "vocab_size", None),
+                    "model_vocab_size": vocab_size, "tokenizer_vocab_size": _tokenizer_vocabulary_size(tokenizer),
                     "eos_token_id": tokenizer.eos_token_id, "initial_module_sha256": initial_module_sha256,
                     "initial_module_recipe": initial_module_recipe, "source_commit": source_commit,
                     "runtime_sha256": runtime_sha256, "controller_observation": observation_ref}}
@@ -466,7 +483,7 @@ def _execute_authorized_worker(authorization: Mapping[str, Any], receipt_publica
             record.append_event("controller_audit", {"arm_id": arm_id,
                 "initial_frozen": initial_frozen_ref, "final_controller": final_ref,
                 "original_parameter_count": len(final_hashes), "parameter_counts": final_counts,
-                "model_vocab_size": vocab_size, "tokenizer_vocab_size": getattr(tokenizer, "vocab_size", None)})
+                "model_vocab_size": vocab_size, "tokenizer_vocab_size": _tokenizer_vocabulary_size(tokenizer)})
             return {"initial_frozen": initial_frozen_ref, "final_controller": final_ref}
 
         if factories is None:
@@ -808,7 +825,7 @@ def audit_completed_arm(root: str | os.PathLike[str], registration: Mapping[str,
     tokenizer_dir = _resolve_registered(Path(root).resolve(strict=True), host_config["model"]["local_dir"])
     tokenizer = AutoTokenizer.from_pretrained(str(tokenizer_dir), local_files_only=True, trust_remote_code=False)
     if getattr(tokenizer, "eos_token_id", None) != policy["expected_eos_token_id"] or \
-            getattr(tokenizer, "vocab_size", None) != policy["expected_tokenizer_vocab_size"]:
+            _tokenizer_vocabulary_size(tokenizer) != policy["expected_tokenizer_vocab_size"]:
         raise ValueError("current pinned tokenizer vocabulary/EOS differs from the production policy")
     identities = pilot_identities(registration, source_commit=source_commit, arm_id=arm_id)
     return _audit_completed_arm_core(root, registration, arm_root, arm_id=arm_id,
@@ -1012,7 +1029,7 @@ def _audit_completed_arm_core(root: str | os.PathLike[str], registration: Mappin
         "controller_observation"}
     if not isinstance(details, Mapping) or set(details) != detail_keys or \
             details.get("model_vocab_size") != vocab_size or \
-            details.get("tokenizer_vocab_size") != getattr(tokenizer, "vocab_size", None) or \
+            details.get("tokenizer_vocab_size") != _tokenizer_vocabulary_size(tokenizer) or \
             details.get("eos_token_id") != getattr(tokenizer, "eos_token_id", None) or \
             details.get("parameter_counts") != policy["expected_parameter_counts"]:
         raise ValueError("final live-host audit details/counts differ from the registered host policy")
@@ -1047,7 +1064,7 @@ def _audit_completed_arm_core(root: str | os.PathLike[str], registration: Mappin
             details.get("initial_module_sha256") != host_event.get("initial_module_sha256") or \
             host_event.get("parameter_counts") != details.get("parameter_counts") or \
             host_event.get("model_vocab_size") != vocab_size or \
-            host_event.get("tokenizer_vocab_size") != getattr(tokenizer, "vocab_size", None) or \
+            host_event.get("tokenizer_vocab_size") != _tokenizer_vocabulary_size(tokenizer) or \
             host_event.get("eos_token_id") != getattr(tokenizer, "eos_token_id", None):
         raise ValueError("controller final details differ from the same-segment host initialization/source/runtime")
     observation_path, observation_ref = _checked_reference(arm_root_path, details.get("controller_observation"),
