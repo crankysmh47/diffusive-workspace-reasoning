@@ -17,6 +17,8 @@ CONFIG_PATH = "configs/experiments/source_validation_pilot_v1.json"
 CONFIG_SHA256 = "125ebe2ee9672b58f07f6511f29be28b5eef04382ee8a71cc7a9951e30503a31"
 STARTUP_RETRY_CONFIG_PATH = "configs/experiments/source_validation_pilot_startup_retry_v2.json"
 STARTUP_RETRY_CONFIG_SHA256 = "e91739eb52cf3716c15c85710c563de2572f14ca1cc10838419c3e6e529b7e94"
+REGISTRATION_REPAIR_CONFIG_PATH = "configs/experiments/source_validation_pilot_registration_repair_v3.json"
+REGISTRATION_REPAIR_CONFIG_SHA256 = "7e535a95dfb21bd7f45286f3cff586adbbd5c78a0a89c348a5f5160a2976070b"
 COHORT_PATH = "configs/splits/source_validation_pilot_cohort_v1.json"
 COHORT_SHA256 = "615e357ceff2a7b0a32e9509d68d1be2e881a233f6387088746b9f58bf32afe7"
 _HASH = re.compile(r"[0-9a-f]{64}\Z")
@@ -539,8 +541,12 @@ def _verify_dependencies(root: Path, config: Mapping[str, Any], token_rows: tupl
 
 def _validate_startup_retry_config(config: Any) -> dict[str, Any]:
     """Validate the same scientific study with its separately registered run identity."""
-    if not isinstance(config, dict) or config.get("config_version") != "dwr-source-validation-pilot-startup-retry-v2" or \
-            config.get("output_dir") != "runs/source-validation-pilot-20261019-startup-retry-v2":
+    outputs = {"dwr-source-validation-pilot-startup-retry-v2":
+        "runs/source-validation-pilot-20261019-startup-retry-v2",
+        "dwr-source-validation-pilot-registration-repair-v3":
+        "runs/source-validation-pilot-20261019-registration-repair-v3"}
+    if not isinstance(config, dict) or config.get("config_version") not in outputs or \
+            config.get("output_dir") != outputs[config["config_version"]]:
         raise ValueError("startup retry version or output path differs from registration")
     baseline = copy.deepcopy(config)
     baseline["config_version"] = "dwr-source-validation-pilot-v1"
@@ -576,7 +582,8 @@ def load_pilot_registration(root: Path, config_path: Path) -> dict[str, Any]:
     _reject_links(requested)
     relative = requested.resolve(strict=True).relative_to(root).as_posix()
     allowed = {CONFIG_PATH: (CONFIG_SHA256, False),
-        STARTUP_RETRY_CONFIG_PATH: (STARTUP_RETRY_CONFIG_SHA256, True)}
+        STARTUP_RETRY_CONFIG_PATH: (STARTUP_RETRY_CONFIG_SHA256, True),
+        REGISTRATION_REPAIR_CONFIG_PATH: (REGISTRATION_REPAIR_CONFIG_SHA256, True)}
     if relative not in allowed:
         raise ValueError("only the registered source-validation pilot config path is accepted")
     expected = root.joinpath(*PurePosixPath(relative).parts)
@@ -589,6 +596,13 @@ def load_pilot_registration(root: Path, config_path: Path) -> dict[str, Any]:
         _json(config_raw, "pilot config"))
     if startup_retry:
         _verify_startup_memory_failure(root)
+    if relative == REGISTRATION_REPAIR_CONFIG_PATH:
+        previous = root / "runs/source-validation-pilot-20261019-startup-retry-v2"
+        if _sha(_read(previous / "status.json", "v2 startup failure")) != \
+                "656a95ee4eead66aec65116b9dc55e6b1a930463aeb7a4d48631e474e91905f3" or \
+                _read(previous / "arms/K0/segment-000/events.jsonl", "v2 worker events") != b"" or \
+                (previous / "arms/K0/segment-000/worker-receipt.json").exists():
+            raise ValueError("registration repair requires the preserved zero-access v2 startup failure")
     cohort_raw = _read(_resolve(root, config["data"]["cohort_path"]), "pilot cohort")
     if _sha(cohort_raw) != COHORT_SHA256:
         raise ValueError("frozen pilot cohort bytes differ from registration")

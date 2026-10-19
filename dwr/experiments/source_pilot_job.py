@@ -20,7 +20,7 @@ from pathlib import PurePosixPath
 
 from dwr.experiments.records import RunRecord, verify_artifacts
 
-_CONFIG_PATH = "configs/experiments/source_validation_pilot_startup_retry_v2.json"
+_CONFIG_PATH = "configs/experiments/source_validation_pilot_registration_repair_v3.json"
 _MATRIX_LOCK_PATH = "runs/source-validation-pilot-20261017-v1.lock"
 _ARM_ORDER = ("K0", "K1", "K4")
 
@@ -96,8 +96,7 @@ def read_worker_authorization(root: str | os.PathLike[str], descriptor_path: str
         raise ValueError("worker root differs from the source checkout")
     from dwr.experiments.source_pilot_registration import load_pilot_registration, pilot_identities
     from dwr.experiments import gpu_feasibility
-    config_path = source_root / "configs" / "experiments" / "source_validation_pilot_v1.json"
-    registration = load_pilot_registration(source_root, config_path)
+    registration = _registration(source_root)
     config = registration["config"]
     arm_id, arm_index, segment_index = descriptor["arm_id"], descriptor["arm_index"], descriptor["segment_index"]
     arms = config["arms"]
