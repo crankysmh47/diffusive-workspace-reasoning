@@ -1,4 +1,8 @@
-# Active execution: recoverable source-training worker
+# Active execution: GPU source-validation pilot
+
+2026-10-19: the registered K0/K1/K4 pilot launched at17:05:42 UTC from clean `a708fb399eca01c42e12bcc9f4bc80f7695dbfde`; real GPU initial-validation forward passes and persisted predictions are confirmed. See the [live run](source_validation_pilot_launch.md) for source/config identities, status/resume commands and remaining gates. The job is running independently; no completed pilot, generalization or transfer result is claimed. Startup failures and incomplete full recovery acceptance remain explicit. Documentation publication is isolated from the frozen producer checkout.
+
+# Historical execution: recoverable tiny-source worker
 
 2026-10-17 current status: the actual registered [recoverable tiny-source run](source_overfit_result.md) completed `PASS_TINY_SOURCE_OVERFIT` at clean source `745a74241a832946579b487f839acab383a455bc`. Both job and worker terminal records pass artifact verification, and an independent audit checked the official evaluation, source/config/model bindings, all338 original parameter hashes, memory caps and CUDA replay evidence. It completed192 net steps/193 physical updates with0 recoveries in539.703 seconds. This is three-example memorization only; G4, transfer, novelty and confirmatory precision remain unestablished. Raw run artifacts are local and ignored by Git. Historical pre-run status entries below are preserved with their original dates and are superseded here.
 

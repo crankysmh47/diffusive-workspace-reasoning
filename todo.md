@@ -2,6 +2,15 @@
 
 Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_v2.md), amended by the binding [v2.2 protocol](docs/research_protocol.md); the terminal v4 proposal record is [v4](docs/task_spec_v4.md). This is the sole live checklist. Check an item only when its output and recorded verification exist. Planning does not count as implementing a gate.
 
+## Active GPU checkpoint — 2026-10-19
+
+- [x] Implement the bounded K0/K1/K4 pilot, fixed-workspace diagnostics, detached supervisor/worker, watchdog and durable checkpoints; freeze/push clean source `a708fb3`.
+- [x] Launch the registered pilot on the actual GPU and confirm model forward passes and persisted predictions. See [live run and commands](docs/source_validation_pilot_launch.md). Earlier startup failures remain preserved; no completed pilot result is claimed.
+- [ ] Finish512 updates per arm,45-example initial/final validation, K4 zero/noise/shuffle diagnostics and complete terminal artifact/cost/frozen-weight audits.
+- [ ] Complete the outstanding full native hard-loss recovery acceptance; component checks and implementation are not a complete recovery-validation claim. The owner directed the expedited GPU launch without more review cycles.
+- [ ] Interpret the registered learning/workspace-use gates before another research stage. Scientific NO_GO stops automatic transfer; confirmatory EX/IDX transfer, three-seed precision, broader controls and variable N remain pending.
+- [ ] Back up ignored artifacts and complete a fresh-environment reproduction before reproducibility claims.
+
 ## Five-stratum study and fixed-N components — 2026-10-14
 
 - [x] Register exact five fine strata, fresh seeds/counts/quotas/caps and new estimand/weights. Scientific readiness review passed. See [design](docs/five_stratum_study_design.md), [plan](docs/superpowers/plans/2026-10-14-five-stratum-study.md) and closed qualification/full configs.
@@ -35,7 +44,8 @@ Scientific authority: [v2 plan](docs/diffusive_workspace_reasoning_project_plan_
 - [x] Clean checkpoint/push and detached registered GPU launch at745a742; completed `PASS_TINY_SOURCE_OVERFIT`,192 net/193 physical updates,3/3 final versus0/3 initial, with all338 original hashes unchanged. Root terminal audit and exact evidence are recorded in the [result](docs/source_overfit_result.md). The single allowance is closed.
 - [ ] Only after interpretable tiny-overfit PASS: separately register and execute bounded K0/K1/K4 source-validation exploratory pilots with fresh matched initialization. Confirmatory precision/registration remain separate.
 - [x] Register the bounded source-validation pilot and verify its native CPU kernel/recovery:13 focused learning/recovery methods and four process-proof methods across scoped checks, including full-state K0/K1/K4 continuation, bank/stage reuse, partial outputs and six-update native retention. Independent scoped reviews accept the fixes. Preserve the failed helper run; no single-invocation full-suite PASS is claimed. See [implementation evidence](docs/source_validation_pilot_implementation.md).
-- [ ] Implement/review the production pilot worker, sequential detached matrix and watchdogs; then complete integrated CPU release and a clean source checkpoint before the sole registered GPU matrix.
+- [x] Implement the production pilot worker, sequential detached matrix and watchdogs; freeze clean source and launch the GPU pilot. Root26 native kernel/recovery/registration/resume checks and47 affected ML checks passed across scoped runs. See [launch](docs/source_validation_pilot_launch.md).
+- [ ] Complete full integrated native matrix recovery acceptance. Earlier failed fixtures and the expedited-launch limitation remain explicit; no single-invocation full-suite PASS is claimed.
 
 ## Retained rank support diagnosis — 2026-10-14
 

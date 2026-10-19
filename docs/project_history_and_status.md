@@ -1,4 +1,8 @@
-# Research history and recoverable source-training preparation
+# Research history and active GPU pilot
+
+Current snapshot, 2026-10-19: the registered [K0/K1/K4 source-validation pilot](source_validation_pilot_launch.md) is executing on the actual GPU from clean `a708fb3`, after preserved startup repairs. This extends the completed three-example memorization check toward512 distinct training examples per arm and45 fixed validation examples, with trained K0/K1 controls and K4 workspace interventions. Its scientific outcome is pending. The owner directed expedited execution and PR publication without further review cycles; full native recovery acceptance remains incomplete. The [checklist](../todo.md) distinguishes implemented/launched work from unfinished experiments, audits, transfer registration and reproduction.
+
+The dated entries below preserve the earlier state and are superseded by this current snapshot.
 
 Current status, 2026-10-17: the actual registered [recoverable tiny-source overfit](source_overfit_result.md) completed `PASS_TINY_SOURCE_OVERFIT` from clean source `745a74241a832946579b487f839acab383a455bc`. The run memorized its three selected source examples (3/3 valid at step192 versus0/3 at initialization), while the original338 pretrained parameter hashes remained unchanged. This is tiny-set memorization only; G4, general task learning, transfer, novelty and confirmatory precision remain unestablished. A separate pilot requires its own prospective registration and review. Raw artifacts are local/ignored and not backed up by Git.
 
