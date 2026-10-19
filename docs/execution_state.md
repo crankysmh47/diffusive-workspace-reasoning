@@ -1,3 +1,7 @@
+# Active execution: bounded operational continuation
+
+2026-10-19: V4 stopped during K1 record sealing because an old watchdog rewrote a predecessor status file that registration incorrectly treated as immutable. K0 and K1 both completed512 updates and their45-case final evaluations; strict validity2/45 and3/45. K1 was verified and sealed at18:46:58 UTC without additional model work. The V4 matrix remains an operational failure. A separately registered [V5 operational continuation](source_validation_pilot_operational_continuation.md) imports these exact controls and permits only fresh K4, with unchanged scientific settings, explicit mixed-source provenance and the owner's13000MiB startup availability threshold. Full hard-loss recovery acceptance remains incomplete. V5 launch/completion are not claimed by this prelaunch note.
+
 # Active execution: GPU source-validation pilot
 
 2026-10-19: the registered K0/K1/K4 pilot launched at17:05:42 UTC from clean `a708fb399eca01c42e12bcc9f4bc80f7695dbfde`; real GPU initial-validation forward passes and persisted predictions are confirmed. See the [live run](source_validation_pilot_launch.md) for source/config identities, status/resume commands and remaining gates. The job is running independently; no completed pilot, generalization or transfer result is claimed. Startup failures and incomplete full recovery acceptance remain explicit. Documentation publication is isolated from the frozen producer checkout.

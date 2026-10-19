@@ -1254,7 +1254,8 @@ def _audited_arm(audits: Mapping[str, Any], arm_id: str, *, expected_steps: int)
     return item
 
 
-def matrix_decision(config: Mapping[str, Any], arm_audits: Mapping[str, Any]) -> dict[str, Any]:
+def matrix_decision(config: Mapping[str, Any], arm_audits: Mapping[str, Any], *,
+                    source_identities: Mapping[str, str] | None = None) -> dict[str, Any]:
     """Recompute the registered learning and workspace screens from three audited arms."""
     if not isinstance(config, Mapping) or set(arm_audits) != set(_ARM_ORDER):
         raise ValueError("matrix decision requires the exact registered K0/K1/K4 audits")
@@ -1263,11 +1264,20 @@ def matrix_decision(config: Mapping[str, Any], arm_audits: Mapping[str, Any]) ->
     if type(expected_steps) is not int or expected_steps <= 0:
         raise ValueError("registered optimizer-step count is missing or invalid")
     arms = {arm_id: _audited_arm(arm_audits, arm_id, expected_steps=expected_steps) for arm_id in _ARM_ORDER}
+    if source_identities is not None:
+        if not isinstance(source_identities, Mapping) or set(source_identities) != set(_ARM_ORDER):
+            raise ValueError("mixed-source decision requires the exact registered per-arm source identity map")
+        for arm_id in _ARM_ORDER:
+            identity = source_identities[arm_id]
+            if not _is_sha256(identity) or arms[arm_id]["identities"]["source"] != identity:
+                raise ValueError(f"{arm_id} audited source identity differs from its declared source identity")
     if len({tuple(sorted(arm["identities"].items())) for arm in arms.values()}) != 3:
         raise ValueError("each arm must have its own complete checkpoint identity")
     if len({arm["initial_state_sha256"] for arm in arms.values()}) != 1:
         raise ValueError("initial module bytes are not paired identically across all three arms")
     shared_identity_keys = _IDENTITY_KEYS - {"config"}
+    if source_identities is not None:
+        shared_identity_keys -= {"source"}
     if any(len({arm["identities"][key] for arm in arms.values()}) != 1 for key in shared_identity_keys):
         raise ValueError("source/data/model/tokenizer/schedule identities must be shared across paired arms")
     if len({arm["identities"]["config"] for arm in arms.values()}) != 3:
