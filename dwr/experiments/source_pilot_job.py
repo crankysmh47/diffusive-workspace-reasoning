@@ -20,7 +20,7 @@ from pathlib import PurePosixPath
 
 from dwr.experiments.records import RunRecord, verify_artifacts
 
-_CONFIG_PATH = "configs/experiments/source_validation_pilot_tokenizer_repair_v4.json"
+_CONFIG_PATH = "configs/experiments/source_validation_pilot_operational_continuation_v5.json"
 _MATRIX_LOCK_PATH = "runs/source-validation-pilot-20261017-v1.lock"
 _ARM_ORDER = ("K0", "K1", "K4")
 
@@ -1291,6 +1291,9 @@ def _supervise_core(config_path: str, *, factories: Mapping[str, object] | None 
         runtime = runtime_factory() if callable(runtime_factory) else (
             runtime_factory if isinstance(runtime_factory, Mapping) else _runtime_receipt())
         if not (matrix_root / "manifest.initial.json").exists():
+            if registration.get("continuation") is not None:
+                from dwr.experiments.source_pilot_continuation import validate_launch_window
+                validate_launch_window(registration)
             # `start` persists a small attachment marker before launching this process.
             # Remove only that exact unissued marker so RunRecord can create its root.
             if set(path.name for path in matrix_root.iterdir()) == {"status.json"}:
@@ -1315,6 +1318,22 @@ def _supervise_core(config_path: str, *, factories: Mapping[str, object] | None 
                 watchdog_factory = factories.get("watchdog_factory") if factories else None
                 (watchdog_factory or _launch_watchdog)(matrix_root)
         audits = {}
+        continuation_sources = {}
+        continuation = registration.get("continuation")
+        if continuation is not None:
+            from dwr.experiments.source_pilot_continuation import load_parent_imports
+            audits, continuation_sources = load_parent_imports(root, registration)
+            existing_imports = {row["payload"].get("arm_id") for row in _event_rows(matrix_root / "events.jsonl")
+                if row["kind"] == "imported_arm"}
+            for imported_arm in ("K0", "K1"):
+                if imported_arm not in existing_imports:
+                    matrix_record.append_event("imported_arm", {"arm_id": imported_arm,
+                        "source_identity": continuation_sources[imported_arm],
+                        "parent_matrix": continuation["parent_matrix"],
+                        "arm_audit_sha256": continuation["imports"][imported_arm]["arm_audit_sha256"],
+                        "manifest_sha256": continuation["imports"][imported_arm]["manifest_sha256"],
+                        "physical_audit_sha256": continuation["imports"][imported_arm]["physical_audit_sha256"]})
+            _write_status(matrix_root, completed_arms=["K0", "K1"], current_arm=None)
         if factories and callable(factories.get("read_validation")):
             read_validation = factories["read_validation"]
         else:
@@ -1331,6 +1350,8 @@ def _supervise_core(config_path: str, *, factories: Mapping[str, object] | None 
         validation_examples = metadata = None
         for arm_index, arm in enumerate(registration["config"]["arms"]):
             arm_id = arm["arm_id"]
+            if arm_id in audits:
+                continue
             arm_root = matrix_root / "arms" / arm_id
             if (arm_root / "manifest.json").exists():
                 terminal = _verify_record_if_terminal(arm_root)
@@ -1390,7 +1411,12 @@ def _supervise_core(config_path: str, *, factories: Mapping[str, object] | None 
                 budget_check=lambda stage: _check_arm_seal(matrix_root, arm_root, stage))
             audits[arm_id] = arm_audit
             _write_status(matrix_root, completed_arms=list(audits), current_arm=None)
-        result = matrix_decision(registration["config"], audits)
+        if registration.get("continuation") is not None:
+            from dwr.experiments.source_pilot_registration import pilot_identities
+            continuation_sources["K4"] = pilot_identities(registration, source_commit=physical["commit"], arm_id="K4")["source"]
+            result = matrix_decision(registration["config"], audits, source_identities=continuation_sources)
+        else:
+            result = matrix_decision(registration["config"], audits)
         _check_interarm_overhead(matrix_root, registration, matrix_record)
         result_path = matrix_root / "matrix-decision.json"
         _exclusive_json(result_path, result)

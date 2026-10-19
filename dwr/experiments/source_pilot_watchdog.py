@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import sys
@@ -85,10 +86,29 @@ def _terminate(reference: object) -> bool:
         return False
 
 
+def _has_live_owned_process(worker: object, launcher: object, supervisor: object) -> bool:
+    """Whether any recorded owned process still matches its PID and creation time."""
+    return any(_same_process(reference) for reference in (worker, launcher, supervisor))
+
+
+def _anchored_deadline(initial: dict, key: str) -> float | None:
+    settings = initial.get("settings", {})
+    deadlines = settings.get("original_deadlines", {}) if type(settings) is dict else {}
+    if type(deadlines) is not dict or key not in deadlines:
+        return None
+    value = deadlines[key]
+    if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
+        raise ValueError(f"invalid immutable watchdog deadline: {key}")
+    return float(value)
+
+
 def _deadline(matrix_root: Path, config: dict) -> tuple[float, float | None, str | None]:
     matrix_initial = _read(matrix_root / "manifest.initial.json")
     matrix_start = __import__("datetime").datetime.fromisoformat(matrix_initial["started_utc"].replace("Z", "+00:00")).timestamp()
     matrix_outer = matrix_start + config["limits"]["matrix_external_watchdog_seconds"]
+    matrix_anchor = _anchored_deadline(matrix_initial, "matrix_watchdog_epoch")
+    if matrix_anchor is not None:
+        matrix_outer = min(matrix_outer, matrix_anchor)
     arm_id = None
     arm_outer = None
     for arm in config["arms"]:
@@ -100,6 +120,9 @@ def _deadline(matrix_root: Path, config: dict) -> tuple[float, float | None, str
         arm_start = __import__("datetime").datetime.fromisoformat(arm_initial["started_utc"].replace("Z", "+00:00")).timestamp()
         arm_id = arm["arm_id"]
         arm_outer = min(arm_start + config["limits"]["arm_external_watchdog_seconds"], matrix_outer)
+        arm_anchor = _anchored_deadline(arm_initial, "arm_watchdog_epoch")
+        if arm_anchor is not None:
+            arm_outer = min(arm_outer, arm_anchor)
         break
     return matrix_outer, arm_outer, arm_id
 
@@ -176,6 +199,13 @@ def watch(matrix_root: str | os.PathLike[str]) -> None:
             time.sleep(0.5)
             continue
         worker, launcher, supervisor = _owned_references(root, status)
+        # A previous watchdog may have sealed an operational failure. Do not
+        # replace its evidence on a later stale invocation once all owned
+        # processes have exited. A still-live owned process remains subject to
+        # this independent deadline enforcement.
+        if status and status.get("state") == "operational_failure" and not \
+                _has_live_owned_process(worker, launcher, supervisor):
+            return
         worker_stopped = _terminate(worker)
         launcher_stopped = False
         if launcher is not None and launcher != supervisor:

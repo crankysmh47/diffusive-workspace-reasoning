@@ -26,6 +26,11 @@ COHORT_SHA256 = "615e357ceff2a7b0a32e9509d68d1be2e881a233f6387088746b9f58bf32afe
 _HASH = re.compile(r"[0-9a-f]{64}\Z")
 _STRATA = ("A2", "A3", "B2", "C2", "D2")
 _PROFILE = {"eq", "neq", "add_mod"}
+_V2_STARTUP_PROOF = "configs/models/source_validation_pilot_v2_startup_failure.json"
+_V2_STARTUP_STATUS_SHA256 = "656a95ee4eead66aec65116b9dc55e6b1a930463aeb7a4d48631e474e91905f3"
+_V2_WATCHDOG_RECEIPT_SHA256 = "56753ae5a7baf24d3f22ae695a12e081f3d0090e03b12bd03bc97e776320c6df"
+_V2_WATCHDOG_STATUS_SHA256 = "f77f1989e9b769b8125afdce13f077bb3b3cc96eb1698b02c4b645a0e61cc761"
+_EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 _TOP_KEYS = {"config_version", "source", "data", "dependencies", "model", "host", "arms",
     "decoding", "seeds", "training", "evaluation", "diagnostics", "limits", "output_dir",
@@ -579,12 +584,58 @@ def _verify_startup_memory_failure(root: Path) -> None:
         raise ValueError("startup retry is limited to the zero-model-work memory preflight failure")
 
 
+def _verify_v2_startup_failure(root: Path) -> None:
+    """Authenticate the captured zero-access failure despite a later watchdog status update."""
+    proof_raw = _read(_resolve(root, _V2_STARTUP_PROOF), "v2 startup-failure proof")
+    proof = _json(proof_raw, "v2 startup-failure proof")
+    expected = {"schema": "dwr-source-pilot-registration-startup-failure-v2",
+        "config_sha256": STARTUP_RETRY_CONFIG_SHA256,
+        "descriptor_sha256": "3ec68bb2543c17ae0d981978a286eb8321e2c73f5de812e24f7875ba73524621",
+        "source_commit": "dbbdb96f79140a61e9fddee0aae61f9db0b93a58",
+        "status_sha256": _V2_STARTUP_STATUS_SHA256,
+        "failure": "worker loaded v1 registration while supervisor issued v2",
+        "matrix": "unsealed operational failure, preserved unchanged",
+        "optimizer_updates": 0, "predictions": 0, "pretrained_weights_loaded": False,
+        "task_semantic_accesses": 0, "worker_events_bytes": 0,
+        "worker_receipt_published": False}
+    if proof != expected:
+        raise ValueError("v2 startup-failure proof differs from its captured zero-access record")
+    run = root / "runs/source-validation-pilot-20261019-startup-retry-v2"
+    status_raw = _read(run / "status.json", "v2 startup status")
+    original_status = _sha(status_raw) == _V2_STARTUP_STATUS_SHA256
+    segment = run / "arms/K0/segment-000"
+    if (segment / "events.jsonl").read_bytes() or (segment / "worker-receipt.json").exists():
+        raise ValueError("v2 startup failure no longer has the pinned zero-access worker evidence")
+    if original_status:
+        return
+    # Accept only the known watchdog successor, authenticated by its receipt
+    # hash and by the original status digest in the watchdog's hashed inventory.
+    status = _json(status_raw, "v2 startup status", allow_null=True)
+    receipt_raw = _read(run / "watchdog-failure.json", "v2 watchdog receipt")
+    if _sha(status_raw) != _V2_WATCHDOG_STATUS_SHA256 or \
+            _sha(receipt_raw) != _V2_WATCHDOG_RECEIPT_SHA256 or \
+            status.get("state") != "operational_failure" or \
+            status.get("watchdog_failure_sha256") != _V2_WATCHDOG_RECEIPT_SHA256:
+        raise ValueError("v2 startup status differs from the captured failure and known watchdog successor")
+    receipt = _json(receipt_raw, "v2 watchdog receipt", allow_null=True)
+    inventory = {item.get("path"): item for item in receipt.get("files", [])}
+    if receipt.get("schema_version") != "dwr-source-pilot-watchdog-failure-v1" or \
+            receipt.get("complete") is not True or \
+            inventory.get("status.json", {}).get("sha256") != _V2_STARTUP_STATUS_SHA256 or \
+            inventory.get("arms/K0/segment-000/events.jsonl", {}).get("sha256") != _EMPTY_SHA256 or \
+            "arms/K0/segment-000/worker-receipt.json" in inventory:
+        raise ValueError("v2 watchdog successor does not preserve the pinned zero-access evidence")
+
+
 def load_pilot_registration(root: Path, config_path: Path) -> dict[str, Any]:
     """Load the only production registration and its metadata/proof identities."""
     root = Path(root).resolve(strict=True)
     requested = Path(os.path.abspath(os.fspath(config_path)))
     _reject_links(requested)
     relative = requested.resolve(strict=True).relative_to(root).as_posix()
+    if relative == "configs/experiments/source_validation_pilot_operational_continuation_v5.json":
+        from dwr.experiments.source_pilot_continuation_registration import load_continuation_registration
+        return load_continuation_registration(root, requested)
     allowed = {CONFIG_PATH: (CONFIG_SHA256, False),
         STARTUP_RETRY_CONFIG_PATH: (STARTUP_RETRY_CONFIG_SHA256, True),
         REGISTRATION_REPAIR_CONFIG_PATH: (REGISTRATION_REPAIR_CONFIG_SHA256, True),
@@ -602,12 +653,7 @@ def load_pilot_registration(root: Path, config_path: Path) -> dict[str, Any]:
     if startup_retry:
         _verify_startup_memory_failure(root)
     if relative in {REGISTRATION_REPAIR_CONFIG_PATH, TOKENIZER_REPAIR_CONFIG_PATH}:
-        previous = root / "runs/source-validation-pilot-20261019-startup-retry-v2"
-        if _sha(_read(previous / "status.json", "v2 startup failure")) != \
-                "656a95ee4eead66aec65116b9dc55e6b1a930463aeb7a4d48631e474e91905f3" or \
-                _read(previous / "arms/K0/segment-000/events.jsonl", "v2 worker events") != b"" or \
-                (previous / "arms/K0/segment-000/worker-receipt.json").exists():
-            raise ValueError("registration repair requires the preserved zero-access v2 startup failure")
+        _verify_v2_startup_failure(root)
     if relative == TOKENIZER_REPAIR_CONFIG_PATH:
         from dwr.experiments.records import verify_artifacts
         previous = root / "runs/source-validation-pilot-20261019-registration-repair-v3/arms/K0/segment-000"

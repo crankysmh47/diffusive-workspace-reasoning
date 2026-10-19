@@ -768,9 +768,9 @@ class SourcePilotAuthorizationTests(unittest.TestCase):
                     budgets={"wall_seconds": 5400, "memory_mib": 1024, "attempts": 3},
                     source_root=repository)
 
-            create_record(matrix, {"record_kind": "matrix"})
+            create_record(matrix, {"record_kind": "matrix", "original_deadlines": {}})
             matrix_clock = job._clock_from_record(matrix)
-            create_record(arm, {"record_kind": "arm"})
+            create_record(arm, {"record_kind": "arm", "original_deadlines": {}})
             arm_clock = job._clock_from_record(arm)
             deadlines = job._derive_deadlines(config["limits"],
                 {"matrix": matrix_clock, "arm": arm_clock})["epochs"]

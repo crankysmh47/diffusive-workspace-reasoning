@@ -1,0 +1,21 @@
+{
+  "parent_matrix": "runs/source-validation-pilot-20261019-tokenizer-repair-v4",
+  "parent_source_commit": "a708fb399eca01c42e12bcc9f4bc80f7695dbfde",
+  "parent_config_sha256": "297fbd72496dd2706b85d6ad03b7cf3e265cd35aa46769af41e28581de191570",
+  "imports": {
+    "K0": {
+      "arm_audit_sha256": "5d44a43a0a8570d154391359c0c2e7ce375f65525630c11f67d0d0bf30b9171f",
+      "manifest_sha256": "d7bcae9c5149f6d5fb55ff4d0b306162b0eb92b88dfe5372adf7446e7d1dfb43",
+      "physical_audit_sha256": "b8a62a8ccf38a372b543a165d563d3b27b8e82b7289110227027d5802df218c5",
+      "source_identity": "ae03c0880856a897181292526a0dfa4411c7c4ba8bc8460ad7daceb44b7c472b"
+    },
+    "K1": {
+      "arm_audit_sha256": "a91d6dc573c6bbadb252b09245b6664f568a04b94285e1cfc700c987407e1e59",
+      "manifest_sha256": "27b9fb73b796f32793c1d713608f202826f69686c4fe7d899df2305b5c63cf5a",
+      "physical_audit_sha256": "85b1843369383e36a5456f4dcc2a5d6c5d63f42e16de46646eec2839f4bcabcd",
+      "source_identity": "ae03c0880856a897181292526a0dfa4411c7c4ba8bc8460ad7daceb44b7c472b"
+    }
+  },
+  "original_absolute_deadline_epoch": 1792445742.30148,
+  "launch_not_after_epoch": 1792440342.30148
+}
