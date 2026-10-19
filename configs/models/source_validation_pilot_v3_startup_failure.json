@@ -1,0 +1,14 @@
+{
+  "base_tokenizer_vocabulary": 151643,
+  "failure": "base tokenizer vocab_size compared with full count including added tokens",
+  "full_tokenizer_vocabulary": 151665,
+  "optimizer_updates": 0,
+  "original_records": "preserved unchanged",
+  "phase": "load",
+  "predictions": 0,
+  "pretrained_weights_loaded": true,
+  "registered_eos_unchanged": 151643,
+  "schema": "dwr-source-pilot-tokenizer-startup-failure-v3",
+  "source_commit": "027d5a9e7148e7e251aebfa3bddb46849ace590d",
+  "worker_manifest_sha256": "49971b569229f076f27f8fe947d0013cd6d3adbf67cf314e1e6882cf07464a59"
+}

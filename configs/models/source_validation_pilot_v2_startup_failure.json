@@ -1,0 +1,15 @@
+{
+  "config_sha256": "e91739eb52cf3716c15c85710c563de2572f14ca1cc10838419c3e6e529b7e94",
+  "descriptor_sha256": "3ec68bb2543c17ae0d981978a286eb8321e2c73f5de812e24f7875ba73524621",
+  "failure": "worker loaded v1 registration while supervisor issued v2",
+  "matrix": "unsealed operational failure, preserved unchanged",
+  "optimizer_updates": 0,
+  "predictions": 0,
+  "pretrained_weights_loaded": false,
+  "schema": "dwr-source-pilot-registration-startup-failure-v2",
+  "source_commit": "dbbdb96f79140a61e9fddee0aae61f9db0b93a58",
+  "status_sha256": "656a95ee4eead66aec65116b9dc55e6b1a930463aeb7a4d48631e474e91905f3",
+  "task_semantic_accesses": 0,
+  "worker_events_bytes": 0,
+  "worker_receipt_published": false
+}

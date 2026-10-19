@@ -1,0 +1,44 @@
+{
+  "archival_backup": false,
+  "caps": {
+    "answer_tokens_including_eos": 128,
+    "prompt_tokens": 1024,
+    "total_tokens": 1152
+  },
+  "counts": {
+    "source_train": 2436,
+    "source_validation": 265
+  },
+  "cpu_rng_unchanged": true,
+  "cuda_initialization_unchanged": true,
+  "exit_code": 0,
+  "gpu_operations": false,
+  "independent_person_reproduction": false,
+  "manifest_sha256": "aec131295af1d015d9ef7619ad35d0ad03792a7f147cdf5164bc4c8e4e800826",
+  "maxima": {
+    "source_train": {
+      "answer_tokens_including_eos": 34,
+      "prompt_tokens": 407,
+      "total_tokens": 441
+    },
+    "source_validation": {
+      "answer_tokens_including_eos": 34,
+      "prompt_tokens": 407,
+      "total_tokens": 441
+    }
+  },
+  "model_execution": false,
+  "peak_rss_bytes": 652640256,
+  "protected_semantic_payload_access": false,
+  "recipe_sha256": "0412188b76fc31c035a9bd0f3e508581823334272e7957d0febfa7158b84e173",
+  "records": 2701,
+  "run_dir": "runs/source-token-cap-audit-20261015-v1",
+  "schema_version": "dwr-source-token-cap-result-v1",
+  "source_export_manifest_sha256": "7db0b61ba40bea60bf17bc5faf615bb2c8ae21320739c3bea589e4d62aea0069",
+  "status": "PASS_SOURCE_TOKEN_CAPS",
+  "summary_sha256": "6dfce99fcbff0393de23c390671d52b288c4042c0926356a7a4e7be3f4b255c8",
+  "timed_out": false,
+  "token_lengths_sha256": "b26a54dc18099601d146c1c2a53609a72b848b282a5761a063972e72851c30de",
+  "wall_seconds_including_imports": 48.26599999999962,
+  "wrapper_wall_seconds": 48.719
+}

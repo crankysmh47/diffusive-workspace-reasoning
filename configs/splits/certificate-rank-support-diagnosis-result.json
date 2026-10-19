@@ -1,0 +1,720 @@
+{
+  "archival_backup": false,
+  "artifact_bytes": {
+    "manifest.initial.json": 7393,
+    "manifest.json": 5106,
+    "permitted_rows.jsonl": 1440807,
+    "report.json": 174884
+  },
+  "artifact_sha256": {
+    "manifest.initial.json": "31228ed3bb22d16e5dd5f17dc29da3657f3e9ca851317b6e34319c5a45f7eb6e",
+    "manifest.json": "5147575f7f9348522a92c336623bb5743245389b718e7268079524ce5eda7c18",
+    "permitted_rows.jsonl": "51221dd6e508a0ce3526a5a3fef5c023b34bc225ebb432840a9e7dea8468fe6e",
+    "report.json": "cd26dcbd1afd1452f7ab5a70ab38c84de765945e6f57ccf21ae74f0ef165736a"
+  },
+  "branch_totals": {
+    "eq/add_mod": {
+      "no_unary": {
+        "A": 161,
+        "E": 242,
+        "stalled_A": 161,
+        "stalled_E": 242
+      },
+      "ordinary": {
+        "A": 301,
+        "E": 351,
+        "stalled_A": 15,
+        "stalled_E": 24
+      }
+    },
+    "eq/neq": {
+      "no_unary": {
+        "A": 0,
+        "E": 0,
+        "stalled_A": 0,
+        "stalled_E": 0
+      },
+      "ordinary": {
+        "A": 190,
+        "E": 212,
+        "stalled_A": 0,
+        "stalled_E": 0
+      }
+    },
+    "neq/add_mod": {
+      "no_unary": {
+        "A": 86,
+        "E": 148,
+        "stalled_A": 86,
+        "stalled_E": 148
+      },
+      "ordinary": {
+        "A": 136,
+        "E": 168,
+        "stalled_A": 24,
+        "stalled_E": 38
+      }
+    },
+    "source_train": {
+      "ordinary": {
+        "A": 1156,
+        "E": 1317,
+        "stalled_A": 114,
+        "stalled_E": 159
+      }
+    }
+  },
+  "cohort_totals": {
+    "eq/add_mod": {
+      "A": 462,
+      "A_over_E": {
+        "denominator": 593,
+        "numerator": 462,
+        "value": 0.7790893760539629
+      },
+      "E": 593,
+      "SigA": 449,
+      "SigE": 560,
+      "SigE_minus_SigA": 111,
+      "U": 729,
+      "cell_A": {
+        "A": 123,
+        "B": 129,
+        "C": 116,
+        "D": 94
+      },
+      "excluded_E": 131,
+      "excluded_E_on_absent_signatures": 114,
+      "excluded_E_on_represented_signatures": 17,
+      "nonstalled_A": 286,
+      "nonstalled_excluded_E": 41,
+      "sensitive_U": 0,
+      "stalled_A": 176,
+      "stalled_E": 266,
+      "stalled_excluded_E": 90,
+      "stalled_fraction_A": {
+        "denominator": 462,
+        "numerator": 176,
+        "value": 0.38095238095238093
+      },
+      "stalled_fraction_E": {
+        "denominator": 593,
+        "numerator": 266,
+        "value": 0.448566610455312
+      }
+    },
+    "eq/neq": {
+      "A": 190,
+      "A_over_E": {
+        "denominator": 212,
+        "numerator": 190,
+        "value": 0.8962264150943396
+      },
+      "E": 212,
+      "SigA": 169,
+      "SigE": 185,
+      "SigE_minus_SigA": 16,
+      "U": 279,
+      "cell_A": {
+        "A": 36,
+        "B": 26,
+        "C": 48,
+        "D": 80
+      },
+      "excluded_E": 22,
+      "excluded_E_on_absent_signatures": 20,
+      "excluded_E_on_represented_signatures": 2,
+      "nonstalled_A": 190,
+      "nonstalled_excluded_E": 22,
+      "sensitive_U": 0,
+      "stalled_A": 0,
+      "stalled_E": 0,
+      "stalled_excluded_E": 0,
+      "stalled_fraction_A": {
+        "denominator": 190,
+        "numerator": 0,
+        "value": 0.0
+      },
+      "stalled_fraction_E": {
+        "denominator": 212,
+        "numerator": 0,
+        "value": 0.0
+      }
+    },
+    "neq/add_mod": {
+      "A": 222,
+      "A_over_E": {
+        "denominator": 316,
+        "numerator": 222,
+        "value": 0.7025316455696202
+      },
+      "E": 316,
+      "SigA": 220,
+      "SigE": 313,
+      "SigE_minus_SigA": 93,
+      "U": 345,
+      "cell_A": {
+        "A": 55,
+        "B": 51,
+        "C": 54,
+        "D": 62
+      },
+      "excluded_E": 94,
+      "excluded_E_on_absent_signatures": 93,
+      "excluded_E_on_represented_signatures": 1,
+      "nonstalled_A": 112,
+      "nonstalled_excluded_E": 18,
+      "sensitive_U": 0,
+      "stalled_A": 110,
+      "stalled_E": 186,
+      "stalled_excluded_E": 76,
+      "stalled_fraction_A": {
+        "denominator": 222,
+        "numerator": 110,
+        "value": 0.4954954954954955
+      },
+      "stalled_fraction_E": {
+        "denominator": 316,
+        "numerator": 186,
+        "value": 0.5886075949367089
+      }
+    },
+    "source_train": {
+      "A": 1156,
+      "A_over_E": {
+        "denominator": 1317,
+        "numerator": 1156,
+        "value": 0.8777524677296887
+      },
+      "E": 1317,
+      "SigA": 932,
+      "SigE": 1071,
+      "SigE_minus_SigA": 139,
+      "U": 1317,
+      "cell_A": {
+        "A": 253,
+        "B": 250,
+        "C": 302,
+        "D": 351
+      },
+      "excluded_E": 161,
+      "excluded_E_on_absent_signatures": 142,
+      "excluded_E_on_represented_signatures": 19,
+      "nonstalled_A": 1042,
+      "nonstalled_excluded_E": 116,
+      "sensitive_U": 1317,
+      "stalled_A": 114,
+      "stalled_E": 159,
+      "stalled_excluded_E": 45,
+      "stalled_fraction_A": {
+        "denominator": 1156,
+        "numerator": 114,
+        "value": 0.0986159169550173
+      },
+      "stalled_fraction_E": {
+        "denominator": 1317,
+        "numerator": 159,
+        "value": 0.12072892938496584
+      }
+    }
+  },
+  "config_sha256": "63145f650d17dc5bd205bfd1dc0db38b7c2b68dadc8ea445ddf8805e296bd394",
+  "controller_checks": {
+    "budgets": true,
+    "clean": true,
+    "complete_grids": true,
+    "config_hash": true,
+    "original_hashes_unchanged": true,
+    "original_terminal_preserved": true,
+    "outputs": true,
+    "resolved_config": true,
+    "runtime_git_blobs": true,
+    "source_commit": true,
+    "source_equal": true,
+    "stall_binding": true,
+    "status": true
+  },
+  "controller_wrapper": {
+    "command": [
+      "C:\\Users\\Hank47\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "-m",
+      "dwr.tasks.certificate_rank_support_diagnosis",
+      "--config",
+      "configs/tasks/certificate_rank_support_diagnosis_v1.json",
+      "--output",
+      "runs/certificate-rank-support-diagnosis-20261014-v1"
+    ],
+    "exit_code": 0,
+    "external_watchdog_seconds": 65,
+    "git_status_after": "",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "source_commit": "bb9540e2f92ea05c4ba502f2bbbcf2c469b32402",
+    "source_commit_after": "bb9540e2f92ea05c4ba502f2bbbcf2c469b32402",
+    "started_utc": "20261014T031314859870Z",
+    "timed_out": false,
+    "wall_seconds": 1.7960000000002765
+  },
+  "cpu_verification": {
+    "command": "python -m unittest discover -s tests -v",
+    "exit_code": 0,
+    "log_sha256": "345c9da3818e116c8eb0d5159d4385fadf7d722535c48d6b674ffa29c7a18919",
+    "passed": 493,
+    "seconds": 43.653,
+    "tracked_bytes_stable": true,
+    "wrapper_seconds": 43.828
+  },
+  "grid_sizes": {
+    "coarse_bins": 35,
+    "complete_cells": 140
+  },
+  "independent_person_reproduction": false,
+  "input_artifact_sha256": {
+    "manifest.initial.json": "ad9e4568a1330250b0aabeb72ec62c7cb6e21ebef1ab4365a57bf28e2061d5b6",
+    "manifest.json": "58c6d95f11e6f0766a7b8254ed1999badbe758ba3b9b7b142a52a1c2d8423860",
+    "outcomes.jsonl": "2b102531219d2d2d0594d90c0dbd2718ab08d05e62f1358806c7b28f71d9e7ac",
+    "records.jsonl": "d0d40e923adde42de0e829fd336e8a010ef7b73f85c4a33b62aef6ce2c96acc7",
+    "replay.json": "feeb059f4e89b86440ca7a41af6f8172573a36467665c609a51c21fcbd1d2f73",
+    "report.json": "54cb96f034174ed686bb6256787a0d6ef0981edb981d06b641cb92e1fed2235c"
+  },
+  "joint_capacity_flags": {
+    "A/p4-n2": {
+      "capacity_at_least_10_every_cohort": true,
+      "cohorts": {
+        "eq/add_mod": {
+          "A": 123,
+          "E": 123,
+          "stalled_A": 56,
+          "stalled_E": 56
+        },
+        "eq/neq": {
+          "A": 36,
+          "E": 36,
+          "stalled_A": 0,
+          "stalled_E": 0
+        },
+        "neq/add_mod": {
+          "A": 55,
+          "E": 55,
+          "stalled_A": 38,
+          "stalled_E": 38
+        },
+        "source_train": {
+          "A": 253,
+          "E": 253,
+          "stalled_A": 43,
+          "stalled_E": 43
+        }
+      },
+      "minimum_E_capacity": 36
+    },
+    "A/p4-n3": {
+      "capacity_at_least_10_every_cohort": true,
+      "cohorts": {
+        "eq/add_mod": {
+          "A": 0,
+          "E": 64,
+          "stalled_A": 0,
+          "stalled_E": 42
+        },
+        "eq/neq": {
+          "A": 0,
+          "E": 16,
+          "stalled_A": 0,
+          "stalled_E": 0
+        },
+        "neq/add_mod": {
+          "A": 0,
+          "E": 56,
+          "stalled_A": 0,
+          "stalled_E": 44
+        },
+        "source_train": {
+          "A": 0,
+          "E": 86,
+          "stalled_A": 0,
+          "stalled_E": 28
+        }
+      },
+      "minimum_E_capacity": 16
+    },
+    "B/p4-n2": {
+      "capacity_at_least_10_every_cohort": true,
+      "cohorts": {
+        "eq/add_mod": {
+          "A": 129,
+          "E": 129,
+          "stalled_A": 56,
+          "stalled_E": 56
+        },
+        "eq/neq": {
+          "A": 26,
+          "E": 26,
+          "stalled_A": 0,
+          "stalled_E": 0
+        },
+        "neq/add_mod": {
+          "A": 51,
+          "E": 51,
+          "stalled_A": 27,
+          "stalled_E": 27
+        },
+        "source_train": {
+          "A": 250,
+          "E": 250,
+          "stalled_A": 28,
+          "stalled_E": 28
+        }
+      },
+      "minimum_E_capacity": 26
+    },
+    "C/p4-n2": {
+      "capacity_at_least_10_every_cohort": true,
+      "cohorts": {
+        "eq/add_mod": {
+          "A": 116,
+          "E": 116,
+          "stalled_A": 43,
+          "stalled_E": 43
+        },
+        "eq/neq": {
+          "A": 48,
+          "E": 48,
+          "stalled_A": 0,
+          "stalled_E": 0
+        },
+        "neq/add_mod": {
+          "A": 54,
+          "E": 54,
+          "stalled_A": 24,
+          "stalled_E": 24
+        },
+        "source_train": {
+          "A": 302,
+          "E": 302,
+          "stalled_A": 22,
+          "stalled_E": 22
+        }
+      },
+      "minimum_E_capacity": 48
+    },
+    "D/p4-n2": {
+      "capacity_at_least_10_every_cohort": true,
+      "cohorts": {
+        "eq/add_mod": {
+          "A": 94,
+          "E": 94,
+          "stalled_A": 21,
+          "stalled_E": 21
+        },
+        "eq/neq": {
+          "A": 80,
+          "E": 80,
+          "stalled_A": 0,
+          "stalled_E": 0
+        },
+        "neq/add_mod": {
+          "A": 62,
+          "E": 62,
+          "stalled_A": 21,
+          "stalled_E": 21
+        },
+        "source_train": {
+          "A": 351,
+          "E": 351,
+          "stalled_A": 21,
+          "stalled_E": 21
+        }
+      },
+      "minimum_E_capacity": 62
+    }
+  },
+  "new_scientific_samples": false,
+  "nonzero_bin_inventory": {
+    "p4-n2": {
+      "eq/add_mod": {
+        "A": 462,
+        "E": 462,
+        "stalled_A": 176,
+        "stalled_E": 176
+      },
+      "eq/neq": {
+        "A": 190,
+        "E": 190,
+        "stalled_A": 0,
+        "stalled_E": 0
+      },
+      "neq/add_mod": {
+        "A": 222,
+        "E": 222,
+        "stalled_A": 110,
+        "stalled_E": 110
+      },
+      "source_train": {
+        "A": 1156,
+        "E": 1156,
+        "stalled_A": 114,
+        "stalled_E": 114
+      }
+    },
+    "p4-n3": {
+      "eq/add_mod": {
+        "A": 0,
+        "E": 125,
+        "stalled_A": 0,
+        "stalled_E": 84
+      },
+      "eq/neq": {
+        "A": 0,
+        "E": 22,
+        "stalled_A": 0,
+        "stalled_E": 0
+      },
+      "neq/add_mod": {
+        "A": 0,
+        "E": 81,
+        "stalled_A": 0,
+        "stalled_E": 65
+      },
+      "source_train": {
+        "A": 0,
+        "E": 153,
+        "stalled_A": 0,
+        "stalled_E": 42
+      }
+    },
+    "p4-n4": {
+      "eq/add_mod": {
+        "A": 0,
+        "E": 6,
+        "stalled_A": 0,
+        "stalled_E": 6
+      },
+      "eq/neq": {
+        "A": 0,
+        "E": 0,
+        "stalled_A": 0,
+        "stalled_E": 0
+      },
+      "neq/add_mod": {
+        "A": 0,
+        "E": 13,
+        "stalled_A": 0,
+        "stalled_E": 11
+      },
+      "source_train": {
+        "A": 0,
+        "E": 6,
+        "stalled_A": 0,
+        "stalled_E": 2
+      }
+    },
+    "p4-n5": {
+      "eq/add_mod": {
+        "A": 0,
+        "E": 0,
+        "stalled_A": 0,
+        "stalled_E": 0
+      },
+      "eq/neq": {
+        "A": 0,
+        "E": 0,
+        "stalled_A": 0,
+        "stalled_E": 0
+      },
+      "neq/add_mod": {
+        "A": 0,
+        "E": 0,
+        "stalled_A": 0,
+        "stalled_E": 0
+      },
+      "source_train": {
+        "A": 0,
+        "E": 2,
+        "stalled_A": 0,
+        "stalled_E": 1
+      }
+    }
+  },
+  "qualification_boundary": {
+    "analysis": "agent_analysis",
+    "archival_backup": false,
+    "development_support": {
+      "development_validation_eq/add_mod": {
+        "cell_counts": {
+          "A": 123,
+          "B": 129,
+          "C": 116,
+          "D": 94
+        },
+        "eligible": 593,
+        "mass": 0.7790893760539629,
+        "pass": false
+      },
+      "development_validation_eq/neq": {
+        "cell_counts": {
+          "A": 36,
+          "B": 26,
+          "C": 48,
+          "D": 80
+        },
+        "eligible": 212,
+        "mass": 0.8962264150943396,
+        "pass": true
+      },
+      "development_validation_neq/add_mod": {
+        "cell_counts": {
+          "A": 55,
+          "B": 51,
+          "C": 54,
+          "D": 62
+        },
+        "eligible": 316,
+        "mass": 0.7025316455696202,
+        "pass": false
+      },
+      "source_train": {
+        "cell_counts": {
+          "A": 253,
+          "B": 250,
+          "C": 302,
+          "D": 351
+        },
+        "eligible": 1317,
+        "mass": 0.8777524677296887,
+        "pass": true
+      }
+    },
+    "floor_status": {
+      "common_support": false,
+      "eq/add_mod/A_fraction": true,
+      "eq/add_mod/A_groups": true,
+      "eq/add_mod/E_fraction": true,
+      "eq/add_mod/SigA": true,
+      "eq/add_mod/cell_min": true,
+      "eq/add_mod/hard_core_g2": true,
+      "eq/add_mod/hard_core_g3": true,
+      "eq/add_mod/support": false,
+      "eq/neq/A_fraction": true,
+      "eq/neq/A_groups": true,
+      "eq/neq/E_fraction": true,
+      "eq/neq/SigA": true,
+      "eq/neq/cell_min": true,
+      "eq/neq/support": true,
+      "neq/add_mod/A_fraction": true,
+      "neq/add_mod/A_groups": true,
+      "neq/add_mod/E_fraction": true,
+      "neq/add_mod/SigA": true,
+      "neq/add_mod/cell_min": true,
+      "neq/add_mod/hard_core_g2": true,
+      "neq/add_mod/hard_core_g3": true,
+      "neq/add_mod/support": false,
+      "pooled_stall_count": true,
+      "pooled_stall_fraction": true,
+      "profiles_with_stalls": true
+    },
+    "independent_reproduction": false,
+    "new_samples": false,
+    "original_g2_status": "not_assessed",
+    "original_terminal_status": "NO_GO_DEVELOPMENT",
+    "scope": "frozen_annotations",
+    "source_support": {
+      "cell_counts": {
+        "A": 253,
+        "B": 250,
+        "C": 302,
+        "D": 351
+      },
+      "eligible": 1317,
+      "mass": 0.8777524677296887,
+      "pass": true
+    },
+    "support_floor": 0.8
+  },
+  "record_version": "dwr-rank-support-diagnosis-result-v1",
+  "recorded_date": "2026-10-14",
+  "resources": {
+    "accounting_boundary": "through report hash; final manifest write remains guard-checked",
+    "cpu_seconds": 0.5,
+    "elapsed_seconds": 1.7340000000003783,
+    "peak_rss_bytes": 30220288
+  },
+  "run_path": "runs/certificate-rank-support-diagnosis-20261014-v1",
+  "scope": "Allowed frozen annotations only; selected public counts/opaque hashes cross-checked. Joint capacity flags are descriptive, not a new passing gate.",
+  "source": {
+    "git_clean": true,
+    "git_commit": "bb9540e2f92ea05c4ba502f2bbbcf2c469b32402",
+    "producer_sha256": {
+      "dwr/__init__.py": "ff8027ef48e5a98aacc1fa04f55066bcfd92abf34c7fc27d14ea5cdf5fc60a13",
+      "dwr/tasks/__init__.py": "34d430e998e267f4544f4a302c307dd52f5a6b951f8655450d9a924284c0eec5",
+      "dwr/tasks/audit.py": "9084a0d201e8a9b2623aaae273d6d0818b86c0b11cb875d7fa33000691f47b59",
+      "dwr/tasks/audit_cli_v2.py": "6c5f71d307ea1c24421160abd38666fa155f0ec61ef8e7056fc09b64f7a084cb",
+      "dwr/tasks/audit_cli_v3.py": "2abcf4f9d5c258ad0431d13701838bcd89400db9409f2d5b9d8809833635e813",
+      "dwr/tasks/audit_probe_v4.py": "4541b46b440036fd71a77fc3578eeba1491955bc3921947e48ce3d0e27512e62",
+      "dwr/tasks/audit_v2.py": "1189e3df2ef820809f410f222863ba80f929574812e69e1cbc245cd6b2025531",
+      "dwr/tasks/canonical.py": "36fbf3e54a60c69697c68657d04d07ebaca7d95744847cd78eecdd0bba6589c5",
+      "dwr/tasks/certificate_diagnosis.py": "f7cf96bb63fdf0555908b170a3cc81c61769785aa4b0c21ee5c5082372e988c1",
+      "dwr/tasks/certificate_fixture_v2.py": "40d602b8e66e6d0b045cdee6e3a63bea11a4ddad3980dd79b5319f9038c75f08",
+      "dwr/tasks/certificate_generator.py": "a92d3a2e7940bb191228529e142d7564f40051d0b7e3ced77f6a2edf10852308",
+      "dwr/tasks/certificate_generator_v2.py": "4fe6516855315556b873e3fb974ecd3a0e7a1e26eb3579b1e9df073925d63d7d",
+      "dwr/tasks/certificate_rank_audit.py": "ec3257f211e038337acdeeca22fbc4a94a6dbb0ae85c2fbd80dd5c9c41b18bff",
+      "dwr/tasks/certificate_rank_generator.py": "e75c29171092b3ee93eea2426646879b8bc774bb22a8c2aeb2bb60334df6d95a",
+      "dwr/tasks/certificate_rank_study.py": "56a97d6b14faaba0ace84273c25fa83b026ad8da0d1ebea878f565f45105395d",
+      "dwr/tasks/certificate_rank_support_diagnosis.py": "49aeeec0509eebef4c33f563bd5dc04a4adfb9a9ac0328b84125f80dc1fa2c44",
+      "dwr/tasks/certificate_study.py": "46974cbd18fdd26379aa601bcfa5bd4c4e5c334f97213941b1dcf6275c2067d1",
+      "dwr/tasks/cli.py": "79e1609798f4f586718cd2f00c645452c4655c1fde251cd3f938992a4116d823",
+      "dwr/tasks/cli_v2.py": "79538fdc53b28fbd5814fa7b424f5e03f3c8283ef1f0e5b4752e894ce61f6d38",
+      "dwr/tasks/cli_v3.py": "74afa8f0600dd4677fbfc668353e1c5eaecbd08329971ec69c03212dda1d972e",
+      "dwr/tasks/config_probe_v4.py": "80bdb36a54b31fe7e00e53b538855c07860c9917c53fc5a44f06be30dda46d37",
+      "dwr/tasks/config_v2.py": "31fd4b9d5c086f68b93dd0cc480171b565d4d02c2a9b6d82573c44aacd539fba",
+      "dwr/tasks/config_v3.py": "15dfaaac9d548e90e1cd6fa8e3ff2c3994a5ec7f21b338590e62cbef28bba151",
+      "dwr/tasks/dataset.py": "48ba181e51595e6894045ebeaddb01eda9acaaa1c0f7e6a5efe6cd5ec1aea024",
+      "dwr/tasks/dataset_v2.py": "03aeb55fda0e33ecb648c51aaf35097a1201c667d077065e45846506cc2911ad",
+      "dwr/tasks/f3.py": "fd16531bd548a40f5da7d18e1c65ed43206e1aadacd7e59bf5efdc7dafa8ad1b",
+      "dwr/tasks/generator.py": "9558be045f9f72fd102d4a4188e7b158a0f577ebc3abd39b0fac17223f4f902e",
+      "dwr/tasks/generator_probe_v4.py": "8cf18e00d995ae5f0a55bfa49b268e00a962ed7621f4e34d78ea0fe5a3839afb",
+      "dwr/tasks/generator_v2.py": "b7ca157ee18dde651217063fad0d5c9d2016a038dc25a4b5bdf0fbea9fdf600c",
+      "dwr/tasks/generator_v3.py": "67861a0b06fe2a8cc9840c67325982f25dec270a8d64a42bf3dc89c6eb3ea8c9",
+      "dwr/tasks/local_propagation.py": "ea25b19a116a73dbda68415fc1a8f21f4d761572e7ee286f76d2300650dcb5c6",
+      "dwr/tasks/manifest_v2.py": "35f6789684038d52bac2681296d28194097f1d32a66d56114f5410c81b6bdcbc",
+      "dwr/tasks/oracle.py": "227088aabfb979036b8bc8ab1a89a35ebd4aaa4eb5af4ee8a853fcf45c61f217",
+      "dwr/tasks/probe_cli_v4.py": "c548ee43c056d09c7bc7e4e099c105b827ddea6b16a7a6231a13ea65348e6bae",
+      "dwr/tasks/probe_v4.py": "bbad4e018377bb683c81343271c2eaade607dd19275a567da4e2100ea4ef119f",
+      "dwr/tasks/replay_v2.py": "555472be8e2c976b1e85bef6e1e3f883ca90dc1eb0886a970ba88477f76973f1",
+      "dwr/tasks/run_support.py": "d7e124b543ad0ccb2883d45e0e93ff58bd260c80c0a6d3338666eab633d56d05",
+      "dwr/tasks/schema.py": "112daa4949907da49b1d71aadee76a363a5b3fe4234f45f26231ef6333a34129",
+      "dwr/tasks/solver.py": "aef1f74a4cedec827c3123b8627605b8af57cb6d3c592cdba08b2b64ba04a9ac",
+      "dwr/tasks/stream_contract.py": "a71eb7c34a7586804bef59051c8fab301911ad22a120fb994cf91b34b7459c57",
+      "dwr/tasks/verifier.py": "4ef99a2f2b55d28d35b568f7eed884aaab97bdfb10580701499e1f41d6925c11"
+    }
+  },
+  "source_primitive_totals": {
+    "add_mod": {
+      "A": 759,
+      "E": 893,
+      "U": 893,
+      "sensitive_U": 893,
+      "stalled_A": 113,
+      "stalled_E": 158,
+      "stalled_excluded_E": 45
+    },
+    "eq": {
+      "A": 193,
+      "E": 205,
+      "U": 205,
+      "sensitive_U": 205,
+      "stalled_A": 0,
+      "stalled_E": 0,
+      "stalled_excluded_E": 0
+    },
+    "neq": {
+      "A": 204,
+      "E": 219,
+      "U": 219,
+      "sensitive_U": 219,
+      "stalled_A": 1,
+      "stalled_E": 1,
+      "stalled_excluded_E": 0
+    }
+  },
+  "status": "PASS_DIAGNOSIS"
+}

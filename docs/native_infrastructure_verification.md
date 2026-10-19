@@ -1,0 +1,33 @@
+# Native and run-infrastructure CPU release
+
+2026-10-15. Root release verification after Luna implementation and cleared independent component reviews. Base commit `ecb05c6`; these changes are consolidated before the next clean-source invocation. [Native integration](native_backbone_verification.md) remains the narrower earlier checkpoint. This release implements infrastructure; it does not establish G3/G4, pretrained model quality, GPU feasibility, task learning or transfer.
+
+## Implemented and reviewed
+
+Actual frozen Qwen2 host with prompt-only X and invariant set readers; strict source token batching and shifted answer-only CE; run records with immutable initial identity and terminal-failure sealing; exact allowed-source converter and closed runner/reader; local-ID sampler and complete learned-state AdamW/LambdaLR/None-scaler resume; and single-example native/frozen greedy generation with strict EOS/cap scoring and stable per-example noise seeds. Core recurrence and EX/IDX definitions remain unchanged.
+
+Independent component reviews are READY. Preserved fixes include genuine optional-ML absence without hiding transitive errors; native decoder hook cleanup after an actual decoder failure; immutable initial manifest and terminal fsync failure; Windows ADS/device-name output rejection; a nonunique source fixture reaching the uniqueness guard; missing/fractional/stale Adam state rejection before save/load; EX K0 reader-only active groups with frozen workspace checkpointed; and actual global RNG perturbation/restoration plus fixture isolation.
+
+All raw reviews, original negatives, snapshots and command logs remain ignored under ignored `.superpowers/sdd/` directories named `native-host-20261014`, `run-records-20261015`, `source-export-20261015`, `training-resume-20261015` and `native-evaluation-20261015`. Source-export runner/reader Task2 **does not have preimplementation behavioral RED evidence**: its first observed failures were postimplementation fixture-harness errors. This limitation is retained explicitly; present correctness was independently reviewed and tested, without retroactively manufacturing a TDD history.
+
+## Complete root verification
+
+Root stopped all source/test writers and ran `.venv-task/Scripts/python.exe .superpowers/sdd/native-infra-release-20261015/verify_separate_suites.py`, with one combined180s watchdog. Historical stdlib memory guards were unchanged; Torch is absent from the task environment and ML checks run separately.
+
+- `.venv-task/Scripts/python.exe -m unittest discover -s tests -v`:639 reported, **585 passed /54 explicit skips**,53.638s unittest /53.828s process, exit0. One skip is a real Windows directory-symlink permission limitation; other skips require optional ML dependencies. Path/reparse logic remains implemented, but that real symlink fixture did not execute here.
+- `.venv-ml` actual unittest discovery patterns `test_workspace*.py`, `test_qwen2_workspace.py`, `test_training_batch_loss.py`, `test_native_generation.py`, `test_training_resume.py`: **72 passed /zero skips**,7.642s unittest /10.797s process, exit0. The launcher requires exactly72 cases and no skips. Ten pure/import checks also execute in the stdlib process; **647 distinct methods actually executed** across both environments.
+- Combined64.672s; no watchdog timeout. All runtime source, tests, JSON configs and pyproject SHA256 inventories matched before/after. No pretrained weights, retained corpus payloads or GPU operations were involved in these suites; actual random native weights and synthetic task payloads are exercised.
+
+Receipt: `.superpowers/sdd/native-infra-release-20261015/controller-separated-suites-20261015T130317580714Z.json`. Stdlib `-1.log` SHA256 `71f87113b1412b0bef157732905ced4daf8d2ae50f0a6cb4c7539df58aca2997`; ML `-2.log` SHA256 `2a1858d82e18c1eacbaf7e5cb5cf82c2b47975d33499ba0c96bb83ebcb571779`. Exact commands, source inventories and outcomes are retained there. Independent whole-stage review is READY in release-review.md in the same ignored release directory; no source merge is authorized.
+
+## Scope and next gates
+
+CPU replay compares four uninterrupted actual native optimizer steps to2+save/restart+2 at prospectively declared1e-12 learned-state tolerance, with meaningful global/local RNG, sampler, nonempty Adam moments, nonconstant schedule and frozen-base checks. This does not prove CUDA/scaler replay or same-seed bitwise determinism across environments. Caller-provided model/data/schedule identities must still be bound by launchers.
+
+The actual passing corpus has **not yet been exported** in this release check. The closed source-only recipe admits2436 source_train and265 source_validation tasks and forbids source-test/development/final semantic payload consumption. Its actual single300s/512MiB conversion requires this reviewed source committed clean. The converter's whole-file hashes/JSON routing necessarily read/materialize protected opaque fields, as disclosed in [the design](source_export_design.md); they are never interpreted as tasks or answers. Existing G2 and every predecessor failure remain unchanged.
+
+[Pinned artifact retrieval and one real-tokenizer synthetic check](pretrained_artifact_preparation.md) are separately verified, without loading pretrained model tensors. Actual source token-cap audit, registered full pretrained GPU forward/backward/Adam feasibility, per-example benchmark/cost wrapper and separate exploratory pilot remain necessary. [The GPU design](gpu_feasibility_design.md) is prospective, not an executed run. No target tuning, new dataset/population, variable N or diffusion is introduced. Ignored artifacts are local, not archived or independently reproduced.
+
+Precommit byte-format correction: the first staging check found CRLF normalization in test_training_batch_loss.py and extra blank EOF lines in that test, records.py and evaluation/__init__.py. No commit or production run had occurred. Luna normalizes only those bytes; root independently compares the exact whitespace transformation and repeats complete stable-byte verification before freezing source. Original passed65.297s receipt and failed-precommit evidence remain retained.
+
+Final-source repeat completed: same647 distinct checks, zero failures,64.672s combined, stable runtime/config bytes. The root verification section above now points to this final130317580714Z receipt; the original125512130763Z pass remains preserved. Root independently verified exact whitespace-only transformations against original byte snapshots. Final staged disk/blob equality is required before commit.

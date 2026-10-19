@@ -1,0 +1,100 @@
+{
+  "archival_backup": false,
+  "corpus_access": false,
+  "exit_code": 0,
+  "files": [
+    {
+      "git_blob": "6634c8cc3133b3848ec74b9f275acaaa1ea618ab",
+      "lfs_sha256": null,
+      "name": "LICENSE",
+      "sha256": "832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+      "size_bytes": 11343
+    },
+    {
+      "git_blob": "b2861f7da85a5af5e321b57c7bbf98ae17255992",
+      "lfs_sha256": null,
+      "name": "README.md",
+      "sha256": "84cc3bdbfd781149913126b70981cf1e341176fe4bc9d878601a83f18b035ddf",
+      "size_bytes": 3850
+    },
+    {
+      "git_blob": "169d606d5cf502a5628a52381586679a6d0caaab",
+      "lfs_sha256": null,
+      "name": "config.json",
+      "sha256": "0e8c8aa86468aba09c9d32157ff4bc2301c7e6c50e4398960425b2ea71e66f77",
+      "size_bytes": 684
+    },
+    {
+      "git_blob": "cbbb3133034e192527e5321b4c679154e4819ab8",
+      "lfs_sha256": null,
+      "name": "generation_config.json",
+      "sha256": "8c970692323e3ea0e9b8b0a4dca79388d31226e41f83c9fd6014804280ebf6e8",
+      "size_bytes": 138
+    },
+    {
+      "git_blob": "20024bfe7c83998e9aeaf98a0cd6a2ce6306c2f0",
+      "lfs_sha256": null,
+      "name": "merges.txt",
+      "sha256": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+      "size_bytes": 1671839
+    },
+    {
+      "git_blob": "de4b04359b427ed291b005f62b749531d45e3e5f",
+      "lfs_sha256": "a961db72e75d52b18e6b0c9d379e51a26973b233385e0e127fdda7d648aec796",
+      "name": "model.safetensors",
+      "sha256": "a961db72e75d52b18e6b0c9d379e51a26973b233385e0e127fdda7d648aec796",
+      "size_bytes": 3087467144
+    },
+    {
+      "git_blob": "443909a61d429dff23010e5bddd28ff530edda00",
+      "lfs_sha256": null,
+      "name": "tokenizer.json",
+      "sha256": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+      "size_bytes": 7031645
+    },
+    {
+      "git_blob": "ba7e4c5637b9732dadcd66286ce48334e8b31e9e",
+      "lfs_sha256": null,
+      "name": "tokenizer_config.json",
+      "sha256": "c91efca15ceff6e9ee9424db58a6f59cd41294e550a86cbd07e3c1fb500b34f9",
+      "size_bytes": 7228
+    },
+    {
+      "git_blob": "4783fe10ac3adce15ac8f358ef5462739852c569",
+      "lfs_sha256": null,
+      "name": "vocab.json",
+      "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+      "size_bytes": 2776833
+    }
+  ],
+  "gpu_operations": false,
+  "independent_person_reproduction": false,
+  "inventory_sha256": "4d5c001069a7c1e225b72a5723fc4a23e6ab316ec940454bbd42b02440ad2dea",
+  "manifest_sha256": "166492a8c0ae52d5b0a766fa281528a2348eca43f2b128f86da70936a4289606",
+  "model_execution": false,
+  "operation": "download-only-no-model-execution",
+  "operational_helper_sha256": "cdc24c50e210329b0f3e290ef39c462e65a3a0b6cfb81a8a3cbd4efc7c75e1b4",
+  "recipe_sha256": "5790b14e8c5f75691b360613a74b951b6dd8f298b3572c9faea9dc9c74eec85b",
+  "repo_id": "Qwen/Qwen2.5-1.5B",
+  "revision": "8faed761d45a263340a0528343f099c05c9a4323",
+  "run_dir": "runs/qwen-artifact-fetch-20261015-v1",
+  "schema_version": "dwr-pretrained-artifact-result-v1",
+  "startup_failure": {
+    "download_started": false,
+    "exit_code": 1,
+    "retained": true,
+    "type": "ModuleNotFoundError:dwr",
+    "wall_seconds": 0.312
+  },
+  "status": "completed",
+  "tensor_header": {
+    "dtypes": [
+      "BF16"
+    ],
+    "parameter_elements": 1543714304,
+    "tensor_count": 338,
+    "tensors_loaded": false
+  },
+  "timed_out": false,
+  "wrapper_wall_seconds": 476.844
+}

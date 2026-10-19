@@ -1,0 +1,185 @@
+{
+  "artifact_names": [
+    "manifest.initial.json",
+    "outcomes.jsonl",
+    "records.jsonl",
+    "replay.json",
+    "report.json",
+    "manifest.json"
+  ],
+  "attempts": {
+    "development": 4800,
+    "final": 0,
+    "source": 3600
+  },
+  "config_version": "dwr-five-stratum-rank-study-v1",
+  "development_floors": {
+    "accepted_signatures_per_profile": 12,
+    "core_signatures_per_profile_given_count": 2,
+    "eligible_envelope_fraction": 0.25,
+    "eligible_envelope_groups_per_profile": 100,
+    "eligible_envelope_per_profile_cell": 10,
+    "scientific_eligibility_fraction": 0.25
+  },
+  "development_profiles": [
+    "eq/neq",
+    "eq/add_mod",
+    "neq/add_mod"
+  ],
+  "difficulty": {
+    "denominator": "all-first-seen-oracle-unique-scientifically-eligible-development-validation-content-groups-before-envelope",
+    "development_profiles_with_stall_min": 2,
+    "development_stalled_fraction_min": 0.1,
+    "development_stalled_groups_min": 10,
+    "diagnostic": "synchronous-generalized-arc-consistency-v1",
+    "source_gate": false
+  },
+  "evaluation_stratum_weights": {
+    "A2": 0.2,
+    "A3": 0.2,
+    "B2": 0.2,
+    "C2": 0.2,
+    "D2": 0.2
+  },
+  "final_profiles": [
+    "eq/neq/add_mod"
+  ],
+  "final_unary_allowed": true,
+  "full_floors": {
+    "accepted_groups_per_mixed_profile": 100,
+    "accepted_groups_per_partition": 100,
+    "accepted_signatures_per_mixed_profile": 12,
+    "accepted_signatures_per_partition": 12,
+    "development_quota_per_profile": 600,
+    "development_split_minima": {
+      "development_diagnostic_test": 20,
+      "development_validation": 80
+    },
+    "development_split_minima_per_profile": {
+      "development_diagnostic_test": 5,
+      "development_validation": 20
+    },
+    "diagnostic_fine_stratum_nonzero": true,
+    "final_quota": 600,
+    "given_counts": [
+      2,
+      3
+    ],
+    "mixed_eligibility_fraction": 0.25,
+    "source_quota": 3000,
+    "source_split_minima": {
+      "source_test": 20,
+      "source_train": 100,
+      "source_validation": 20
+    },
+    "value_fraction_each": 0.1
+  },
+  "generator_id": "dwr-certificate-rank-sixvar-v1",
+  "hard_branch_fraction": 0.5,
+  "limits": {
+    "active_wall_seconds": 1800,
+    "external_watchdog_seconds": 1805,
+    "max_rss_bytes": 1073741824,
+    "workers": 1
+  },
+  "mode": "qualification",
+  "output_path": "runs/certificate-five-stratum-qualification-20261014-v1",
+  "producer_hash_scope": "sorted-all-dwr-tasks-py-plus-dwr-init",
+  "required_qualification": null,
+  "retries": 0,
+  "rng": "registered-v1-source-v2-ordinary-and-eqneq-rank-v1-independent-streams",
+  "root_seed": 20261016,
+  "source_fine_floors": {
+    "A3_source_primitives_present": [
+      "eq",
+      "neq",
+      "add_mod"
+    ],
+    "legacy_node2_primitive_cell_min": 10
+  },
+  "source_floors": {
+    "accepted_signatures_per_profile": 12,
+    "eligible_envelope_fraction": 0.25,
+    "eligible_envelope_train_per_all_raw_attempts": 0.02,
+    "eligible_envelope_train_per_profile_cell": 10,
+    "given_counts": [
+      2,
+      3
+    ],
+    "primitives": 3,
+    "sensitive_per_accepted_signature": 1,
+    "sensitivity": 0.25,
+    "train_groups": 100,
+    "train_signatures": 12,
+    "value_fraction_each": 0.1
+  },
+  "source_profiles": [
+    "eq",
+    "neq",
+    "add_mod"
+  ],
+  "strata": [
+    {
+      "constraint_count": 8,
+      "given_count": 2,
+      "id": "A",
+      "n": 6
+    },
+    {
+      "constraint_count": 6,
+      "given_count": 3,
+      "id": "B",
+      "n": 6
+    },
+    {
+      "constraint_count": 7,
+      "given_count": 3,
+      "id": "C",
+      "n": 6
+    },
+    {
+      "constraint_count": 8,
+      "given_count": 3,
+      "id": "D",
+      "n": 6
+    }
+  ],
+  "support": {
+    "cell_min": 10,
+    "cohort_mass_min": 0.8,
+    "scheme": "five-fixed-strata-v1",
+    "strata": [
+      {
+        "cell": "A",
+        "first_solution_node_bin": 2,
+        "id": "A2",
+        "prompt_byte_bin": 4
+      },
+      {
+        "cell": "A",
+        "first_solution_node_bin": 3,
+        "id": "A3",
+        "prompt_byte_bin": 4
+      },
+      {
+        "cell": "B",
+        "first_solution_node_bin": 2,
+        "id": "B2",
+        "prompt_byte_bin": 4
+      },
+      {
+        "cell": "C",
+        "first_solution_node_bin": 2,
+        "id": "C2",
+        "prompt_byte_bin": 4
+      },
+      {
+        "cell": "D",
+        "first_solution_node_bin": 2,
+        "id": "D2",
+        "prompt_byte_bin": 4
+      }
+    ]
+  },
+  "task_schema_version": "constraint-task-v1"
+}

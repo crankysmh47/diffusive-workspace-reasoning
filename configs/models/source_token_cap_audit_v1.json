@@ -1,0 +1,29 @@
+{
+  "artifact_manifest": "runs/qwen-artifact-fetch-20261015-v1/manifest.json",
+  "artifact_manifest_sha256": "166492a8c0ae52d5b0a766fa281528a2348eca43f2b128f86da70936a4289606",
+  "attempts": 1,
+  "config_version": "dwr-source-token-cap-audit-v1",
+  "embedding_vocab_size": 151936,
+  "expected_counts": {
+    "source_train": 2436,
+    "source_validation": 265
+  },
+  "gpu_operations": false,
+  "max_answer_tokens": 128,
+  "max_prompt_tokens": 1024,
+  "max_total_tokens": 1152,
+  "memory_mib": 2048,
+  "model_dir": "models/qwen2.5-1.5b-8faed761d45a",
+  "model_execution": false,
+  "operation": "local-tokenizer-complete-source-only-length-audit",
+  "output_dir": "runs/source-token-cap-audit-20261015-v1",
+  "protected_semantic_payload_access": false,
+  "repo_id": "Qwen/Qwen2.5-1.5B",
+  "revision": "8faed761d45a263340a0528343f099c05c9a4323",
+  "source_export_dataset_sha256": "73502736c17b9867f723d22710e4a643a54c7ca8543fb47d122ef7d3d6e7a0fc",
+  "source_export_dir": "runs/source-export-20261015-v1",
+  "source_export_manifest_sha256": "7db0b61ba40bea60bf17bc5faf615bb2c8ae21320739c3bea589e4d62aea0069",
+  "source_policy": "deterministic CPU tokenizer audit; dirty source metadata permitted, no model/scientific comparison",
+  "unused_seed": 20261030,
+  "wall_seconds": 180
+}

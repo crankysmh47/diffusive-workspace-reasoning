@@ -1,0 +1,39 @@
+{
+  "examples": [
+    {
+      "answer_tokens_including_eos": 34,
+      "example_id": "42c6f82d3c5101471a88bd58d8009c7559d54a88e32514567b82cd92d825a9ed",
+      "fine_stratum": "B2",
+      "profile": "eq",
+      "prompt_tokens": 349,
+      "split": "source_train",
+      "total_tokens": 383,
+      "within_caps": true
+    },
+    {
+      "answer_tokens_including_eos": 34,
+      "example_id": "57059a8628193989dfe679be51c49440c5f25832d4f27cad485e510095346c74",
+      "fine_stratum": "D2",
+      "profile": "neq",
+      "prompt_tokens": 383,
+      "split": "source_train",
+      "total_tokens": 417,
+      "within_caps": true
+    },
+    {
+      "answer_tokens_including_eos": 34,
+      "example_id": "dee7d4382541bbc0bf13429222201e1f5c80faf8fccb42f8cfd252ab51bc3b86",
+      "fine_stratum": "A3",
+      "profile": "add_mod",
+      "prompt_tokens": 398,
+      "split": "source_train",
+      "total_tokens": 432,
+      "within_caps": true
+    }
+  ],
+  "schema_version": "dwr-source-overfit-cohort-v1",
+  "selection": "minimum_sha256_utf8_dwr-source-overfit-cohort-v1_colon_example_id_per_profile",
+  "selection_note": "One metadata first-row schema inspection preceded the full-selection recipe; no task semantics or outcomes used.",
+  "selection_scope": "source_train_token_metadata_only",
+  "token_lengths_sha256": "b26a54dc18099601d146c1c2a53609a72b848b282a5761a063972e72851c30de"
+}
