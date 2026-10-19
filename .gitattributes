@@ -5,7 +5,8 @@
 *.toml text eol=lf
 *.json text eol=lf
 
-# Preserve the exact bytes already hashed by the source-overfit registration/review.
+# Preserve the exact bytes already hashed by registered studies and their reviews.
+configs/experiments/source_validation_pilot_v1.json -text whitespace=cr-at-eol
 configs/experiments/source_overfit_recoverable_v2.json -text whitespace=cr-at-eol
 configs/experiments/source_overfit_v1.json -text whitespace=cr-at-eol
 configs/models/frozen_source_reference_startup_repair_v2_result.json -text whitespace=cr-at-eol
